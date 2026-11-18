@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Product } from '../types';
-import { useStore } from '../store/useStore';
+import { useStore, defaultCutFor } from '../store/useStore';
 import { router } from 'expo-router';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import {
@@ -39,13 +39,7 @@ const DominosCardComponent: React.FC<Props> = ({
   };
 
   const handleAdd = () => {
-    const defaultCut = product.availableCuts?.[0] || {
-      id: 'default',
-      name: 'Standard Cut',
-      priceModifier: 0,
-      description: 'Fresh cut',
-      cookingRecommendation: 'All dishes',
-    };
+    const defaultCut = defaultCutFor(product);
     addToCart(product, defaultCut, true, 1);
   };
 

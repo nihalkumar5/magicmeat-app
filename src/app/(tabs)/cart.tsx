@@ -186,7 +186,7 @@ export default function CartScreen() {
                   Express
                 </Text>
               </View>
-              <Text style={styles.slotSubtitle}>22 Mins</Text>
+              <Text style={styles.slotSubtitle}>30 Mins</Text>
               <Text style={styles.slotNote}>Dark Store</Text>
             </TouchableOpacity>
 

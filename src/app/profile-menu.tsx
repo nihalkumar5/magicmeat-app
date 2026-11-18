@@ -29,10 +29,10 @@ import {
 } from '../components/HugeIcon';
 
 export default function ProfileMenuScreen() {
-  const { activeOrder, orders } = useStore();
-  const [userName, setUserName] = useState('');
-  const [userPhone, setUserPhone] = useState('');
-  const [userEmail, setUserEmail] = useState('');
+  const { activeOrder, orders, profile, setProfile } = useStore();
+  const userName = profile.name;
+  const userPhone = profile.phone;
+  const userEmail = profile.email;
   const [firebaseStatus, setFirebaseStatus] = useState<'idle' | 'synced'>('idle');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
@@ -45,16 +45,19 @@ export default function ProfileMenuScreen() {
     let mounted = true;
     fetchUserProfile(userPhone).then((remote) => {
       if (!mounted || !remote) return;
-      if (remote.name) setUserName(remote.name);
-      if (remote.phone) setUserPhone(remote.phone);
-      if (remote.email) setUserEmail(remote.email);
+      const current = useStore.getState().profile;
+      setProfile({
+        name: remote.name || current.name,
+        phone: remote.phone || current.phone,
+        email: remote.email || current.email,
+      });
       setFirebaseStatus('synced');
     });
 
     return () => {
       mounted = false;
     };
-  }, [userPhone]);
+  }, [userPhone, setProfile]);
 
   const openEditProfile = () => {
     setEditName(userName);
@@ -74,9 +77,7 @@ export default function ProfileMenuScreen() {
       phone: editPhone.trim(),
       email: editEmail.trim() || undefined,
     };
-    setUserName(profile.name);
-    setUserPhone(profile.phone);
-    setUserEmail(profile.email || '');
+    setProfile({ name: profile.name, phone: profile.phone, email: profile.email || '' });
     await syncUserProfile(profile);
     setFirebaseStatus('synced');
     setIsEditOpen(false);

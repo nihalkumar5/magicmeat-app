@@ -36,54 +36,59 @@ export default function ProductDetailScreen() {
     updateQuantity,
     inventory,
   } = useStore();
-  const product = useMemo(() => {
-    return PRODUCTS.find((p) => p.id === id) || PRODUCTS[0];
-  }, [id]);
+  const foundProduct = useMemo(() => PRODUCTS.find((p) => p.id === id), [id]);
+  const product = foundProduct || PRODUCTS[0];
 
   const invItem = inventory[product.id];
   const isOutOfStock = invItem ? !invItem.inStock || invItem.stockKg <= 0 : false;
   const [notified, setNotified] = useState(false);
 
-  // Pack size / cut variants
+  // Pack size variants. Only loose 500g SKUs get bigger packs; products that are
+  // already sold as 1kg, a pack or a piece count keep their own single size.
   const packVariants = useMemo(() => {
     const baseP = product.basePrice;
     const origP = product.originalPrice || Math.round(baseP * 1.25);
+    const single = {
+      id: 'pack-default',
+      label: product.netWeight,
+      netWeight: product.netWeight,
+      pieces: product.availableCuts?.[0]?.pieces || '',
+      pieceSize: 'Approx. 40 g',
+      serves: '2–3 people',
+      includes: product.availableCuts?.[0]?.description || product.description || '',
+      price: baseP,
+      originalPrice: origP,
+      inStock: !isOutOfStock,
+    };
+    if (product.netWeight !== '500g') return [single];
     return [
       {
+        ...single,
         id: 'pack-500g',
         label: '500 g',
         netWeight: '500g',
         pieces: '12-14 pieces',
-        pieceSize: 'Approx. 40 g',
         serves: '2–3 people',
-        includes: 'Wings, Neck pieces, Drumstick chopped',
-        price: baseP,
-        originalPrice: origP,
-        inStock: !isOutOfStock,
       },
       {
+        ...single,
         id: 'pack-1kg',
         label: '1 kg',
         netWeight: '1000g',
         pieces: '24-28 pieces',
-        pieceSize: 'Approx. 40 g',
         serves: '4–6 people',
-        includes: 'Wings, Breasts, Thighs, Drumsticks',
         price: Math.round(baseP * 1.9),
         originalPrice: Math.round(origP * 1.95),
-        inStock: !isOutOfStock,
       },
       {
+        ...single,
         id: 'pack-1500g',
         label: '1.5 kg',
         netWeight: '1500g',
         pieces: '36-40 pieces',
-        pieceSize: 'Approx. 40 g',
         serves: '6–8 people',
-        includes: 'Full family cuts with prime portions',
         price: Math.round(baseP * 2.8),
         originalPrice: Math.round(origP * 2.85),
-        inStock: !isOutOfStock,
       },
     ];
   }, [product, isOutOfStock]);
@@ -91,7 +96,23 @@ export default function ProductDetailScreen() {
   const [selectedPackId, setSelectedPackId] = useState<string>(packVariants[0].id);
   const selectedPack = packVariants.find((p) => p.id === selectedPackId) || packVariants[0];
 
-  const cartItem = cart.find((item) => item.product.id === product.id);
+  const packCut = useMemo(() => {
+    const base = product.availableCuts[0];
+    const isFirst = selectedPack.id === packVariants[0].id;
+    if (isFirst) return base;
+    const grams = parseInt(selectedPack.netWeight, 10) || 0;
+    return {
+      ...base,
+      id: `${base.id}__${selectedPack.id}`,
+      name: `${base.name} · ${selectedPack.label}`,
+      netWeight: selectedPack.netWeight,
+      grossWeight: `${Math.round(grams * 1.2)}g`,
+      pieces: selectedPack.pieces,
+      priceDelta: selectedPack.price - product.basePrice,
+    };
+  }, [product, selectedPack, packVariants]);
+
+  const cartItem = cart.find((item) => item.product.id === product.id && item.selectedCut.id === packCut.id);
   const qtyInCart = cartItem ? cartItem.quantity : 0;
   const cartCount = getCartItemsCount();
   const isLiked = wishlist.includes(product.id);
@@ -109,14 +130,7 @@ export default function ProductDetailScreen() {
   };
 
   const handleAddToCart = () => {
-    const cutOption = product.availableCuts?.[0] || {
-      id: selectedPack.id,
-      name: selectedPack.label,
-      priceModifier: 0,
-      description: selectedPack.includes,
-      cookingRecommendation: 'All dishes',
-    };
-    addToCart(product, cutOption, true, 1);
+    addToCart(product, packCut, true, 1);
   };
 
   const handleIncrement = () => {
@@ -132,6 +146,20 @@ export default function ProductDetailScreen() {
       updateQuantity(cartItem.cartItemId, -1);
     }
   };
+
+  if (!foundProduct) {
+    return (
+      <SafeAreaView style={[styles.safeArea, { alignItems: 'center', justifyContent: 'center', padding: 24 }]}>
+        <Text style={{ fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Product not found</Text>
+        <Text style={{ color: '#6B7280', textAlign: 'center', marginBottom: 16 }}>
+          This item may have been removed or the link is wrong.
+        </Text>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')}>
+          <Text style={{ color: '#DC2626', fontWeight: '700' }}>Back to shop</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -210,7 +238,7 @@ export default function ProductDetailScreen() {
             <View style={styles.badgeRow}>
               <View style={styles.deliveryBadge}>
                 <AppIcon icon={DeliveryTruck01Icon} size={15} color="#15803D" strokeWidth={2.2} />
-                <Text style={styles.deliveryBadgeText}>Express · 45 minutes</Text>
+                <Text style={styles.deliveryBadgeText}>Express · 30 mins</Text>
               </View>
 
               <View style={styles.bestsellerPill}>

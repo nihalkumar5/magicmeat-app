@@ -28,8 +28,10 @@ interface StoreState {
   orderFulfillment: 'delivery' | 'takeaway';
   wishlist: string[];
   inventory: Record<string, InventoryItem>;
+  profile: { name: string; phone: string; email: string };
 
   // Actions
+  setProfile: (profile: { name: string; phone: string; email: string }) => void;
   addToCart: (product: Product, cut: CutOption, isSkinless: boolean, quantity?: number) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
@@ -61,6 +63,23 @@ interface StoreState {
   getCartNetWeightGrams: () => number;
   getCartGrossWeightGrams: () => number;
   getCartItemsCount: () => number;
+}
+
+// Fallback cut with every field the cart math reads (price, weights).
+export function defaultCutFor(product: Product): CutOption {
+  return (
+    product.availableCuts?.[0] || {
+      id: 'standard',
+      name: 'Standard Cut',
+      description: 'Fresh cut',
+      grossWeight: product.netWeight,
+      netWeight: product.netWeight,
+      pieces: '',
+      bestFor: 'All dishes',
+      priceDelta: 0,
+      allowsSkinOption: false,
+    }
+  );
 }
 
 const INITIAL_SAVED_ADDRESSES: LocationData[] = [
@@ -349,6 +368,9 @@ export const INITIAL_ORDERS: Order[] = [
   },
 ];
 
+// Demo orders belong to the admin bridge, not to this customer.
+const DEMO_ORDER_IDS = new Set(INITIAL_ORDERS.map((o) => o.id));
+
 const preloadedState = getInitialStoredState();
 
 export const useStore = create<StoreState>()(
@@ -366,12 +388,14 @@ export const useStore = create<StoreState>()(
       searchQuery: '',
       selectedCategory: 'all',
       customizerProduct: null,
-      orders: preloadedState?.orders && preloadedState.orders.length > 0 ? preloadedState.orders : INITIAL_ORDERS,
+      orders: (preloadedState?.orders || []).filter((o: Order) => !DEMO_ORDER_IDS.has(o.id)),
       activeOrder: null,
       coldPackagingEnabled: true,
       orderFulfillment: preloadedState?.orderFulfillment || 'delivery',
       wishlist: preloadedState?.wishlist || [],
       inventory: preloadedState?.inventory || INITIAL_INVENTORY,
+      profile: preloadedState?.profile || { name: '', phone: '', email: '' },
+      setProfile: (profile) => set({ profile }),
       toggleStock: (productId: string) => {
         syncToggleStock(productId);
         set((state) => {
@@ -541,8 +565,9 @@ export const useStore = create<StoreState>()(
     set((state) => {
       const existingIndex = state.cart.findIndex((item) => item.cartItemId === cartItemId);
       if (existingIndex > -1) {
-        const updated = [...state.cart];
-        updated[existingIndex].quantity += quantity;
+        const updated = state.cart.map((item, i) =>
+          i === existingIndex ? { ...item, quantity: item.quantity + quantity } : item
+        );
         return { cart: updated };
       }
       return {
@@ -635,12 +660,12 @@ export const useStore = create<StoreState>()(
     const total = subtotal + deliveryFee + packagingFee;
 
     const newOrder: Order = {
-      id: `MM-${Math.floor(100000 + Math.random() * 900000)}`,
+      id: `MM-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 100)}`,
       items: [...state.cart],
       deliveryMode: state.deliveryMode,
       slotLabel:
         state.deliveryMode === 'instant'
-          ? '⚡ Instant Express (22 mins)'
+          ? '⚡ Instant Express (30 mins)'
           : state.deliveryMode === 'sunday_morning'
           ? '🌅 Sunday Morning (7:00 AM - 9:00 AM)'
           : '📦 Today (5:00 PM - 7:00 PM)',
@@ -651,7 +676,12 @@ export const useStore = create<StoreState>()(
       total,
       status: 'placed',
       placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      eta: state.deliveryMode === 'instant' ? '22 mins' : 'Sunday 8:00 AM',
+      eta:
+        state.deliveryMode === 'instant'
+          ? '30 mins'
+          : state.deliveryMode === 'sunday_morning'
+          ? 'Sunday 7:00 - 9:00 AM'
+          : 'Today 5:00 - 7:00 PM',
       address: state.selectedAddress,
       deliveryNote: deliveryNote?.trim() || undefined,
       paymentMethod,
@@ -689,6 +719,13 @@ export const useStore = create<StoreState>()(
 }),
     {
       name: 'magicmeat-store-persist',
+      version: 1,
+      migrate: (persisted: any) => {
+        if (persisted?.orders) {
+          persisted.orders = persisted.orders.filter((o: Order) => !DEMO_ORDER_IDS.has(o.id));
+        }
+        return persisted;
+      },
       storage: createJSONStorage(() => universalStorage),
       partialize: (state) => ({
         currentLocation: state.currentLocation,
@@ -700,6 +737,7 @@ export const useStore = create<StoreState>()(
         orders: state.orders,
         wishlist: state.wishlist,
         inventory: state.inventory,
+        profile: state.profile,
       }),
     }
   )

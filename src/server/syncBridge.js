@@ -1,5 +1,5 @@
 const http = require('http');
-const WebSocket = require('/Users/nihalkumar/Downloads/Magicmeat app/node_modules/ws');
+const WebSocket = require('ws');
 
 const PORT = 8082;
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import { Product } from '../types';
-import { useStore } from '../store/useStore';
+import { useStore, defaultCutFor } from '../store/useStore';
 import { router } from 'expo-router';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import {
@@ -53,13 +53,7 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
   };
 
   const handleAdd = () => {
-    const defaultCut = product.availableCuts?.[0] || {
-      id: 'standard',
-      name: 'Standard Cut',
-      priceModifier: 0,
-      description: 'Standard fresh cut',
-      cookingRecommendation: 'All dishes',
-    };
+    const defaultCut = defaultCutFor(product);
     addToCart(product, defaultCut, true, 1);
   };
 
