@@ -1,0 +1,158 @@
+rules_version = '2';
+
+// MagicMeat security rules.
+//
+// Collections
+//   products/{productId}  public read; admins write. Holds the authoritative
+//                         price table (prices: { cutKey: unitPrice }) and stock.
+//   orders/{orderId}      a customer creates their own orders; every price and
+//                         total is checked here against products/*. Customers
+//                         read their own orders and may cancel one that is still
+//                         "placed". Admins read all and move the status along.
+//   users/{uid}           each signed-in user owns their profile.
+//   admins/{uid}          presence marks an admin. Written only with the Admin
+//                         SDK (scripts/make-admin.mjs), never from the app.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    function isShortString(v, minLen, maxLen) {
+      return v is string && v.size() >= minLen && v.size() <= maxLen;
+    }
+
+    // ---------- products ----------
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- admins ----------
+    match /admins/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow write: if false;
+    }
+
+    // ---------- users ----------
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['name', 'phone', 'email', 'updatedAt'])
+        && isShortString(request.resource.data.name, 1, 80)
+        && isShortString(request.resource.data.phone, 6, 20)
+        && (!('email' in request.resource.data) || isShortString(request.resource.data.email, 3, 120))
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if false;
+    }
+
+    // ---------- orders ----------
+    // Rules allow at most 1000 evaluated expressions per request, so these
+    // checks are kept lean (scripts/test-rules.ts covers a full 6-line order).
+    function validItem(item) {
+      // Exactly these 9 keys; values that only feed the display are size-capped
+      // by the document limit, the ones that set the price are checked.
+      return item.keys().hasOnly(['productId', 'cutId', 'name', 'cutName', 'quantity', 'unitPrice', 'netWeight', 'grossWeight', 'isSkinless'])
+        && item.quantity is int
+        && item.quantity >= 1 && item.quantity <= 20
+        && priceOk(get(/databases/$(database)/documents/products/$(item.productId)).data, item.cutId, item.unitPrice);
+    }
+
+    function priceOk(product, cutId, unitPrice) {
+      return product.inStock == true && unitPrice is int && product.prices[cutId] == unitPrice;
+    }
+
+    // Rules have no loops, so a cart is capped at 6 lines (each up to 20
+    // units) and unrolled; 7+ lines would exceed the expression limit.
+    function itemOkAt(items, i) {
+      return items.size() <= i || validItem(items[i]);
+    }
+
+    function lineTotal(items, i) {
+      return items.size() > i ? items[i].unitPrice * items[i].quantity : 0;
+    }
+
+    function subtotalOf(items) {
+      return lineTotal(items, 0) + lineTotal(items, 1) + lineTotal(items, 2)
+        + lineTotal(items, 3) + lineTotal(items, 4) + lineTotal(items, 5);
+    }
+
+    // Fees and total are checked against o.subtotal, and o.subtotal is
+    // checked against the lines exactly once (function arguments are not
+    // cached, so re-using a computed subtotal would recompute it).
+    function totalsOk(o) {
+      return o.subtotal is int
+        && o.deliveryFee == ((o.fulfillment == 'delivery' && o.subtotal < 299) ? 35 : 0)
+        && o.coldPackagingFee in [0, 15]
+        && o.discount == 0
+        && o.total == o.subtotal + o.deliveryFee + o.coldPackagingFee
+        && o.subtotal == subtotalOf(request.resource.data.items);
+    }
+
+    function itemsOk(items) {
+      return items is list
+        && items.size() >= 1
+        && items.size() <= 6
+        && itemOkAt(items, 0) && itemOkAt(items, 1) && itemOkAt(items, 2)
+        && itemOkAt(items, 3) && itemOkAt(items, 4) && itemOkAt(items, 5);
+    }
+
+    function validNewOrder(orderId) {
+      let o = request.resource.data;
+      return o.keys().hasOnly([
+          'id', 'customerUid', 'items', 'subtotal', 'deliveryFee', 'coldPackagingFee',
+          'discount', 'total', 'status', 'paymentMethod', 'fulfillment', 'deliveryMode',
+          'slotLabel', 'eta', 'address', 'deliveryNote', 'customerName', 'customerPhone',
+          'createdAt', 'updatedAt'])
+        && o.id == orderId
+        && orderId.matches('^MM-[A-Z0-9]{6,20}$')
+        && o.customerUid == request.auth.uid
+        && o.status == 'placed'
+        && o.paymentMethod == 'Cash on Delivery'
+        && o.fulfillment in ['delivery', 'takeaway']
+        && o.deliveryMode in ['instant', 'sunday_morning', 'slot']
+        && isShortString(o.slotLabel, 1, 80)
+        && isShortString(o.eta, 1, 40)
+        && isShortString(o.address, 5, 500)
+        && (!('deliveryNote' in o) || isShortString(o.deliveryNote, 0, 300))
+        && (!('customerName' in o) || isShortString(o.customerName, 0, 80))
+        && (!('customerPhone' in o) || isShortString(o.customerPhone, 0, 20))
+        && o.createdAt == request.time
+        && o.updatedAt == request.time
+        && itemsOk(request.resource.data.items)
+        && totalsOk(o);
+    }
+
+    match /orders/{orderId} {
+      allow read: if signedIn()
+        && (resource.data.customerUid == request.auth.uid || isAdmin());
+
+      allow create: if signedIn() && validNewOrder(orderId);
+
+      // Admin moves an order along and assigns a rider.
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'riderName', 'riderPhone', 'currentTempCelsius', 'updatedAt'])
+        && request.resource.data.status in
+             ['placed', 'butcher_prepping', 'cold_packed', 'rider_assigned', 'out_for_delivery', 'delivered', 'cancelled']
+        && request.resource.data.updatedAt == request.time;
+
+      // Customer cancels their own order before the butcher starts.
+      allow update: if signedIn()
+        && resource.data.customerUid == request.auth.uid
+        && resource.data.status == 'placed'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt'])
+        && request.resource.data.status == 'cancelled'
+        && request.resource.data.updatedAt == request.time;
+
+      allow delete: if false;
+    }
+  }
+}

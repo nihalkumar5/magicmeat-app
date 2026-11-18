@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
-import { fetchUserProfile, syncUserProfile } from '../services/firebase';
+import { fetchProfile, saveProfile as saveRemoteProfile } from '../services/backend';
 import {
   AppIcon,
   ArrowLeft02Icon,
@@ -39,11 +39,14 @@ export default function ProfileMenuScreen() {
   const [editPhone, setEditPhone] = useState('');
   const [editEmail, setEditEmail] = useState('');
 
+  const uid = useStore((s) => s.uid);
+
+  // Load the profile saved under this guest account, once signed in.
   useEffect(() => {
-    if (!userPhone.trim()) return;
+    if (!uid) return;
 
     let mounted = true;
-    fetchUserProfile(userPhone).then((remote) => {
+    fetchProfile().then((remote) => {
       if (!mounted || !remote) return;
       const current = useStore.getState().profile;
       setProfile({
@@ -57,7 +60,7 @@ export default function ProfileMenuScreen() {
     return () => {
       mounted = false;
     };
-  }, [userPhone, setProfile]);
+  }, [uid, setProfile]);
 
   const openEditProfile = () => {
     setEditName(userName);
@@ -78,9 +81,14 @@ export default function ProfileMenuScreen() {
       email: editEmail.trim() || undefined,
     };
     setProfile({ name: profile.name, phone: profile.phone, email: profile.email || '' });
-    await syncUserProfile(profile);
-    setFirebaseStatus('synced');
-    setIsEditOpen(false);
+    try {
+      await saveRemoteProfile(profile);
+      setFirebaseStatus('synced');
+      setIsEditOpen(false);
+    } catch {
+      setIsEditOpen(false);
+      Alert.alert('Saved on this phone', 'Could not reach the server. Your profile will sync next time.');
+    }
   };
 
   const trackOrder = () => {

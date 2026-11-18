@@ -29,31 +29,26 @@ const STAGES = [
     key: 'placed',
     title: 'Order Confirmed',
     sub: 'Dark-store dispatch assigned',
-    time: '2 mins ago',
   },
   {
     key: 'butcher_prepping',
     title: 'Master Butcher Prepping',
     sub: 'Cleaned, precision hand-cut to your cut specs',
-    time: 'In Progress',
   },
   {
     key: 'cold_packed',
     title: 'Vacuum Sealed & Cold-Packed',
     sub: 'Packed in insulated thermal bag with dry-ice packs @ 2.1°C',
-    time: 'Next',
   },
   {
     key: 'out_for_delivery',
     title: 'Rider Out with Thermal Box',
     sub: 'Direct express route to your doorstep',
-    time: 'Estimated 15 mins',
   },
   {
     key: 'delivered',
     title: 'Delivered Fresh & Chilled',
     sub: 'Check cold freshness before opening',
-    time: 'Final',
   },
 ];
 
@@ -61,7 +56,7 @@ export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeOrder, orders } = useStore();
 
-  const order = activeOrder && activeOrder.id === id ? activeOrder : orders.find((o) => o.id === id) || activeOrder;
+  const order = orders.find((o) => o.id === id) || (activeOrder && activeOrder.id === id ? activeOrder : null);
 
   const currentStageIndex =
     order?.status === 'rider_assigned'
@@ -192,7 +187,21 @@ export default function OrderTrackingScreen() {
                     >
                       {stg.title}
                     </Text>
-                    <Text style={styles.stageTime}>{stg.time}</Text>
+                    <Text style={styles.stageTime}>
+                      {order.status === 'cancelled'
+                        ? idx === 0
+                          ? 'Cancelled'
+                          : ''
+                        : idx === 0
+                        ? order.placedAt
+                        : isCompleted
+                        ? 'Done'
+                        : isCurrent
+                        ? 'In progress'
+                        : idx === currentStageIndex + 1
+                        ? 'Next'
+                        : ''}
+                    </Text>
                   </View>
                   <Text style={styles.stageSub}>{stg.sub}</Text>
                 </View>

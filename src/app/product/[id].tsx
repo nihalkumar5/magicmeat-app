@@ -12,6 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { PRODUCTS } from '../../data/mockData';
 import { useStore } from '../../store/useStore';
+import { packVariantsFor, cutForPack } from '../../data/pricing';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -43,74 +44,27 @@ export default function ProductDetailScreen() {
   const isOutOfStock = invItem ? !invItem.inStock || invItem.stockKg <= 0 : false;
   const [notified, setNotified] = useState(false);
 
-  // Pack size variants. Only loose 500g SKUs get bigger packs; products that are
-  // already sold as 1kg, a pack or a piece count keep their own single size.
-  const packVariants = useMemo(() => {
-    const baseP = product.basePrice;
-    const origP = product.originalPrice || Math.round(baseP * 1.25);
-    const single = {
-      id: 'pack-default',
-      label: product.netWeight,
-      netWeight: product.netWeight,
-      pieces: product.availableCuts?.[0]?.pieces || '',
-      pieceSize: 'Approx. 40 g',
-      serves: '2–3 people',
-      includes: product.availableCuts?.[0]?.description || product.description || '',
-      price: baseP,
-      originalPrice: origP,
-      inStock: !isOutOfStock,
-    };
-    if (product.netWeight !== '500g') return [single];
-    return [
-      {
-        ...single,
-        id: 'pack-500g',
-        label: '500 g',
-        netWeight: '500g',
-        pieces: '12-14 pieces',
-        serves: '2–3 people',
-      },
-      {
-        ...single,
-        id: 'pack-1kg',
-        label: '1 kg',
-        netWeight: '1000g',
-        pieces: '24-28 pieces',
-        serves: '4–6 people',
-        price: Math.round(baseP * 1.9),
-        originalPrice: Math.round(origP * 1.95),
-      },
-      {
-        ...single,
-        id: 'pack-1500g',
-        label: '1.5 kg',
-        netWeight: '1500g',
-        pieces: '36-40 pieces',
-        serves: '6–8 people',
-        price: Math.round(baseP * 2.8),
-        originalPrice: Math.round(origP * 2.85),
-      },
-    ];
-  }, [product, isOutOfStock]);
+  // Pack sizes and their prices come from data/pricing.ts, the same table
+  // Firestore checks orders against.
+  const packVariants = useMemo(
+    () =>
+      packVariantsFor(product).map((pack) => ({
+        ...pack,
+        pieceSize: 'Approx. 40 g',
+        includes: product.availableCuts?.[0]?.description || product.description || '',
+        inStock: !isOutOfStock,
+      })),
+    [product, isOutOfStock]
+  );
 
   const [selectedPackId, setSelectedPackId] = useState<string>(packVariants[0].id);
   const selectedPack = packVariants.find((p) => p.id === selectedPackId) || packVariants[0];
 
-  const packCut = useMemo(() => {
-    const base = product.availableCuts[0];
-    const isFirst = selectedPack.id === packVariants[0].id;
-    if (isFirst) return base;
-    const grams = parseInt(selectedPack.netWeight, 10) || 0;
-    return {
-      ...base,
-      id: `${base.id}__${selectedPack.id}`,
-      name: `${base.name} · ${selectedPack.label}`,
-      netWeight: selectedPack.netWeight,
-      grossWeight: `${Math.round(grams * 1.2)}g`,
-      pieces: selectedPack.pieces,
-      priceDelta: selectedPack.price - product.basePrice,
-    };
-  }, [product, selectedPack, packVariants]);
+  const packCut = useMemo(
+    () =>
+      cutForPack(product, product.availableCuts[0], selectedPack, selectedPack.id === packVariants[0].id),
+    [product, selectedPack, packVariants]
+  );
 
   const cartItem = cart.find((item) => item.product.id === product.id && item.selectedCut.id === packCut.id);
   const qtyInCart = cartItem ? cartItem.quantity : 0;

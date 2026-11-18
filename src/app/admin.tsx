@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { adminSignIn, adminSignOut } from '../services/backend';
 import { PRODUCTS } from '../data/mockData';
 import { Order, OrderStatus } from '../types';
 import {
@@ -29,10 +30,76 @@ import {
   Store01Icon,
 } from '../components/HugeIcon';
 
-const ADMIN_ENABLED = process.env.EXPO_PUBLIC_ENABLE_ADMIN === 'true';
+
+// Staff sign in with an email account that has an admins/{uid} document
+// (see scripts/make-admin.mjs). Firestore rules enforce the same check.
+function AdminLogin() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const ok = await adminSignIn(email, password);
+      if (!ok) {
+        setError('This account is not a store admin.');
+        await adminSignOut();
+      }
+    } catch (e: any) {
+      const code = e?.code || '';
+      setError(
+        code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
+          ? 'Wrong email or password.'
+          : 'Could not sign in. Check your connection.'
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <StatusBar style="light" />
+      <View style={styles.emptyState}>
+        <Text style={styles.emptyStateTitle}>Store admin</Text>
+        <Text style={styles.emptyStateText}>Sign in with your staff account.</Text>
+        <TextInput
+          style={styles.loginInput}
+          placeholder="Email"
+          placeholderTextColor="#9CA3AF"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.loginInput}
+          placeholder="Password"
+          placeholderTextColor="#9CA3AF"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+          onSubmitEditing={submit}
+        />
+        {!!error && <Text style={styles.loginError}>{error}</Text>}
+        <TouchableOpacity style={styles.storeSwitchBtn} onPress={submit} disabled={busy}>
+          <Text style={styles.storeSwitchText}>{busy ? 'Signing in…' : 'Sign in'}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={{ marginTop: 16 }}>
+          <Text style={styles.emptyStateText}>Back to customer app</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+}
 
 export default function AdminScreen() {
   const {
+    isAdmin,
     orders,
     inventory,
     updateOrderStatus,
@@ -75,21 +142,8 @@ export default function AdminScreen() {
     });
   }, [inventoryCat, inventorySearch]);
 
-  if (!ADMIN_ENABLED) {
-    return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-        <StatusBar style="light" />
-        <View style={styles.emptyState}>
-          <Text style={styles.emptyStateTitle}>Admin portal unavailable</Text>
-          <Text style={styles.emptyStateText}>
-            Enable the authenticated admin build to access store operations.
-          </Text>
-          <TouchableOpacity style={styles.storeSwitchBtn} onPress={() => router.replace('/(tabs)')}>
-            <Text style={styles.storeSwitchText}>Back to customer app</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
+  if (!isAdmin) {
+    return <AdminLogin />;
   }
 
   const getStatusColor = (status: OrderStatus) => {
@@ -157,11 +211,13 @@ export default function AdminScreen() {
 
         <TouchableOpacity
           style={styles.storeSwitchBtn}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => {
+            adminSignOut().finally(() => router.replace('/(tabs)'));
+          }}
           activeOpacity={0.8}
         >
           <AppIcon icon={Store01Icon} size={16} color="#FFFFFF" />
-          <Text style={styles.storeSwitchText}>Customer App</Text>
+          <Text style={styles.storeSwitchText}>Sign out</Text>
         </TouchableOpacity>
       </View>
 
@@ -170,7 +226,7 @@ export default function AdminScreen() {
         <View style={styles.metricCard}>
           <Text style={styles.metricLabel}>Live Orders</Text>
           <Text style={styles.metricValue}>{activeOrdersCount}</Text>
-          <Text style={styles.metricSub}>{orders.length} today</Text>
+          <Text style={styles.metricSub}>{orders.length} total</Text>
         </View>
 
         <View style={styles.metricCard}>
@@ -346,14 +402,14 @@ export default function AdminScreen() {
                       <View style={styles.customerRow}>
                         <AppIcon icon={UserIcon} size={14} color="#525252" />
                         <Text style={styles.customerName}>
-                          {order.customerName || 'Rahul Sharma'}
+                          {order.customerName || 'Guest customer'}
                         </Text>
                         <Text style={styles.customerPhone}>
-                          {order.customerPhone || '+91 98234 11200'}
+                          {order.customerPhone || 'No phone added'}
                         </Text>
                       </View>
                       <Text style={styles.customerAddress} numberOfLines={2}>
-                        📍 {order.address || (order as any).deliveryAddress || 'Sector 24, Atal Nagar'}
+                        📍 {order.address || 'No address'}
                       </Text>
                     </View>
 
@@ -688,6 +744,22 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
+  loginInput: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: '#111827',
+    marginTop: 10,
+  },
+  loginError: {
+    color: '#FCA5A5',
+    fontSize: 13,
+    marginTop: 10,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#171717',

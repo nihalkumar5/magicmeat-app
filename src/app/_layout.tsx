@@ -6,7 +6,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
-import { initRealtimeSync, registerSyncListener } from '../services/realtimeSync';
+import {
+  ensureGuestSession,
+  isAdmin,
+  subscribeAllOrders,
+  subscribeMyOrders,
+  subscribeProducts,
+  watchAuth,
+} from '../services/backend';
+import type { Order } from '../types';
 import { useStore } from '../store/useStore';
 
 export default function RootLayout() {
@@ -45,65 +53,42 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Live prices and stock for everyone.
   useEffect(() => {
-    if (process.env.EXPO_PUBLIC_ENABLE_REALTIME_SYNC !== 'true') return;
+    return subscribeProducts((inventory) => {
+      useStore.setState((state) => ({ inventory: { ...state.inventory, ...inventory } }));
+    });
+  }, []);
 
-    initRealtimeSync();
+  // Sign every visitor in as a guest, then follow their orders. An admin who
+  // signs in with email follows every order instead.
+  useEffect(() => {
+    let stopOrders: (() => void) | null = null;
 
-    const unsubscribe = registerSyncListener((data) => {
-      switch (data.type) {
-        case 'INIT_STATE':
-          if (data.orders && Array.isArray(data.orders)) {
-            useStore.setState({ orders: data.orders });
-          }
-          if (data.inventory && typeof data.inventory === 'object') {
-            useStore.setState((state) => ({
-              inventory: { ...state.inventory, ...data.inventory },
-            }));
-          }
-          break;
+    const applyOrders = (orders: Order[]) => {
+      const active = orders.find((o) => o.status !== 'delivered' && o.status !== 'cancelled') || null;
+      useStore.setState({ orders, activeOrder: active });
+    };
 
-        case 'ORDER_PLACED':
-          if (data.order) {
-            useStore.setState((state) => {
-              const exists = state.orders.some((o) => o.id === data.order.id);
-              if (exists) return state;
-              return { orders: [data.order, ...state.orders] };
-            });
-          }
-          break;
+    const stopAuth = watchAuth(async (user) => {
+      stopOrders?.();
+      stopOrders = null;
 
-        case 'ORDER_STATUS_CHANGED':
-          if (data.orderId && data.status) {
-            useStore.setState((state) => ({
-              orders: state.orders.map((o) =>
-                o.id === data.orderId ? { ...o, status: data.status, ...(data.order || {}) } : o
-              ),
-              activeOrder:
-                state.activeOrder && state.activeOrder.id === data.orderId
-                  ? { ...state.activeOrder, status: data.status, ...(data.order || {}) }
-                  : state.activeOrder,
-            }));
-          }
-          break;
-
-        case 'INVENTORY_CHANGED':
-          if (data.productId && data.item) {
-            useStore.setState((state) => ({
-              inventory: {
-                ...state.inventory,
-                [data.productId]: {
-                  ...(state.inventory[data.productId] || {}),
-                  ...data.item,
-                },
-              },
-            }));
-          }
-          break;
+      if (!user) {
+        useStore.setState({ uid: null, isAdmin: false, orders: [], activeOrder: null });
+        ensureGuestSession().catch((e) => console.warn('[auth] guest sign-in failed', e?.code || e));
+        return;
       }
+
+      const admin = user.isAnonymous ? false : await isAdmin(user.uid);
+      useStore.setState({ uid: user.uid, isAdmin: admin });
+      stopOrders = admin ? subscribeAllOrders(applyOrders) : subscribeMyOrders(user.uid, applyOrders);
     });
 
-    return unsubscribe;
+    return () => {
+      stopOrders?.();
+      stopAuth();
+    };
   }, []);
 
   return (

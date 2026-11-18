@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
@@ -23,6 +25,17 @@ import {
   Clock01Icon,
   SnowflakeIcon,
 } from '../components/HugeIcon';
+
+// Firestore rules accept at most 6 lines per order (see firestore.rules).
+const MAX_CART_LINES = 6;
+
+function showError(message: string) {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    window.alert(message);
+  } else {
+    Alert.alert('Order not placed', message);
+  }
+}
 
 const PAYMENT_METHODS: { id: 'Cash on Delivery'; label: string; sub: string; icon: any }[] = [
   {
@@ -51,19 +64,34 @@ export default function CheckoutScreen() {
   const grandTotal = getCartTotal();
   const netGrams = getCartNetWeightGrams();
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
+    if (isSubmitting) return;
     if (cart.length === 0) {
       router.replace('/(tabs)/cart');
       return;
     }
+    if (cart.length > MAX_CART_LINES) {
+      showError(`Please keep it to ${MAX_CART_LINES} different items per order.`);
+      return;
+    }
 
     setIsSubmitting(true);
-    const order = placeOrder(paymentMethod, deliveryNote);
-    setIsSubmitting(false);
-    router.replace({
-      pathname: '/order-tracking/[id]',
-      params: { id: order.id },
-    });
+    try {
+      const order = await placeOrder(paymentMethod, deliveryNote);
+      router.replace({
+        pathname: '/order-tracking/[id]',
+        params: { id: order.id },
+      });
+    } catch (e: any) {
+      const code = e?.code || '';
+      showError(
+        code === 'permission-denied'
+          ? 'Some prices or stock changed. Please refresh your basket and try again.'
+          : 'Could not place the order. Check your internet connection and try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

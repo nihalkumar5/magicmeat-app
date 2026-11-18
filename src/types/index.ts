@@ -80,6 +80,8 @@ export interface InventoryItem {
   availableCutIds: string[];
   basePrice?: number;
   originalPrice?: number;
+  // cutId -> unit price, from Firestore products/{id}.prices
+  prices?: Record<string, number>;
 }
 
 export type OrderStatus =
@@ -107,6 +109,7 @@ export interface Order {
   riderName?: string;
   riderPhone?: string;
   placedAt: string;
+  createdAtMs?: number;
   eta: string;
   address: string;
   deliveryNote?: string;

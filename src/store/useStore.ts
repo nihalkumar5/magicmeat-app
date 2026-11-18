@@ -4,13 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Product, CutOption, CartItem, Order, DeliveryMode, MeatCategory, InventoryItem, OrderStatus } from '../types';
 import { LocationData } from '../types/location';
-import { PRODUCTS } from '../data/mockData';
+import { unitPriceFor } from '../data/pricing';
 import {
-  syncPlaceOrder,
-  syncUpdateOrderStatus,
-  syncToggleStock,
-  syncUpdateStockKg,
-} from '../services/realtimeSync';
+  adminUpdateOrder,
+  adminUpdateProduct,
+  cancelMyOrder,
+  createOrder,
+  newOrderId,
+} from '../services/backend';
 
 interface StoreState {
   cart: CartItem[];
@@ -29,6 +30,8 @@ interface StoreState {
   wishlist: string[];
   inventory: Record<string, InventoryItem>;
   profile: { name: string; phone: string; email: string };
+  uid: string | null;
+  isAdmin: boolean;
 
   // Actions
   setProfile: (profile: { name: string; phone: string; email: string }) => void;
@@ -48,13 +51,12 @@ interface StoreState {
   setSelectedCategory: (category: MeatCategory) => void;
   setCustomizerProduct: (product: Product | null) => void;
   setColdPackagingEnabled: (enabled: boolean) => void;
-  placeOrder: (paymentMethod: 'UPI' | 'Cash on Delivery' | 'Card', deliveryNote?: string) => Order;
+  placeOrder: (paymentMethod: 'Cash on Delivery', deliveryNote?: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, temp?: number) => void;
   cancelOrder: (orderId: string) => void;
   assignRider: (orderId: string, riderName: string, riderPhone: string) => void;
   toggleStock: (productId: string) => void;
   updateStockKg: (productId: string, stockKg: number) => void;
-  updateProductPrice: (productId: string, basePrice: number, originalPrice?: number) => void;
   toggleCutStock: (productId: string, cutId: string) => void;
 
   // Computed values
@@ -233,143 +235,8 @@ export const INITIAL_INVENTORY: Record<string, InventoryItem> = {
   rtc1: { productId: 'rtc1', inStock: true, stockKg: 20, availableCutIds: ['curry-medium'] },
 };
 
-export const INITIAL_ORDERS: Order[] = [
-  {
-    id: 'MM-849201',
-    customerName: 'Rahul Sharma',
-    customerPhone: '+91 98234 11200',
-    address: 'Flat 402, Royal Palms, Sector 24, Atal Nagar, Raipur',
-    items: [
-      {
-        cartItemId: 'item-1',
-        product: PRODUCTS[0],
-        selectedCut: PRODUCTS[0].availableCuts[0],
-        isSkinless: true,
-        quantity: 2,
-        unitPrice: 179,
-      },
-      {
-        cartItemId: 'item-2',
-        product: PRODUCTS[1],
-        selectedCut: PRODUCTS[1].availableCuts[0],
-        isSkinless: true,
-        quantity: 1,
-        unitPrice: 475,
-      },
-    ],
-    deliveryMode: 'instant',
-    slotLabel: '⚡ Instant Express (22 mins)',
-    subtotal: 833,
-    deliveryFee: 0,
-    coldPackagingFee: 15,
-    discount: 0,
-    total: 848,
-    status: 'placed',
-    currentTempCelsius: 2.1,
-    sensorBatteryPercent: 98,
-    riderName: 'Vikram Singh',
-    riderPhone: '+91 98765 43210',
-    placedAt: '12 mins ago',
-    eta: '18 mins',
-    paymentMethod: 'UPI',
-  },
-  {
-    id: 'MM-849195',
-    customerName: 'Pooja Verma',
-    customerPhone: '+91 94060 22345',
-    address: 'B-14, Green Valley, Naya Raipur, Chhattisgarh',
-    items: [
-      {
-        cartItemId: 'item-3',
-        product: PRODUCTS[5] || PRODUCTS[0],
-        selectedCut: PRODUCTS[0].availableCuts[0],
-        isSkinless: true,
-        quantity: 1,
-        unitPrice: 229,
-      },
-    ],
-    deliveryMode: 'instant',
-    slotLabel: '⚡ Instant Express (25 mins)',
-    subtotal: 229,
-    deliveryFee: 35,
-    coldPackagingFee: 15,
-    discount: 0,
-    total: 279,
-    status: 'butcher_prepping',
-    currentTempCelsius: 2.3,
-    sensorBatteryPercent: 94,
-    riderName: 'Amit Sahu',
-    riderPhone: '+91 91234 56789',
-    placedAt: '25 mins ago',
-    eta: '15 mins',
-    paymentMethod: 'Cash on Delivery',
-  },
-  {
-    id: 'MM-849182',
-    customerName: 'Amit Patel',
-    customerPhone: '+91 99887 76655',
-    address: 'C-702, Smart City Heights, Atal Nagar, Raipur',
-    items: [
-      {
-        cartItemId: 'item-4',
-        product: PRODUCTS[2] || PRODUCTS[0],
-        selectedCut: PRODUCTS[0].availableCuts[0],
-        isSkinless: true,
-        quantity: 2,
-        unitPrice: 239,
-      },
-    ],
-    deliveryMode: 'instant',
-    slotLabel: '⚡ Instant Express',
-    subtotal: 478,
-    deliveryFee: 0,
-    coldPackagingFee: 15,
-    discount: 0,
-    total: 493,
-    status: 'out_for_delivery',
-    currentTempCelsius: 2.6,
-    sensorBatteryPercent: 90,
-    riderName: 'Rajesh Kumar',
-    riderPhone: '+91 98765 12345',
-    placedAt: '40 mins ago',
-    eta: '8 mins',
-    paymentMethod: 'UPI',
-  },
-  {
-    id: 'MM-849150',
-    customerName: 'Sunil Dewangan',
-    customerPhone: '+91 97555 44332',
-    address: 'House 55, Near IIIT Campus, Atal Nagar',
-    items: [
-      {
-        cartItemId: 'item-5',
-        product: PRODUCTS[0],
-        selectedCut: PRODUCTS[0].availableCuts[0],
-        isSkinless: true,
-        quantity: 1,
-        unitPrice: 179,
-      },
-    ],
-    deliveryMode: 'instant',
-    slotLabel: 'Delivered',
-    subtotal: 179,
-    deliveryFee: 35,
-    coldPackagingFee: 15,
-    discount: 0,
-    total: 229,
-    status: 'delivered',
-    currentTempCelsius: 2.5,
-    sensorBatteryPercent: 88,
-    riderName: 'Vikram Singh',
-    riderPhone: '+91 98765 43210',
-    placedAt: '2 hours ago',
-    eta: 'Delivered at 03:45 PM',
-    paymentMethod: 'UPI',
-  },
-];
-
-// Demo orders belong to the admin bridge, not to this customer.
-const DEMO_ORDER_IDS = new Set(INITIAL_ORDERS.map((o) => o.id));
+// Firestore rules accept up to 20 units per order line.
+const MAX_LINE_QTY = 20;
 
 const preloadedState = getInitialStoredState();
 
@@ -388,123 +255,51 @@ export const useStore = create<StoreState>()(
       searchQuery: '',
       selectedCategory: 'all',
       customizerProduct: null,
-      orders: (preloadedState?.orders || []).filter((o: Order) => !DEMO_ORDER_IDS.has(o.id)),
+      orders: [],
       activeOrder: null,
       coldPackagingEnabled: true,
       orderFulfillment: preloadedState?.orderFulfillment || 'delivery',
       wishlist: preloadedState?.wishlist || [],
-      inventory: preloadedState?.inventory || INITIAL_INVENTORY,
+      inventory: INITIAL_INVENTORY,
       profile: preloadedState?.profile || { name: '', phone: '', email: '' },
       setProfile: (profile) => set({ profile }),
+      uid: null,
+      isAdmin: false,
+      // Admin actions write to Firestore; the products/orders listeners in
+      // app/_layout.tsx bring the change back into this store.
       toggleStock: (productId: string) => {
-        syncToggleStock(productId);
-        set((state) => {
-          const current = state.inventory[productId] || {
-            productId,
-            inStock: true,
-            stockKg: 20,
-            availableCutIds: [],
-          };
-          return {
-            inventory: {
-              ...state.inventory,
-              [productId]: {
-                ...current,
-                inStock: !current.inStock,
-              },
-            },
-          };
-        });
+        const current = get().inventory[productId];
+        adminUpdateProduct(productId, { inStock: !(current?.inStock ?? true) }).catch((e) =>
+          console.warn('[store] toggleStock', e?.code || e)
+        );
       },
 
       updateStockKg: (productId: string, stockKg: number) => {
-        syncUpdateStockKg(productId, stockKg);
-        set((state) => {
-          const current = state.inventory[productId] || {
-            productId,
-            inStock: true,
-            stockKg: 20,
-            availableCutIds: [],
-          };
-          return {
-            inventory: {
-              ...state.inventory,
-              [productId]: {
-                ...current,
-                stockKg: Math.max(0, stockKg),
-                inStock: stockKg > 0,
-              },
-            },
-          };
-        });
-      },
-
-      updateProductPrice: (productId: string, basePrice: number, originalPrice?: number) => {
-        set((state) => {
-          const current = state.inventory[productId] || {
-            productId,
-            inStock: true,
-            stockKg: 20,
-            availableCutIds: [],
-          };
-          return {
-            inventory: {
-              ...state.inventory,
-              [productId]: {
-                ...current,
-                basePrice,
-                originalPrice,
-              },
-            },
-          };
-        });
+        const kg = Math.max(0, stockKg);
+        adminUpdateProduct(productId, { stockKg: kg, inStock: kg > 0 }).catch((e) =>
+          console.warn('[store] updateStockKg', e?.code || e)
+        );
       },
 
       toggleCutStock: (productId: string, cutId: string) => {
-        set((state) => {
-          const current = state.inventory[productId] || {
-            productId,
-            inStock: true,
-            stockKg: 20,
-            availableCutIds: [],
-          };
-          const exists = current.availableCutIds.includes(cutId);
-          const nextCutIds = exists
-            ? current.availableCutIds.filter((c) => c !== cutId)
-            : [...current.availableCutIds, cutId];
-          return {
-            inventory: {
-              ...state.inventory,
-              [productId]: {
-                ...current,
-                availableCutIds: nextCutIds,
-              },
-            },
-          };
-        });
+        const ids = get().inventory[productId]?.availableCutIds || [];
+        const next = ids.includes(cutId) ? ids.filter((c) => c !== cutId) : [...ids, cutId];
+        adminUpdateProduct(productId, { availableCutIds: next }).catch((e) =>
+          console.warn('[store] toggleCutStock', e?.code || e)
+        );
       },
 
       cancelOrder: (orderId: string) => {
-        syncUpdateOrderStatus(orderId, 'cancelled');
-        set((state) => {
-          const update = (order: Order) =>
-            order.id === orderId ? { ...order, status: 'cancelled' as OrderStatus } : order;
-          return {
-            orders: state.orders.map(update),
-            activeOrder: state.activeOrder && state.activeOrder.id === orderId ? update(state.activeOrder) : state.activeOrder,
-          };
-        });
+        const write = get().isAdmin
+          ? adminUpdateOrder(orderId, { status: 'cancelled' })
+          : cancelMyOrder(orderId);
+        write.catch((e) => console.warn('[store] cancelOrder', e?.code || e));
       },
 
       assignRider: (orderId: string, riderName: string, riderPhone: string) => {
-        set((state) => {
-          const update = (order: Order) =>
-            order.id === orderId ? { ...order, riderName, riderPhone, status: 'out_for_delivery' as OrderStatus } : order;
-          return {
-            orders: state.orders.map(update),
-            activeOrder: state.activeOrder && state.activeOrder.id === orderId ? update(state.activeOrder) : state.activeOrder,
-          };
-        });
+        adminUpdateOrder(orderId, { riderName, riderPhone, status: 'out_for_delivery' }).catch((e) =>
+          console.warn('[store] assignRider', e?.code || e)
+        );
       },
 
       toggleWishlist: (productId: string) =>
@@ -560,13 +355,13 @@ export const useStore = create<StoreState>()(
 
   addToCart: (product, cut, isSkinless, quantity = 1) => {
     const cartItemId = `${product.id}-${cut.id}-${isSkinless ? 'skinless' : 'withskin'}`;
-    const unitPrice = product.basePrice + cut.priceDelta;
+    const unitPrice = get().inventory[product.id]?.prices?.[cut.id] ?? unitPriceFor(product, cut);
 
     set((state) => {
       const existingIndex = state.cart.findIndex((item) => item.cartItemId === cartItemId);
       if (existingIndex > -1) {
         const updated = state.cart.map((item, i) =>
-          i === existingIndex ? { ...item, quantity: item.quantity + quantity } : item
+          i === existingIndex ? { ...item, quantity: Math.min(MAX_LINE_QTY, item.quantity + quantity) } : item
         );
         return { cart: updated };
       }
@@ -597,7 +392,7 @@ export const useStore = create<StoreState>()(
       const updated = state.cart
         .map((item) => {
           if (item.cartItemId === cartItemId) {
-            const newQty = item.quantity + delta;
+            const newQty = Math.min(MAX_LINE_QTY, item.quantity + delta);
             return newQty > 0 ? { ...item, quantity: newQty } : null;
           }
           return item;
@@ -652,36 +447,59 @@ export const useStore = create<StoreState>()(
     }, 0);
   },
 
-  placeOrder: (paymentMethod, deliveryNote) => {
+  placeOrder: async (paymentMethod, deliveryNote) => {
     const state = get();
     const subtotal = state.getCartSubtotal();
     const deliveryFee = state.orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
     const packagingFee = state.coldPackagingEnabled ? 15 : 0;
     const total = subtotal + deliveryFee + packagingFee;
+    const slotLabel =
+      state.deliveryMode === 'instant'
+        ? '⚡ Instant Express (30 mins)'
+        : state.deliveryMode === 'sunday_morning'
+        ? '🌅 Sunday Morning (7:00 AM - 9:00 AM)'
+        : '📦 Today (5:00 PM - 7:00 PM)';
+    const eta =
+      state.deliveryMode === 'instant'
+        ? '30 mins'
+        : state.deliveryMode === 'sunday_morning'
+        ? 'Sunday 7:00 - 9:00 AM'
+        : 'Today 5:00 - 7:00 PM';
+    const id = newOrderId();
+
+    // Throws if the network is down or the rules reject the order (price
+    // changed, item out of stock); checkout shows the error and keeps the cart.
+    await createOrder({
+      id,
+      items: state.cart,
+      subtotal,
+      deliveryFee,
+      coldPackagingFee: packagingFee,
+      total,
+      fulfillment: state.orderFulfillment,
+      deliveryMode: state.deliveryMode,
+      slotLabel,
+      eta,
+      address: state.selectedAddress,
+      deliveryNote: deliveryNote?.trim() || undefined,
+      customerName: state.profile.name || undefined,
+      customerPhone: state.profile.phone || undefined,
+    });
 
     const newOrder: Order = {
-      id: `MM-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 100)}`,
+      id,
       items: [...state.cart],
       deliveryMode: state.deliveryMode,
-      slotLabel:
-        state.deliveryMode === 'instant'
-          ? '⚡ Instant Express (30 mins)'
-          : state.deliveryMode === 'sunday_morning'
-          ? '🌅 Sunday Morning (7:00 AM - 9:00 AM)'
-          : '📦 Today (5:00 PM - 7:00 PM)',
+      slotLabel,
       subtotal,
       deliveryFee,
       coldPackagingFee: packagingFee,
       discount: 0,
       total,
       status: 'placed',
-      placedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      eta:
-        state.deliveryMode === 'instant'
-          ? '30 mins'
-          : state.deliveryMode === 'sunday_morning'
-          ? 'Sunday 7:00 - 9:00 AM'
-          : 'Today 5:00 - 7:00 PM',
+      placedAt: 'Just now',
+      createdAtMs: Date.now(),
+      eta,
       address: state.selectedAddress,
       deliveryNote: deliveryNote?.trim() || undefined,
       paymentMethod,
@@ -690,39 +508,26 @@ export const useStore = create<StoreState>()(
     set((s) => ({
       cart: [],
       activeOrder: newOrder,
-      orders: [newOrder, ...s.orders],
+      orders: s.orders.some((o) => o.id === id) ? s.orders : [newOrder, ...s.orders],
     }));
-
-    syncPlaceOrder(newOrder);
 
     return newOrder;
   },
 
   updateOrderStatus: (orderId, status, temp) => {
-    syncUpdateOrderStatus(orderId, status);
-    set((state) => {
-      const updateOrder = (order: Order) => {
-        if (order.id !== orderId) return order;
-        return {
-          ...order,
-          status,
-          currentTempCelsius: temp !== undefined ? temp : order.currentTempCelsius,
-        };
-      };
-
-      return {
-        activeOrder: state.activeOrder ? updateOrder(state.activeOrder) : null,
-        orders: state.orders.map(updateOrder),
-      };
-    });
+    adminUpdateOrder(orderId, { status, currentTempCelsius: temp }).catch((e) =>
+      console.warn('[store] updateOrderStatus', e?.code || e)
+    );
   },
 }),
     {
       name: 'magicmeat-store-persist',
-      version: 1,
+      version: 2,
+      // v2: orders and inventory moved to Firestore; drop the local copies.
       migrate: (persisted: any) => {
-        if (persisted?.orders) {
-          persisted.orders = persisted.orders.filter((o: Order) => !DEMO_ORDER_IDS.has(o.id));
+        if (persisted) {
+          delete persisted.orders;
+          delete persisted.inventory;
         }
         return persisted;
       },
@@ -734,9 +539,7 @@ export const useStore = create<StoreState>()(
         orderFulfillment: state.orderFulfillment,
         deliveryMode: state.deliveryMode,
         cart: state.cart,
-        orders: state.orders,
         wishlist: state.wishlist,
-        inventory: state.inventory,
         profile: state.profile,
       }),
     }
