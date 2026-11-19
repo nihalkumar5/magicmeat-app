@@ -53,14 +53,7 @@ import {
   Tick02Icon,
   Scooter01Icon,
   Home01Icon,
-  DrumstickIcon,
-  CookingPotIcon,
-  EggsIcon,
-  CarrotIcon,
-  GridViewIcon,
-  FishIcon,
 } from '../../components/HugeIcon';
-
 
 // Final 6 Essential Craving Categories (3-Column Circular Grid)
 const CRAVING_CATEGORIES = [
@@ -104,14 +97,7 @@ const CRAVING_CATEGORIES = [
   },
 ];
 
-const SEARCH_KEYWORDS = [
-  'Chicken Curry Cut',
-  'Mutton Curry Cut',
-  'Chicken Breast',
-  'Rohu Fish',
-  'Biryani Cut',
-  'Eggs',
-];
+const SEARCH_KEYWORDS = ['Chicken Curry Cut', 'Mutton Curry Cut', 'Chicken Breast', 'Rohu Fish', 'Biryani Cut', 'Eggs'];
 
 const HERO_SLIDES = [
   {
@@ -294,6 +280,8 @@ export default function HomeScreen() {
   const [activeOrderType, setActiveOrderType] = useState<OrderType>('takeaway');
   const [promiseOpen, setPromiseOpen] = useState(false);
   const { width } = useWindowDimensions();
+  // Width of one category tile (4 per row, 11 pt side padding, 5 pt gutters).
+  const categoryTile = (Math.min(width, 768) - 22) / 4 - 10;
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
   const popularDelights = useMemo(() => PRODUCTS.slice(0, 5), []);
@@ -314,7 +302,7 @@ export default function HomeScreen() {
         PRODUCTS.find((p) => p.id === 'c1'),
         PRODUCTS.find((p) => p.id === 'm1'),
       ].filter((p): p is Product => Boolean(p)),
-    []
+    [],
   );
 
   const handleOpenLocationModal = () => {
@@ -370,19 +358,15 @@ export default function HomeScreen() {
             <View style={styles.desktopHeaderDivider} />
 
             {/* Location Selector */}
-            <TouchableOpacity
-              style={styles.desktopLocationBlock}
-              onPress={handleOpenLocationModal}
-              activeOpacity={0.8}
-            >
+            <TouchableOpacity style={styles.desktopLocationBlock} onPress={handleOpenLocationModal} activeOpacity={0.8}>
               <View style={styles.desktopLocationRow}>
                 <AppIcon icon={Location01Icon} size={14} color="#E52320" strokeWidth={2.5} />
                 <Text style={styles.desktopTakeawayText}>
                   {activeOrderType === 'delivery'
                     ? 'Delivery to'
                     : activeOrderType === 'takeaway'
-                    ? 'Takeaway from'
-                    : 'Visit our store at'}
+                      ? 'Takeaway from'
+                      : 'Visit our store at'}
                 </Text>
                 <AppIcon icon={ChevronDownIcon} size={13} color="#E52320" strokeWidth={2.5} />
               </View>
@@ -402,9 +386,7 @@ export default function HomeScreen() {
             <AppIcon icon={Search01Icon} size={16} color="#DC2626" strokeWidth={2} />
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, overflow: 'hidden' }}>
               <Text style={{ color: '#64748B', fontSize: 13, fontWeight: '500' }}>Search for </Text>
-              <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700' }}>
-                Fresh Chicken, Mutton, Fish...
-              </Text>
+              <Text style={{ color: '#0F172A', fontSize: 13, fontWeight: '700' }}>Fresh Chicken, Mutton, Fish...</Text>
             </View>
             <View style={styles.desktopSearchKbd}>
               <Text style={styles.desktopSearchKbdText}>⌘K</Text>
@@ -448,24 +430,16 @@ export default function HomeScreen() {
             </View>
             <View>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Text style={styles.desktopBlueTitle}>
-                  {currentLocation.shortAddress} Hub
-                </Text>
+                <Text style={styles.desktopBlueTitle}>{currentLocation.shortAddress} Hub</Text>
                 <View style={styles.desktopHubBadge}>
                   <Text style={styles.desktopHubBadgeText}>COLD-CHAIN ACTIVE</Text>
                 </View>
               </View>
-              <Text style={styles.desktopBlueSub}>
-                Express in 15–20 mins · {currentLocation.distanceKm} km away
-              </Text>
+              <Text style={styles.desktopBlueSub}>Express in 15–20 mins · {currentLocation.distanceKm} km away</Text>
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.desktopDetectBtn}
-            onPress={handleOpenLocationModal}
-            activeOpacity={0.8}
-          >
+          <TouchableOpacity style={styles.desktopDetectBtn} onPress={handleOpenLocationModal} activeOpacity={0.8}>
             <AppIcon icon={Location01Icon} size={13} color="#FFFFFF" />
             <Text style={styles.desktopDetectBtnText}>Change location</Text>
           </TouchableOpacity>
@@ -481,10 +455,7 @@ export default function HomeScreen() {
             <View style={styles.desktopSegmentedPillContainer}>
               {/* Delivery */}
               <TouchableOpacity
-                style={[
-                  styles.desktopSegmentPill,
-                  activeOrderType === 'delivery' && styles.desktopSegmentPillActive,
-                ]}
+                style={[styles.desktopSegmentPill, activeOrderType === 'delivery' && styles.desktopSegmentPillActive]}
                 onPress={() => setActiveOrderType('delivery')}
                 activeOpacity={0.85}
               >
@@ -509,10 +480,7 @@ export default function HomeScreen() {
 
               {/* Takeaway */}
               <TouchableOpacity
-                style={[
-                  styles.desktopSegmentPill,
-                  activeOrderType === 'takeaway' && styles.desktopSegmentPillActive,
-                ]}
+                style={[styles.desktopSegmentPill, activeOrderType === 'takeaway' && styles.desktopSegmentPillActive]}
                 onPress={() => setActiveOrderType('takeaway')}
                 activeOpacity={0.85}
               >
@@ -537,10 +505,7 @@ export default function HomeScreen() {
 
               {/* Dine-in */}
               <TouchableOpacity
-                style={[
-                  styles.desktopSegmentPill,
-                  activeOrderType === 'dinein' && styles.desktopSegmentPillActive,
-                ]}
+                style={[styles.desktopSegmentPill, activeOrderType === 'dinein' && styles.desktopSegmentPillActive]}
                 onPress={() => setActiveOrderType('dinein')}
                 activeOpacity={0.85}
               >
@@ -567,9 +532,7 @@ export default function HomeScreen() {
 
           {/* 4. "WHAT ARE YOU CRAVING FOR?" (FULL WIDTH) */}
           <View style={styles.desktopSection}>
-            <Text style={styles.desktopSectionHeading}>
-              What are you craving for?
-            </Text>
+            <Text style={styles.desktopSectionHeading}>What are you craving for?</Text>
 
             <ScrollView
               horizontal
@@ -584,15 +547,10 @@ export default function HomeScreen() {
                   activeOpacity={0.8}
                 >
                   <View style={styles.desktopCravingCircleBox}>
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.desktopCravingCircleImg}
-                    />
+                    <Image source={{ uri: item.image }} style={styles.desktopCravingCircleImg} />
                     {item.badge && (
                       <View style={styles.desktopYellowBadge}>
-                        <Text style={styles.desktopYellowBadgeText}>
-                          {item.badge}
-                        </Text>
+                        <Text style={styles.desktopYellowBadgeText}>{item.badge}</Text>
                       </View>
                     )}
                   </View>
@@ -615,9 +573,7 @@ export default function HomeScreen() {
               <Text style={styles.top10Heading}>Bestsellers</Text>
               <View style={styles.top10LocationSub}>
                 <AppIcon icon={Location01Icon} size={13} color="#B45309" strokeWidth={2.5} />
-                <Text style={styles.top10CityText}>
-                  In {currentLocation.city || 'Raipur'}
-                </Text>
+                <Text style={styles.top10CityText}>In {currentLocation.city || 'Raipur'}</Text>
               </View>
             </View>
 
@@ -646,9 +602,7 @@ export default function HomeScreen() {
                 <AppIcon icon={CheckmarkBadge01Icon} size={24} color="#F59E0B" />
                 <View>
                   <Text style={styles.shelfTitle}>Popular right now</Text>
-                  <Text style={styles.shelfSub}>
-                    FREE Delivery For Orders Above ₹149
-                  </Text>
+                  <Text style={styles.shelfSub}>FREE Delivery For Orders Above ₹149</Text>
                 </View>
               </View>
             </View>
@@ -671,12 +625,8 @@ export default function HomeScreen() {
               <View style={styles.shelfTitleGroup}>
                 <AppIcon icon={FireIcon} size={24} color="#EF4444" />
                 <View>
-                  <Text style={styles.shelfTitle}>
-                    Garlic Wings &amp; Gourmet Dips
-                  </Text>
-                  <Text style={styles.shelfSub}>
-                    Best Companions To Your Feast · Ready in 10 Mins
-                  </Text>
+                  <Text style={styles.shelfTitle}>Garlic Wings &amp; Gourmet Dips</Text>
+                  <Text style={styles.shelfSub}>Best Companions To Your Feast · Ready in 10 Mins</Text>
                 </View>
               </View>
             </View>
@@ -686,11 +636,11 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.desktopShelfCards}
             >
-              {PRODUCTS.filter(
-                (p) => p.category === 'ready-to-cook' || p.badge?.includes('Cook')
-              ).concat(PRODUCTS.slice(0, 3)).map((product) => (
-                <DominosCard key={product.id} product={product} cardWidth={330} />
-              ))}
+              {PRODUCTS.filter((p) => p.category === 'ready-to-cook' || p.badge?.includes('Cook'))
+                .concat(PRODUCTS.slice(0, 3))
+                .map((product) => (
+                  <DominosCard key={product.id} product={product} cardWidth={330} />
+                ))}
             </ScrollView>
           </View>
 
@@ -700,12 +650,8 @@ export default function HomeScreen() {
               <View style={styles.shelfTitleGroup}>
                 <AppIcon icon={ChefHatIcon} size={24} color="#10B981" />
                 <View>
-                  <Text style={styles.shelfTitle}>
-                    Prime Mutton &amp; Biryani Feast
-                  </Text>
-                  <Text style={styles.shelfSub}>
-                    Grass-Fed Tender Goat &amp; Slow-Dum Hand Cut Pieces
-                  </Text>
+                  <Text style={styles.shelfTitle}>Prime Mutton &amp; Biryani Feast</Text>
+                  <Text style={styles.shelfSub}>Grass-Fed Tender Goat &amp; Slow-Dum Hand Cut Pieces</Text>
                 </View>
               </View>
             </View>
@@ -715,11 +661,11 @@ export default function HomeScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.desktopShelfCards}
             >
-              {PRODUCTS.filter(
-                (p) => p.category === 'mutton' || p.category === 'fish'
-              ).concat(PRODUCTS.slice(0, 2)).map((product) => (
-                <DominosCard key={product.id} product={product} cardWidth={330} />
-              ))}
+              {PRODUCTS.filter((p) => p.category === 'mutton' || p.category === 'fish')
+                .concat(PRODUCTS.slice(0, 2))
+                .map((product) => (
+                  <DominosCard key={product.id} product={product} cardWidth={330} />
+                ))}
             </ScrollView>
           </View>
 
@@ -794,7 +740,8 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <Text style={styles.desktopFooterAbout}>
-                  Fresh jhatka chicken and mutton, plus fish, cleaned and cut to order and delivered chilled in as little as 15 minutes.
+                  Fresh jhatka chicken and mutton, plus fish, cleaned and cut to order and delivered chilled in as
+                  little as 15 minutes.
                 </Text>
               </View>
 
@@ -881,7 +828,9 @@ export default function HomeScreen() {
             </View>
             <View style={styles.mAddressRow}>
               <Text style={styles.mLocationSub} numberOfLines={1}>
-                <Text style={styles.mAddressStrong}>{isPickup ? 'From' : 'To'} {currentLocation.shortAddress || 'choose address'}</Text>
+                <Text style={styles.mAddressStrong}>
+                  {isPickup ? 'From' : 'To'} {currentLocation.shortAddress || 'choose address'}
+                </Text>
                 {currentLocation.fullAddress ? ` · ${currentLocation.fullAddress}` : ''}
               </Text>
               <AppIcon icon={ChevronDownIcon} size={14} color="#6B7280" strokeWidth={2.4} />
@@ -927,7 +876,9 @@ export default function HomeScreen() {
               <View style={{ flex: 1, minWidth: 0 }}>
                 <Text style={styles.liveEyebrow}>Your order</Text>
                 <Text style={styles.liveEta} numberOfLines={1}>
-                  {activeOrder.deliveryMode === 'instant' ? `Arriving in ${activeOrder.eta}` : `Arriving ${activeOrder.eta}`}
+                  {activeOrder.deliveryMode === 'instant'
+                    ? `Arriving in ${activeOrder.eta}`
+                    : `Arriving ${activeOrder.eta}`}
                 </Text>
               </View>
               <View style={styles.livePill}>
@@ -993,13 +944,36 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel={cat.label}
             >
-              <View style={[styles.mCategoryTile, cat.id === 'all' && styles.mCategoryTileAll]}>
-                <AppIcon
-                  icon={cat.icon}
-                  size={30}
-                  color={cat.id === 'all' ? '#111111' : '#DC2626'}
-                  strokeWidth={1.6}
-                />
+              <View style={styles.mCategoryTile}>
+                {cat.mosaic ? (
+                  <View style={styles.mCategoryMosaic}>
+                    {cat.mosaic.map((uri, i) => (
+                      <Image
+                        key={`${cat.id}-m${i}`}
+                        source={{ uri: optimizeImageUrl(uri, 120) }}
+                        style={{ width: (categoryTile - 2) / 2, height: (categoryTile - 2) / 2 }}
+                        resizeMode="cover"
+                        fadeDuration={0}
+                      />
+                    ))}
+                  </View>
+                ) : (
+                  <Image
+                    source={{ uri: optimizeImageUrl(cat.image, 260) }}
+                    style={[
+                      styles.mCategoryImg,
+                      {
+                        transform: [
+                          { translateX: cat.focus.x * categoryTile },
+                          { translateY: cat.focus.y * categoryTile },
+                          { scale: cat.focus.s },
+                        ],
+                      },
+                    ]}
+                    resizeMode="cover"
+                    fadeDuration={0}
+                  />
+                )}
               </View>
               <Text style={styles.mCategoryLabel} numberOfLines={2}>
                 {cat.label}
@@ -1027,7 +1001,11 @@ export default function HomeScreen() {
         {/* Buy again */}
         {buyAgain.length > 0 && (
           <>
-            <SectionHeader title="Buy again" subtitle="From your past orders" onSeeAll={() => router.push('/(tabs)/orders')} />
+            <SectionHeader
+              title="Buy again"
+              subtitle="From your past orders"
+              onSeeAll={() => router.push('/(tabs)/orders')}
+            />
             <ProductShelf data={buyAgain} keyPrefix="again" />
           </>
         )}
@@ -1188,16 +1166,30 @@ const PROMISES = [
 // Our own mutton curry cut photo for the jhatka story card.
 const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
 
-// Category grid with line icons (talabat / Uber style tiles): one icon
-// set, one brand colour, so the row reads as a calm menu, not a collage.
-const HOME_CATEGORIES: { id: MeatCategory; label: string; icon: any }[] = [
-  { id: 'chicken', label: 'Chicken', icon: DrumstickIcon },
-  { id: 'mutton', label: 'Mutton', icon: BeefIcon },
-  { id: 'fish', label: 'Fish', icon: FishIcon },
-  { id: 'curry-cuts', label: 'Curry cuts', icon: CookingPotIcon },
-  { id: 'eggs', label: 'Eggs', icon: EggsIcon },
-  { id: 'fresh-produce', label: 'Veggies & fruits', icon: CarrotIcon },
-  { id: 'all', label: 'See all', icon: GridViewIcon },
+// Category grid (Instacart / Blinkit style): one clear photo per category,
+// zoomed onto the food so boards and props don't crowd a small tile.
+// focus: s = zoom, x / y = shift as a fraction of the tile (+ = right / down).
+const photoOf = (id: string) => PRODUCTS.find((p) => p.id === id)?.image || '';
+const HOME_CATEGORIES: {
+  id: MeatCategory;
+  label: string;
+  image: string;
+  focus: { s: number; x: number; y: number };
+  mosaic?: string[];
+}[] = [
+  { id: 'chicken', label: 'Chicken', image: photoOf('c3'), focus: { s: 1.3, x: 0.06, y: 0 } },
+  { id: 'mutton', label: 'Mutton', image: photoOf('m5'), focus: { s: 1.35, x: 0.05, y: 0 } },
+  { id: 'fish', label: 'Fish', image: photoOf('f2'), focus: { s: 1.15, x: -0.02, y: 0.02 } },
+  { id: 'curry-cuts', label: 'Curry cuts', image: photoOf('c1'), focus: { s: 1.5, x: -0.04, y: 0.08 } },
+  { id: 'eggs', label: 'Eggs', image: photoOf('e1'), focus: { s: 1.3, x: 0, y: 0.04 } },
+  { id: 'fresh-produce', label: 'Veggies & fruits', image: photoOf('v3'), focus: { s: 1.35, x: -0.02, y: 0 } },
+  {
+    id: 'all',
+    label: 'See all',
+    image: '',
+    focus: { s: 1, x: 0, y: 0 },
+    mosaic: ['c2', 'm2', 'f1', 'v6'].map(photoOf),
+  },
 ];
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
@@ -1220,15 +1212,7 @@ const TRUST_POINTS = [
   { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
 ];
 
-function SectionHeader({
-  title,
-  subtitle,
-  onSeeAll,
-}: {
-  title: string;
-  subtitle?: string;
-  onSeeAll?: () => void;
-}) {
+function SectionHeader({ title, subtitle, onSeeAll }: { title: string; subtitle?: string; onSeeAll?: () => void }) {
   return (
     <View style={styles.mSectionHeader}>
       <View style={{ flex: 1 }}>
@@ -1604,16 +1588,24 @@ const styles = StyleSheet.create({
   mCategoryTile: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF4F4',
-    borderWidth: 1,
-    borderColor: '#FDE4E4',
-  },
-  mCategoryTileAll: {
+    borderRadius: 18,
+    overflow: 'hidden',
     backgroundColor: '#F4F4F6',
-    borderColor: '#ECECEF',
+  },
+  mCategoryImg: {
+    width: '100%',
+    height: '100%',
+  },
+  mCategoryMosaic: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 2,
+    backgroundColor: '#FFFFFF',
   },
   mCategoryLabel: {
     marginTop: 6,
