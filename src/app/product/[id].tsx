@@ -15,6 +15,8 @@ import { useStore } from '../../store/useStore';
 import { packVariantsFor, cutForPack } from '../../data/pricing';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { StatusBar } from 'expo-status-bar';
+import { goBack } from '../../utils/navigation';
+import { formatGrams } from '../../utils/format';
 import {
   AppIcon,
   ArrowLeft01Icon,
@@ -24,7 +26,18 @@ import {
   MinusSignIcon,
   DeliveryTruck01Icon,
   FavouriteIcon,
+  WeightScaleIcon,
+  ShieldCheckIcon,
+  SnowflakeIcon,
+  Cash01Icon,
 } from '../../components/HugeIcon';
+
+// "₹280/kg" for loose meat packs, so bigger packs show their value.
+function perKgLabel(price: number, netWeight: string): string {
+  const grams = /^\d+g$/.test(netWeight) ? parseInt(netWeight, 10) : 0;
+  if (!grams) return '';
+  return `₹${Math.round((price * 1000) / grams)}/kg`;
+}
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -73,14 +86,10 @@ export default function ProductDetailScreen() {
   const unitPrice = selectedPack.price;
   const originalPrice = selectedPack.originalPrice;
   const savings = originalPrice - unitPrice;
+  const netGrams = parseInt(packCut.netWeight, 10) || 0;
+  const grossGrams = parseInt(packCut.grossWeight, 10) || 0;
 
-  const handleGoBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/(tabs)');
-    }
-  };
+  const handleGoBack = () => goBack('/(tabs)');
 
   const handleAddToCart = () => {
     addToCart(product, packCut, true, 1);
@@ -191,13 +200,15 @@ export default function ProductDetailScreen() {
             <View style={styles.badgeRow}>
               <View style={styles.deliveryBadge}>
                 <AppIcon icon={DeliveryTruck01Icon} size={15} color="#15803D" strokeWidth={2.2} />
-                <Text style={styles.deliveryBadgeText}>Express · 30 mins</Text>
+                <Text style={styles.deliveryBadgeText}>Delivery in 30 mins</Text>
               </View>
 
-              <View style={styles.bestsellerPill}>
-                <AppIcon icon={StarIcon} size={12} color="#FFFFFF" strokeWidth={3} />
-                <Text style={styles.bestsellerPillText}>Bestseller</Text>
-              </View>
+              {!!product.badge && (
+                <View style={styles.bestsellerPill}>
+                  <AppIcon icon={StarIcon} size={12} color="#FFFFFF" strokeWidth={3} />
+                  <Text style={styles.bestsellerPillText}>{product.badge}</Text>
+                </View>
+              )}
             </View>
 
             {/* Product Title */}
@@ -219,6 +230,9 @@ export default function ProductDetailScreen() {
                     ]}
                     onPress={() => setSelectedPackId(pack.id)}
                     activeOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`${pack.label}, ₹${pack.price}`}
                   >
                     <Text
                       style={[
@@ -241,68 +255,62 @@ export default function ProductDetailScreen() {
                         isSelected && pack.inStock && styles.packStockTextSelected,
                       ]}
                     >
-                      {pack.inStock ? 'In stock' : 'Out of stock'}
+                      {!pack.inStock ? 'Out of stock' : perKgLabel(pack.price, pack.netWeight) || pack.serves}
                     </Text>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            {/* 3. Lazizia Style 6-Column Specification Table */}
-            <View style={styles.specTableContainer}>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.specTable}>
-                  {/* Table Header Row */}
-                  <View style={styles.tableHeaderRow}>
-                    <View style={[styles.tableCol, { width: 85 }]}>
-                      <Text style={styles.colHeaderTitle}>Net weight</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 90 }]}>
-                      <Text style={styles.colHeaderTitle}>Cut style</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 85 }]}>
-                      <Text style={styles.colHeaderTitle}>Piece size</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 80 }]}>
-                      <Text style={styles.colHeaderTitle}>Serves</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 140 }]}>
-                      <Text style={styles.colHeaderTitle}>Includes</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 150 }]}>
-                      <Text style={styles.colHeaderTitle}>Storage</Text>
-                    </View>
-                  </View>
-
-                  {/* Table Value Row */}
-                  <View style={styles.tableValueRow}>
-                    <View style={[styles.tableCol, { width: 85 }]}>
-                      <Text style={styles.colValueText}>{selectedPack.netWeight}</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 90 }]}>
-                      <Text style={styles.colValueText}>{product.availableCuts?.[0]?.name || '—'}</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 85 }]}>
-                      <Text style={styles.colValueText}>{selectedPack.pieceSize}</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 80 }]}>
-                      <Text style={styles.colValueText}>{selectedPack.serves}</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 140 }]}>
-                      <Text style={styles.colValueText}>{selectedPack.includes}</Text>
-                    </View>
-                    <View style={[styles.tableCol, { width: 150 }]}>
-                      <Text style={styles.colValueText}>
-                        Cook fresh or refrigerate at 0–4°C.
-                      </Text>
-                    </View>
-                  </View>
+            {/* Key facts */}
+            <View style={styles.factGrid}>
+              {[
+                { label: 'Net weight', value: selectedPack.netWeight },
+                { label: 'Pieces', value: selectedPack.pieces || '—' },
+                { label: 'Serves', value: selectedPack.serves || '—' },
+                { label: 'Cut', value: product.availableCuts?.[0]?.name || '—' },
+              ].map((fact) => (
+                <View key={fact.label} style={styles.factCell}>
+                  <Text style={styles.factLabel}>{fact.label}</Text>
+                  <Text style={styles.factValue} numberOfLines={2}>{fact.value}</Text>
                 </View>
-              </ScrollView>
+              ))}
             </View>
 
-            {/* Description */}
+            {/* Clean-meat weight */}
+            {grossGrams > netGrams && netGrams > 0 && (
+              <View style={styles.yieldCard}>
+                <AppIcon icon={WeightScaleIcon} size={18} color="#15803D" strokeWidth={2} />
+                <Text style={styles.yieldText}>
+                  You pay only for clean meat: about {formatGrams(grossGrams)} before cleaning,{' '}
+                  <Text style={styles.yieldStrong}>{formatGrams(netGrams)} you get</Text>.
+                </Text>
+              </View>
+            )}
+
+            {/* About */}
+            <Text style={styles.sectionLabel}>About this cut</Text>
             <Text style={styles.descriptionText}>{product.description}</Text>
+            {!!selectedPack.includes && selectedPack.includes !== product.description && (
+              <Text style={[styles.descriptionText, { marginTop: 8 }]}>{selectedPack.includes}</Text>
+            )}
+
+            {/* Promises */}
+            <View style={styles.promiseList}>
+              {[
+                { icon: ShieldCheckIcon, text: '100% halal, zabiha cut' },
+                { icon: SnowflakeIcon, text: 'Cut fresh and packed cold' },
+                { icon: Cash01Icon, text: 'Pay cash or UPI on delivery' },
+              ].map((item) => (
+                <View key={item.text} style={styles.promiseRow}>
+                  <AppIcon icon={item.icon} size={18} color="#111111" strokeWidth={1.8} />
+                  <Text style={styles.promiseText}>{item.text}</Text>
+                </View>
+              ))}
+              <Text style={styles.storageText}>
+                Cook the same day, or keep refrigerated at 0–4°C and use within a day.
+              </Text>
+            </View>
 
             {/* Extra spacing for sticky bar */}
             <View style={{ height: 110 }} />
@@ -320,7 +328,7 @@ export default function ProductDetailScreen() {
             </View>
             {savings > 0 && (
               <Text style={styles.bottomSaveText}>
-                You save ₹{savings} · Inclusive of all taxes
+                You save ₹{savings} · incl. of all taxes
               </Text>
             )}
           </View>
@@ -336,6 +344,7 @@ export default function ProductDetailScreen() {
                 style={styles.bottomStepBtn}
                 onPress={handleDecrement}
                 activeOpacity={0.7}
+                accessibilityLabel="Remove one"
               >
                 <AppIcon icon={MinusSignIcon} size={16} color="#FFFFFF" strokeWidth={3} />
               </TouchableOpacity>
@@ -344,6 +353,7 @@ export default function ProductDetailScreen() {
                 style={styles.bottomStepBtn}
                 onPress={handleIncrement}
                 activeOpacity={0.7}
+                accessibilityLabel="Add one more"
               >
                 <AppIcon icon={PlusSignIcon} size={16} color="#FFFFFF" strokeWidth={3} />
               </TouchableOpacity>
@@ -353,6 +363,7 @@ export default function ProductDetailScreen() {
               style={styles.bottomAddBtn}
               onPress={handleAddToCart}
               activeOpacity={0.88}
+              accessibilityRole="button"
             >
               <Text style={styles.bottomAddText}>Add to basket</Text>
             </TouchableOpacity>
@@ -364,6 +375,78 @@ export default function ProductDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+  factGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginTop: 18,
+    borderRadius: 16,
+    backgroundColor: '#F9FAFB',
+    paddingVertical: 6,
+  },
+  factCell: {
+    width: '50%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  factLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  factValue: {
+    fontSize: 15,
+    color: '#111111',
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  yieldCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: '#F0FDF4',
+  },
+  yieldText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#166534',
+  },
+  yieldStrong: {
+    fontWeight: '800',
+  },
+  sectionLabel: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#111111',
+    marginTop: 24,
+    marginBottom: 6,
+  },
+  promiseList: {
+    marginTop: 20,
+    paddingTop: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E5E7EB',
+    gap: 12,
+  },
+  promiseRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  promiseText: {
+    fontSize: 14,
+    color: '#111111',
+    fontWeight: '500',
+  },
+  storageText: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+    marginTop: 4,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: '#FFFFFF',
@@ -616,10 +699,9 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   descriptionText: {
-    fontSize: 13.5,
-    color: '#525252',
-    lineHeight: 20,
-    marginBottom: 12,
+    fontSize: 15,
+    color: '#3C3C43',
+    lineHeight: 22,
   },
   bottomBar: {
     position: 'absolute',

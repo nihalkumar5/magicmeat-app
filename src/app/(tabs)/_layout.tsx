@@ -5,9 +5,9 @@ import { useStore } from '../../store/useStore';
 import {
   AppIcon,
   Home01Icon,
-  Search01Icon,
+  GridViewIcon,
   ShoppingBag01Icon,
-  UserIcon,
+  DeliveryBox01Icon,
 } from '../../components/HugeIcon';
 
 export default function TabLayout() {
@@ -25,17 +25,19 @@ export default function TabLayout() {
           ? { display: 'none' }
           : {
               backgroundColor: '#FFFFFF',
-              borderTopColor: '#E5E7EB',
-              borderTopWidth: 1,
-              height: 56 + bottomInset,
+              borderTopColor: 'rgba(60, 60, 67, 0.18)',
+              borderTopWidth: StyleSheet.hairlineWidth,
+              height: 60 + bottomInset,
               paddingBottom: bottomInset,
-              paddingTop: 8,
+              paddingTop: 6,
+              elevation: 0,
             },
-        tabBarActiveTintColor: '#111111',
-        tabBarInactiveTintColor: '#9CA3AF',
+        tabBarActiveTintColor: '#DC2626',
+        tabBarInactiveTintColor: '#8E8E93',
         tabBarLabelStyle: {
           fontSize: 11,
           fontWeight: '600',
+          marginTop: 1,
         },
       }}
     >
@@ -43,26 +45,33 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color }) => <AppIcon icon={Home01Icon} size={22} color={color} />,
+          tabBarAccessibilityLabel: 'Home',
+          tabBarIcon: ({ color, focused }) => (
+            <AppIcon icon={Home01Icon} size={24} color={color} strokeWidth={focused ? 2.2 : 1.7} />
+          ),
         }}
       />
       <Tabs.Screen
         name="explore"
         options={{
-          title: 'Discover',
-          tabBarIcon: ({ color }) => <AppIcon icon={Search01Icon} size={22} color={color} />,
+          title: 'Shop',
+          tabBarAccessibilityLabel: 'Shop all products',
+          tabBarIcon: ({ color, focused }) => (
+            <AppIcon icon={GridViewIcon} size={24} color={color} strokeWidth={focused ? 2.2 : 1.7} />
+          ),
         }}
       />
       <Tabs.Screen
         name="cart"
         options={{
           title: 'Basket',
-          tabBarIcon: ({ color }) => (
+          tabBarAccessibilityLabel: cartCount > 0 ? `Basket, ${cartCount} items` : 'Basket',
+          tabBarIcon: ({ color, focused }) => (
             <View style={{ position: 'relative' }}>
-              <AppIcon icon={ShoppingBag01Icon} size={22} color={color} />
+              <AppIcon icon={ShoppingBag01Icon} size={24} color={color} strokeWidth={focused ? 2.2 : 1.7} />
               {cartCount > 0 && (
                 <View style={styles.cartBadge}>
-                  <Text style={styles.cartBadgeText}>{cartCount}</Text>
+                  <Text style={styles.cartBadgeText}>{cartCount > 9 ? '9+' : cartCount}</Text>
                 </View>
               )}
             </View>
@@ -73,7 +82,10 @@ export default function TabLayout() {
         name="orders"
         options={{
           title: 'Orders',
-          tabBarIcon: ({ color }) => <AppIcon icon={UserIcon} size={22} color={color} />,
+          tabBarAccessibilityLabel: 'Your orders',
+          tabBarIcon: ({ color, focused }) => (
+            <AppIcon icon={DeliveryBox01Icon} size={24} color={color} strokeWidth={focused ? 2.2 : 1.7} />
+          ),
         }}
       />
       {/* Hide recipes tab from bar, accessible via categories */}
@@ -90,19 +102,21 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   cartBadge: {
     position: 'absolute',
-    top: -4,
-    right: -8,
-    backgroundColor: '#E52320',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
+    top: -5,
+    right: -9,
+    backgroundColor: '#DC2626',
+    borderRadius: 9,
+    minWidth: 18,
+    height: 18,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 3,
   },
   cartBadgeText: {
     color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '900',
+    fontSize: 10,
+    fontWeight: '800',
   },
 });
