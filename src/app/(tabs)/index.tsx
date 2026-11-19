@@ -20,6 +20,7 @@ import { DominosCard } from '../../components/DominosCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { ShopCard } from '../../components/ShopCard';
+import { customerStage } from '../../utils/orderStage';
 import { FREE_DELIVERY_ABOVE } from '../../data/pricing';
 import { PRODUCTS } from '../../data/mockData';
 import { useStore } from '../../store/useStore';
@@ -51,7 +52,6 @@ import {
   Knife01Icon,
   RefreshIcon,
   Tick02Icon,
-  PackageIcon,
   Scooter01Icon,
   Home01Icon,
 } from '../../components/HugeIcon';
@@ -951,19 +951,22 @@ export default function HomeScreen() {
 
             <View style={styles.liveSteps}>
               {LIVE_STEPS.map((step, i) => {
-                const current = liveStep(activeOrder.status);
+                const current = customerStage(activeOrder.status);
                 const done = i < current;
                 const now = i === current;
                 return (
                   <React.Fragment key={step.key}>
                     {i > 0 && <View style={[styles.liveLine, i <= current && styles.liveLineDone]} />}
-                    <View style={[styles.liveStep, done && styles.liveStepDone, now && styles.liveStepNow]}>
-                      <AppIcon
-                        icon={done ? Tick02Icon : step.icon}
-                        size={14}
-                        color={done ? '#FFFFFF' : now ? '#DC2626' : '#9CA3AF'}
-                        strokeWidth={2.2}
-                      />
+                    <View style={styles.liveStepCol}>
+                      <View style={[styles.liveStep, done && styles.liveStepDone, now && styles.liveStepNow]}>
+                        <AppIcon
+                          icon={done ? Tick02Icon : step.icon}
+                          size={15}
+                          color={done ? '#FFFFFF' : now ? '#DC2626' : '#9CA3AF'}
+                          strokeWidth={2.2}
+                        />
+                      </View>
+                      <Text style={[styles.liveStepLabel, (done || now) && styles.liveStepLabelOn]}>{step.label}</Text>
                     </View>
                   </React.Fragment>
                 );
@@ -1272,29 +1275,10 @@ const LIVE_STATUS_TEXT: Record<string, string> = {
 };
 
 const LIVE_STEPS = [
-  { key: 'placed', icon: Tick02Icon },
-  { key: 'prepping', icon: Knife01Icon },
-  { key: 'packed', icon: PackageIcon },
-  { key: 'onway', icon: Scooter01Icon },
-  { key: 'home', icon: Home01Icon },
+  { key: 'preparing', label: 'Preparing', icon: Knife01Icon },
+  { key: 'on_the_way', label: 'On the way', icon: Scooter01Icon },
+  { key: 'delivered', label: 'Delivered', icon: Home01Icon },
 ];
-
-// Which of the five steps the order is on (the last one, home, means delivered).
-function liveStep(status: string): number {
-  switch (status) {
-    case 'butcher_prepping':
-      return 1;
-    case 'cold_packed':
-      return 2;
-    case 'rider_assigned':
-    case 'out_for_delivery':
-      return 3;
-    case 'delivered':
-      return 4;
-    default:
-      return 0;
-  }
-}
 
 const TRUST_POINTS = [
   { title: '30 mins', sub: 'Fast delivery', icon: FlashIcon },
@@ -1521,11 +1505,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 14,
+    paddingHorizontal: 4,
+  },
+  liveStepCol: {
+    alignItems: 'center',
+    width: 64,
+  },
+  liveStepLabel: {
+    marginTop: 5,
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#9CA3AF',
+  },
+  liveStepLabelOn: {
+    color: '#111111',
   },
   liveStep: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     backgroundColor: '#F4F4F6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1541,7 +1539,8 @@ const styles = StyleSheet.create({
   liveLine: {
     flex: 1,
     height: 3,
-    marginHorizontal: 4,
+    marginTop: -18,
+    marginHorizontal: -12,
     borderRadius: 2,
     backgroundColor: '#ECECEE',
   },

@@ -8,7 +8,7 @@ import { goBack } from '../../utils/navigation';
 import { confirmAction } from '../../utils/dialogs';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { SUPPORT_EMAIL } from '../../constants/support';
-import type { OrderStatus } from '../../types';
+import { CUSTOMER_STAGES, customerStage } from '../../utils/orderStage';
 import {
   AppIcon,
   ArrowLeft01Icon,
@@ -36,13 +36,7 @@ const C = {
   track: '#E5E7EB',
 };
 
-const STAGES: { key: OrderStatus; title: string; sub: string }[] = [
-  { key: 'placed', title: 'Order placed', sub: 'We’ve received your order' },
-  { key: 'butcher_prepping', title: 'Being prepared', sub: 'Cleaned and cut the way you chose' },
-  { key: 'cold_packed', title: 'Packed', sub: 'Sealed and packed cold' },
-  { key: 'out_for_delivery', title: 'On the way', sub: 'Your rider is heading to you' },
-  { key: 'delivered', title: 'Delivered', sub: 'Enjoy your meal' },
-];
+const STAGES = CUSTOMER_STAGES;
 
 const HEADLINE: Record<string, { title: string; sub: string }> = {
   placed: { title: 'Order placed', sub: 'The store will start preparing it shortly.' },
@@ -99,8 +93,7 @@ export default function OrderTrackingScreen() {
 
   const isCancelled = order.status === 'cancelled';
   const isDelivered = order.status === 'delivered';
-  const stageIndex =
-    order.status === 'rider_assigned' ? 3 : Math.max(0, STAGES.findIndex((s) => s.key === order.status));
+  const stageIndex = customerStage(order.status);
   const headline = HEADLINE[order.status] || HEADLINE.placed;
   const itemCount = order.items.reduce((n, item) => n + item.quantity, 0);
 
@@ -173,10 +166,10 @@ export default function OrderTrackingScreen() {
 
           {!isCancelled && (
             <View style={styles.segments} accessibilityLabel={`Step ${stageIndex + 1} of ${STAGES.length}`}>
-              {STAGES.slice(1).map((stage, i) => (
+              {STAGES.map((stage, i) => (
                 <View
                   key={stage.key}
-                  style={[styles.segment, (i < stageIndex || isDelivered) && styles.segmentDone]}
+                  style={[styles.segment, (i <= stageIndex || isDelivered) && styles.segmentDone]}
                 />
               ))}
             </View>

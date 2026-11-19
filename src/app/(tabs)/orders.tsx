@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
 import { reorderToCart } from '../../utils/reorder';
+import { customerStage } from '../../utils/orderStage';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import type { Order } from '../../types';
@@ -100,8 +101,8 @@ export default function OrdersScreen() {
                 {itemCount(o)} item{itemCount(o) === 1 ? '' : 's'} · ₹{o.total} · Pay on delivery
               </Text>
               <View style={styles.segments}>
-                {[1, 2, 3, 4].map((n) => (
-                  <View key={n} style={[styles.segment, n <= st.step && styles.segmentDone]} />
+                {[0, 1, 2].map((n) => (
+                  <View key={n} style={[styles.segment, n <= customerStage(o.status) && styles.segmentDone]} />
                 ))}
               </View>
               <View style={styles.trackRow}>
