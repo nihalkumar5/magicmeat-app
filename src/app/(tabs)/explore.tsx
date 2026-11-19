@@ -21,7 +21,7 @@ import { useTabBarInset } from '../../components/FloatingTabBar';
 import { useStore } from '../../store/useStore';
 import type { MeatCategory, Product } from '../../types';
 import { AppIcon, Search01Icon, Sorting01Icon, DeliveryTruck01Icon, GridViewIcon } from '../../components/HugeIcon';
-import { CATEGORY_IMAGES, CATEGORY_IMG_3D, CATEGORY_TILE_3D } from '../../data/categoryImages';
+import { CATEGORY_IMAGES, CATEGORY_IMG_3D, categoryTint } from '../../data/categoryImages';
 
 const C = {
   bg: '#FFFFFF',
@@ -129,7 +129,9 @@ export default function ShopScreen() {
                 accessibilityLabel={cat.label}
               >
                 {on && <View style={styles.railBar} />}
-                <View style={[styles.railImgWrap, on && styles.railImgWrapOn]}>
+                <View
+                  style={[styles.railImgWrap, { backgroundColor: categoryTint(cat.id) }, on && styles.railImgWrapOn]}
+                >
                   {CATEGORY_IMAGES[cat.id] ? (
                     <Image source={CATEGORY_IMAGES[cat.id]} style={styles.railImg} resizeMode="contain" />
                   ) : (
@@ -274,16 +276,14 @@ const styles = StyleSheet.create({
     borderRadius: 27,
     alignItems: 'center',
     justifyContent: 'center',
-    ...CATEGORY_TILE_3D,
   },
   railImgWrapOn: {
     borderWidth: 2,
     borderColor: C.red,
   },
   railImg: {
-    width: '90%',
-    height: '90%',
-    marginTop: -2,
+    width: '100%',
+    height: '100%',
     ...CATEGORY_IMG_3D,
   },
   railLabel: {

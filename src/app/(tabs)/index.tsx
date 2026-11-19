@@ -30,7 +30,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { FadeInUp, PressableScale } from '../../components/motion';
-import { CATEGORY_IMAGES, CATEGORY_IMG_3D, CATEGORY_TILE_3D } from '../../data/categoryImages';
+import { CATEGORY_IMAGES, CATEGORY_IMG_3D, categoryTint } from '../../data/categoryImages';
 import {
   AppIcon,
   Location01Icon,
@@ -949,7 +949,7 @@ export default function HomeScreen() {
                 accessibilityRole="button"
                 accessibilityLabel={cat.label}
               >
-                <View style={styles.mCategoryTile}>
+                <View style={[styles.mCategoryTile, { backgroundColor: categoryTint(cat.id) }]}>
                   {cat.source ? (
                     <Image source={cat.source} style={styles.mCategoryImg} resizeMode="contain" fadeDuration={0} />
                   ) : (
@@ -1557,21 +1557,20 @@ const styles = StyleSheet.create({
   mCategoryItem: {
     width: '25%',
     paddingHorizontal: 5,
-    marginBottom: 12,
+    marginBottom: 14,
     alignItems: 'center',
   },
+  // Squircle-ish tile in the category's tint; the plate fills it.
   mCategoryTile: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 20,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    ...CATEGORY_TILE_3D,
   },
   mCategoryImg: {
-    width: '88%',
-    height: '88%',
-    marginTop: -4,
+    width: '104%',
+    height: '104%',
     ...CATEGORY_IMG_3D,
   },
   mCategoryAllIcon: {
@@ -1581,18 +1580,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#7C2D12',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowColor: '#1C1C1E',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 2,
   },
   mCategoryLabel: {
-    marginTop: 6,
-    fontSize: 12,
+    marginTop: 7,
+    fontSize: 12.5,
     lineHeight: 15,
     fontWeight: '600',
-    color: '#111111',
+    letterSpacing: -0.1,
+    color: '#1C1C1E',
     textAlign: 'center',
   },
   mBrowseAll: {

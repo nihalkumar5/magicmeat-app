@@ -1,4 +1,4 @@
-import { Platform, type ImageStyle, type ImageSourcePropType, type ViewStyle } from 'react-native';
+import { Platform, type ImageStyle, type ImageSourcePropType } from 'react-native';
 import type { MeatCategory } from '../types';
 
 // MagicMeat category cut-outs (512px transparent PNGs on a plate). Shown on
@@ -13,13 +13,26 @@ export const CATEGORY_IMAGES: Partial<Record<MeatCategory, ImageSourcePropType>>
   'fresh-produce': require('../../assets/categories/veggies-fruits.png'),
 };
 
-/** Warm tile colour behind the cut-outs. */
-export const CATEGORY_TILE_BG = '#FBF4EE';
-
-// The tile itself stays flat; only the photo gets depth.
-export const CATEGORY_TILE_3D: ViewStyle = {
-  backgroundColor: CATEGORY_TILE_BG,
+/**
+ * Tile tints. Every tint has the same lightness (≈94.5 %) and a gentle
+ * saturation, and its hue follows the food on the plate: peach for chicken,
+ * rose for mutton, a cool sea-blue for fish, apricot for curry cuts, cream
+ * for eggs, sage for vegetables. Equal lightness keeps the grid calm; the
+ * hue shift lets each tile read at a glance, and the food stays the most
+ * saturated thing on screen. 'all' is a quiet neutral so the brand-red icon
+ * leads.
+ */
+export const CATEGORY_TINT: Record<string, string> = {
+  chicken: '#FAEDE8',
+  mutton: '#F9E9EB',
+  fish: '#EBF2F7',
+  'curry-cuts': '#FAF0E8',
+  eggs: '#F9F5E9',
+  'fresh-produce': '#EDF6EC',
+  all: '#F0F0F2',
 };
+
+export const categoryTint = (id: string) => CATEGORY_TINT[id] || CATEGORY_TINT.all;
 
 // The plate floats above the tile with its own soft drop shadow that
 // follows its round shape (filter on web/Android, layer shadow on iOS).
