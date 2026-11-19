@@ -39,7 +39,8 @@
     "test:rules": "firebase emulators:exec --only firestore --project demo-magicmeat \"tsx scripts/test-rules.ts\"",
     "seed": "tsx scripts/seed-products.ts",
     "make-admin": "tsx scripts/make-admin.ts",
-    "emulators": "firebase emulators:start --only firestore,auth --project demo-magicmeat"
+    "emulators": "firebase emulators:start --only firestore,auth --project demo-magicmeat",
+    "set-password": "tsx scripts/set-password.ts"
   },
   "private": true
 }

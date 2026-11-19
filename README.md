@@ -62,6 +62,13 @@ Add user, then:
 npm run make-admin -- --project magicmeat-gmpqj you@example.com
 ```
 
+To set or change that account's password without the reset email (it asks
+in a hidden prompt):
+
+```bash
+npm run set-password -- --project magicmeat-gmpqj you@example.com
+```
+
 ### Changing prices
 
 Edit `basePrice` / `priceDelta` in `src/data/mockData.ts` (pack sizes are in
