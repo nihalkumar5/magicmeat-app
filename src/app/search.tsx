@@ -8,27 +8,24 @@ import {
   TextInput,
   Image,
   Platform,
-  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
 import { goBack } from '../utils/navigation';
 import { PRODUCTS } from '../data/mockData';
-import { Product } from '../types';
+import { MeatCategory, Product } from '../types';
 import { FloatingCartBar } from '../components/FloatingCartBar';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { StatusBar } from 'expo-status-bar';
 import {
   AppIcon,
-  ArrowLeft02Icon,
   Search01Icon,
   Cancel01Icon,
   Clock01Icon,
-  FireIcon,
   PlusSignIcon,
   MinusSignIcon,
-  CheckmarkBadge01Icon,
+  ArrowUpRight01Icon,
 } from '../components/HugeIcon';
 
 const TRENDING_KEYWORDS = [
@@ -42,14 +39,29 @@ const TRENDING_KEYWORDS = [
   'Boneless',
 ];
 
-const SEARCH_CATEGORIES = [
-  { id: 'chicken', name: 'Fresh Chicken', icon: '🍗', color: '#FEF2F2', borderColor: '#FECACA' },
-  { id: 'mutton', name: 'Prime Mutton', icon: '🥩', color: '#FFF7ED', borderColor: '#FED7AA' },
-  { id: 'fish', name: 'Fish', icon: '🦐', color: '#EFF6FF', borderColor: '#BFDBFE' },
-  { id: 'eggs', name: 'Farm Fresh Eggs', icon: '🥚', color: '#FEFCE8', borderColor: '#FEF08A' },
-  { id: 'ready-to-cook', name: 'Ready to Cook', icon: '🔥', color: '#FAF5FF', borderColor: '#E9D5FF' },
-  { id: 'fresh-produce', name: 'Veggies & Fruits', icon: '🥕', color: '#F0FDF4', borderColor: '#BBF7D0' },
-];
+// Category tiles use a real product photo from that category.
+const SEARCH_CATEGORIES: { id: MeatCategory; name: string; image: string }[] = (
+  [
+    { id: 'chicken', name: 'Chicken' },
+    { id: 'mutton', name: 'Mutton' },
+    { id: 'fish', name: 'Fish' },
+    { id: 'eggs', name: 'Eggs' },
+    { id: 'ready-to-cook', name: 'Ready to cook' },
+    { id: 'fresh-produce', name: 'Veggies & fruits' },
+  ] as { id: MeatCategory; name: string }[]
+).map((c) => ({ ...c, image: PRODUCTS.find((p) => p.category === c.id)?.image || '' }));
+
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  placeholder: '#8E8E93',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  green: '#15803D',
+  fill: 'rgba(118, 118, 128, 0.12)',
+};
 
 const SYNONYM_MAP: Record<string, string[]> = {
   chicken: ['murga', 'murgi', 'poultry', 'desi', 'tangdi', 'leg piece', 'wings', 'breast', 'chiken', 'chikn'],
@@ -64,16 +76,33 @@ const SYNONYM_MAP: Record<string, string[]> = {
   boneless: ['cubes', 'breast', 'fillet', 'tikka', 'lean', 'no bone', 'boneless breast'],
 };
 
+const CATEGORY_KEYS = new Set(['chicken', 'mutton', 'fish', 'eggs', 'ready-to-cook', 'fresh-produce']);
+
+// Hindi names that point at one specific product.
+const WORD_ALIASES: Record<string, string> = {
+  pyaz: 'onion',
+  pyaaz: 'onion',
+  tamatar: 'tomato',
+  adrak: 'ginger',
+  lehsun: 'garlic',
+  lahsun: 'garlic',
+  kela: 'banana',
+  seb: 'apple',
+  santra: 'orange',
+  amrood: 'guava',
+  angur: 'grapes',
+  potato: 'aloo',
+  coriander: 'dhaniya',
+};
+
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'under300' | 'highprotein'>('all');
 
-  const { cart, addToCart, updateQuantity, setCustomizerProduct } = useStore();
+  const { cart, addToCart, updateQuantity, setCustomizerProduct, setSelectedCategory } = useStore();
   const inputRef = useRef<any>(null);
 
-  const { width } = useWindowDimensions();
-  const isDesktop = Platform.OS === 'web' && width >= 768;
 
   // Auto focus input on mount
   useEffect(() => {
@@ -99,46 +128,52 @@ export default function SearchScreen() {
     if (!q) return [];
 
     // Split words
-    const queryWords = q.split(/\s+/).filter(Boolean);
+    const queryWords = q
+      .split(/\s+/)
+      .filter(Boolean)
+      .map((word) => WORD_ALIASES[word] || word);
 
-    return PRODUCTS.filter((product) => {
-      const pName = product.name.toLowerCase();
-      const pHindi = (product.hindiTitle || '').toLowerCase();
-      const pDesc = product.description.toLowerCase();
-      const pCat = product.category.toLowerCase();
+    // Word-start match, so "anda" doesn't hit "standard".
+    const has = (text: string, word: string) =>
+      new RegExp(`(^|[^a-z0-9])${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`).test(text);
 
-      // Check cuts
-      const cutNames = product.availableCuts.map((c) => c.name.toLowerCase()).join(' ');
-      const cutDescs = product.availableCuts.map((c) => c.description.toLowerCase()).join(' ');
-      const cutBestFor = product.availableCuts.map((c) => c.bestFor.toLowerCase()).join(' ');
-
-      const combinedProductText = `${pName} ${pHindi} ${pDesc} ${pCat} ${cutNames} ${cutDescs} ${cutBestFor}`;
-
-      // Check each query word or its synonyms
-      const matchesAllWords = queryWords.every((word) => {
-        // Direct substring match
-        if (combinedProductText.includes(word)) return true;
-
-        // Check if word maps to any category/keyword synonyms
-        for (const [key, synonyms] of Object.entries(SYNONYM_MAP)) {
-          const matchKey = word === key || synonyms.includes(word);
-          if (matchKey) {
-            if (pCat === key || combinedProductText.includes(key)) return true;
-            if (synonyms.some((s) => combinedProductText.includes(s))) return true;
-          }
+    const matchesWord = (product: Product, text: string, word: string) => {
+      if (has(text, word)) return true;
+      // A category word ("mutton", "gosht", "machli") matches only that
+      // category, so chicken keema doesn't show up for "mutton". Other
+      // keywords ("biryani", "keema") match the product text.
+      for (const [key, synonyms] of Object.entries(SYNONYM_MAP)) {
+        if (word !== key && !synonyms.includes(word)) continue;
+        if (CATEGORY_KEYS.has(key)) {
+          if (product.category === key) return true;
+        } else if (has(text, key) || synonyms.some((syn) => has(text, syn))) {
+          return true;
         }
+      }
+      return false;
+    };
 
-        return false;
-      });
-
-      if (!matchesAllWords) return false;
-
-      // Apply secondary filters
+    const matches = PRODUCTS.filter((product) => {
       if (activeFilter === 'under300' && product.basePrice > 300) return false;
       if (activeFilter === 'highprotein' && (product.macros?.proteinGrams || 0) < 20) return false;
-
-      return true;
+      const text = [
+        product.name,
+        product.hindiTitle || '',
+        product.description,
+        product.category,
+        ...product.availableCuts.map((c) => `${c.name} ${c.description} ${c.bestFor}`),
+      ]
+        .join(' ')
+        .toLowerCase();
+      return queryWords.every((word) => matchesWord(product, text, word));
     });
+
+    // If some products have every word in their name, show only those
+    // ("rohu" shows Rohu, not every fish); otherwise show the broader matches.
+    const byName = matches.filter((product) =>
+      queryWords.every((word) => has(product.name.toLowerCase(), word))
+    );
+    return byName.length > 0 ? byName : matches;
   }, [searchQuery, activeFilter]);
 
   const handleAddProduct = (product: Product) => {
@@ -153,376 +188,266 @@ export default function SearchScreen() {
     return cart.find((item) => item.product.id === productId);
   };
 
+  const openCategory = (category: MeatCategory) => {
+    setSelectedCategory(category);
+    router.push('/(tabs)/explore');
+  };
+
+  const query = searchQuery.trim();
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <View style={[styles.mainContainer, isDesktop && styles.desktopContainer]}>
-        {/* Top Search Bar Header */}
-        <View style={styles.headerBar}>
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => goBack()}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-          >
-            <AppIcon icon={ArrowLeft02Icon} size={22} color="#0F172A" strokeWidth={2.2} />
-          </TouchableOpacity>
 
-          <View style={styles.searchInputContainer}>
-            <AppIcon icon={Search01Icon} size={18} color="#DC2626" strokeWidth={2.2} />
-            <TextInput
-              ref={inputRef}
-              style={styles.searchInput}
-              placeholder="Search chicken, mutton, fish, eggs"
-              placeholderTextColor="#94A3B8"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              returnKeyType="search"
-              onSubmitEditing={() => {
-                if (searchQuery.trim()) {
-                  handleSelectKeyword(searchQuery.trim());
-                }
-              }}
-            />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity
-                style={styles.clearBtn}
-                onPress={() => setSearchQuery('')}
-                activeOpacity={0.7}
-              >
-                <AppIcon icon={Cancel01Icon} size={16} color="#64748B" />
-              </TouchableOpacity>
-            )}
-          </View>
+      {/* Search bar */}
+      <View style={styles.header}>
+        <View style={styles.field}>
+          <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder="Chicken, mutton, fish, eggs…"
+            placeholderTextColor={C.placeholder}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+            onSubmitEditing={() => query && handleSelectKeyword(query)}
+            accessibilityLabel="Search products"
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity
+              onPress={() => setSearchQuery('')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityLabel="Clear search"
+            >
+              <View style={styles.clearCircle}>
+                <AppIcon icon={Cancel01Icon} size={11} color="#FFFFFF" strokeWidth={3} />
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
+        <TouchableOpacity onPress={() => goBack()} hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}>
+          <Text style={styles.cancel}>Cancel</Text>
+        </TouchableOpacity>
+      </View>
 
-        {/* Content Area */}
-        <ScrollView
-          style={styles.scrollArea}
-          contentContainerStyle={[
-            styles.scrollContent,
-            cart.length > 0 && { paddingBottom: 100 },
-          ]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          removeClippedSubviews={Platform.OS === 'android'}
-          overScrollMode="never"
-        >
-          {/* STATE 1: Empty Query - Show Discover & History */}
-          {searchQuery.trim().length === 0 ? (
-            <View style={styles.discoveryWrapper}>
-              {/* Recent Searches (if available) */}
-              {recentSearches.length > 0 && (
-                <View style={styles.sectionBlock}>
-                  <View style={styles.sectionHeaderRow}>
-                    <View style={styles.sectionTitleWithIcon}>
-                      <AppIcon icon={Clock01Icon} size={16} color="#64748B" />
-                      <Text style={styles.sectionTitle}>Recent searches</Text>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[styles.content, cart.length > 0 && { paddingBottom: 110 }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        removeClippedSubviews={Platform.OS === 'android'}
+      >
+        {query.length === 0 ? (
+          <>
+            {/* Recent */}
+            {recentSearches.length > 0 && (
+              <>
+                <View style={styles.sectionRow}>
+                  <Text style={styles.sectionTitle}>Recent</Text>
+                  <TouchableOpacity onPress={handleClearRecent} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.link}>Clear</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={styles.card}>
+                  {recentSearches.map((item, idx) => (
+                    <View key={`recent-${item}`}>
+                      {idx > 0 && <View style={[styles.divider, { marginLeft: 44 }]} />}
+                      <TouchableOpacity style={styles.listRow} onPress={() => handleSelectKeyword(item)} activeOpacity={0.6}>
+                        <AppIcon icon={Clock01Icon} size={17} color={C.placeholder} strokeWidth={2} />
+                        <Text style={styles.listText}>{item}</Text>
+                        <AppIcon icon={ArrowUpRight01Icon} size={16} color={C.placeholder} strokeWidth={2} />
+                      </TouchableOpacity>
                     </View>
-                    <TouchableOpacity onPress={handleClearRecent} activeOpacity={0.7}>
-                      <Text style={styles.clearActionText}>Clear</Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View style={styles.chipsWrap}>
-                    {recentSearches.map((item, idx) => (
-                      <TouchableOpacity
-                        key={`recent-${idx}`}
-                        style={styles.recentChip}
-                        onPress={() => handleSelectKeyword(item)}
-                        activeOpacity={0.8}
-                        accessibilityRole="button"
-                      >
-                        <Text style={styles.recentChipText}>{item}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {/* Trending Searches */}
-              <View style={styles.sectionBlock}>
-                <View style={styles.sectionTitleWithIcon}>
-                  <AppIcon icon={FireIcon} size={17} color="#DC2626" />
-                  <Text style={styles.sectionTitle}>Popular searches</Text>
-                </View>
-
-                <View style={styles.chipsWrap}>
-                  {TRENDING_KEYWORDS.map((item, idx) => (
-                    <TouchableOpacity
-                      key={`trend-${idx}`}
-                      style={styles.trendingChip}
-                      onPress={() => handleSelectKeyword(item)}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                    >
-                      <AppIcon icon={Search01Icon} size={12} color="#9CA3AF" strokeWidth={2} />
-                      <Text style={styles.trendingChipText}>{item}</Text>
-                    </TouchableOpacity>
                   ))}
                 </View>
-              </View>
+              </>
+            )}
 
-              {/* Browse by Meat Category */}
-              <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Shop by category</Text>
-                <View style={styles.categoryGrid}>
-                  {SEARCH_CATEGORIES.map((cat) => (
-                    <TouchableOpacity
-                      key={cat.id}
-                      style={[
-                        styles.categoryCard,
-                        { backgroundColor: cat.color, borderColor: cat.borderColor },
-                      ]}
-                      onPress={() => handleSelectKeyword(cat.name)}
-                      activeOpacity={0.8}
-                      accessibilityRole="button"
-                    >
-                      <Text style={styles.categoryEmoji}>{cat.icon}</Text>
-                      <Text style={styles.categoryCardName}>{cat.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Cold Chain Guarantee Banner */}
-              <View style={styles.guaranteeBanner}>
-                <View style={styles.guaranteeIconCircle}>
-                  <AppIcon icon={CheckmarkBadge01Icon} size={20} color="#059669" />
-                </View>
-                <View style={styles.guaranteeTextCol}>
-                  <Text style={styles.guaranteeTitle}>Delivery in 30 mins</Text>
-                  <Text style={styles.guaranteeSub}>
-                    Cleaned, cut to order and packed cold. 100% halal.
-                  </Text>
-                </View>
-              </View>
+            {/* Popular */}
+            <Text style={[styles.sectionTitle, styles.sectionGap]}>Popular searches</Text>
+            <View style={styles.chips}>
+              {TRENDING_KEYWORDS.map((item) => (
+                <TouchableOpacity
+                  key={`trend-${item}`}
+                  style={styles.chip}
+                  onPress={() => handleSelectKeyword(item)}
+                  activeOpacity={0.7}
+                  accessibilityRole="button"
+                >
+                  <Text style={styles.chipText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          ) : (
-            /* STATE 2: Active Query - Show Live Results */
-            <View style={styles.resultsWrapper}>
-              {/* Meta bar with result count & filters */}
-              <View style={styles.resultsMetaBar}>
-                <Text style={styles.resultsCountText}>
-                  {searchResults.length > 0
-                    ? `${searchResults.length} result${searchResults.length === 1 ? "" : "s"} for "${searchQuery}"`
-                    : `No results for "${searchQuery}"`}
-                </Text>
 
-                {searchResults.length > 0 && (
-                  <View style={styles.filterRow}>
-                    <TouchableOpacity
-                      style={[styles.filterPill, activeFilter === 'all' && styles.filterPillActive]}
-                      onPress={() => setActiveFilter('all')}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.filterPillText,
-                          activeFilter === 'all' && styles.filterPillTextActive,
-                        ]}
-                      >
-                        All
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.filterPill,
-                        activeFilter === 'under300' && styles.filterPillActive,
-                      ]}
-                      onPress={() =>
-                        setActiveFilter(activeFilter === 'under300' ? 'all' : 'under300')
-                      }
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.filterPillText,
-                          activeFilter === 'under300' && styles.filterPillTextActive,
-                        ]}
-                      >
-                        Under ₹300
-                      </Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={[
-                        styles.filterPill,
-                        activeFilter === 'highprotein' && styles.filterPillActive,
-                      ]}
-                      onPress={() =>
-                        setActiveFilter(activeFilter === 'highprotein' ? 'all' : 'highprotein')
-                      }
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.filterPillText,
-                          activeFilter === 'highprotein' && styles.filterPillTextActive,
-                        ]}
-                      >
-                        High Protein
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
-              </View>
-
-              {/* Product Cards List */}
-              {searchResults.length > 0 ? (
-                <View style={styles.productsList}>
-                  {searchResults.map((product) => {
-                    const cartItem = getProductCartItem(product.id);
-                    const qtyInCart = cartItem ? cartItem.quantity : 0;
-                    const discountPercent = product.originalPrice
-                      ? Math.round(
-                          ((product.originalPrice - product.basePrice) / product.originalPrice) * 100
-                        )
-                      : 0;
-
-                    return (
-                      <TouchableOpacity
-                        key={product.id}
-                        style={styles.searchProductCard}
-                        onPress={() =>
-                          router.push({
-                            pathname: '/product/[id]',
-                            params: { id: product.id },
-                          })
-                        }
-                        activeOpacity={0.92}
-                      >
-                        {/* Left: Product Thumbnail */}
-                        <View style={styles.cardImageWrapper}>
-                          <Image
-                            source={{ uri: optimizeImageUrl(product.image, 240) }}
-                            style={styles.cardImage}
-                            resizeMode="cover"
-                            fadeDuration={0}
-                          />
-                          {discountPercent > 0 && (
-                            <View style={styles.cardDiscountBadge}>
-                              <Text style={styles.cardDiscountText}>{discountPercent}% OFF</Text>
-                            </View>
-                          )}
-                          <View style={styles.cardSpeedBadge}>
-                            <Text style={styles.cardSpeedText}>30 MINS</Text>
-                          </View>
-                        </View>
-
-                        {/* Middle: Details */}
-                        <View style={styles.cardDetailsCol}>
-                          <Text style={styles.cardTitle} numberOfLines={2}>
-                            {product.name}
-                          </Text>
-
-                          {product.hindiTitle && (
-                            <Text style={styles.cardHindiTitle} numberOfLines={1}>
-                              {product.hindiTitle}
-                            </Text>
-                          )}
-
-                          <View style={styles.cardSpecsRow}>
-                            <Text style={styles.cardSpecText}>
-                              {product.netWeight} Net • {product.pieces}
-                            </Text>
-                          </View>
-
-                          <View style={styles.cardPriceRow}>
-                            <Text style={styles.cardPrice}>₹{product.basePrice}</Text>
-                            {product.originalPrice && (
-                              <Text style={styles.cardOrigPrice}>₹{product.originalPrice}</Text>
-                            )}
-                          </View>
-
-                          {product.availableCuts.length > 1 && (
-                            <Text style={styles.cardCustomizableHint}>Choose your cut</Text>
-                          )}
-                        </View>
-
-                        {/* Right: Add to Cart Button */}
-                        <View style={styles.cardActionCol}>
-                          {qtyInCart === 0 ? (
-                            <TouchableOpacity
-                              style={styles.addBtn}
-                              onPress={(e) => {
-                                e.stopPropagation();
-                                handleAddProduct(product);
-                              }}
-                              activeOpacity={0.85}
-                            >
-                              <Text style={styles.addBtnText}>Add</Text>
-                              <AppIcon icon={PlusSignIcon} size={14} color="#DC2626" strokeWidth={2.5} />
-                            </TouchableOpacity>
-                          ) : (
-                            <View style={styles.quantityStepper}>
-                              <TouchableOpacity
-                                style={styles.stepperMinus}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  if (cartItem) updateQuantity(cartItem.cartItemId, -1);
-                                }}
-                                activeOpacity={0.8}
-                              >
-                                <AppIcon icon={MinusSignIcon} size={14} color="#FFFFFF" strokeWidth={2.5} />
-                              </TouchableOpacity>
-
-                              <Text style={styles.stepperQtyText}>{qtyInCart}</Text>
-
-                              <TouchableOpacity
-                                style={styles.stepperPlus}
-                                onPress={(e) => {
-                                  e.stopPropagation();
-                                  if (cartItem) updateQuantity(cartItem.cartItemId, 1);
-                                }}
-                                activeOpacity={0.8}
-                              >
-                                <AppIcon icon={PlusSignIcon} size={14} color="#FFFFFF" strokeWidth={2.5} />
-                              </TouchableOpacity>
-                            </View>
-                          )}
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : (
-                /* Senior UI/UX Empty Result State */
-                <View style={styles.emptyResultsBox}>
-                  <Image
-                    source={require('../../assets/illustrations/search_not_found.png')}
-                    style={styles.emptySearchIllustration}
-                    resizeMode="contain"
-                  />
-                  <Text style={styles.emptyTitle}>No matches found</Text>
-                  <Text style={styles.emptySubtitle}>
-                    We couldn&apos;t find anything matching &quot;{searchQuery}&quot;. Try one of these:
-                  </Text>
-
-                  <View style={styles.emptySuggestionsRow}>
-                    {['Chicken Curry Cut', 'Mutton Curry Cut', 'Chicken Breast', 'Eggs', 'Rohu Fish'].map(
-                      (item, idx) => (
-                        <TouchableOpacity
-                          key={`sugg-${idx}`}
-                          style={styles.emptySuggestionPill}
-                          onPress={() => handleSelectKeyword(item)}
-                          activeOpacity={0.8}
-                        >
-                          <Text style={styles.emptySuggestionText}>{item}</Text>
-                        </TouchableOpacity>
-                      )
+            {/* Categories */}
+            <Text style={[styles.sectionTitle, styles.sectionGap]}>Shop by category</Text>
+            <View style={styles.categoryGrid}>
+              {SEARCH_CATEGORIES.map((cat) => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={styles.categoryItem}
+                  onPress={() => openCategory(cat.id)}
+                  activeOpacity={0.8}
+                  accessibilityRole="button"
+                  accessibilityLabel={cat.name}
+                >
+                  <View style={styles.categoryTile}>
+                    {!!cat.image && (
+                      <Image source={{ uri: optimizeImageUrl(cat.image, 240) }} style={styles.categoryImg} resizeMode="cover" />
                     )}
                   </View>
-                </View>
-              )}
+                  <Text style={styles.categoryName} numberOfLines={1}>
+                    {cat.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
-          )}
-        </ScrollView>
+          </>
+        ) : (
+          <>
+            {/* Count + filters */}
+            <Text style={styles.countText}>
+              {searchResults.length > 0
+                ? `${searchResults.length} result${searchResults.length === 1 ? '' : 's'}`
+                : `No results for “${query}”`}
+            </Text>
+            {(searchResults.length > 0 || activeFilter !== 'all') && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+                {(
+                  [
+                    { key: 'all', label: 'All' },
+                    { key: 'under300', label: 'Under ₹300' },
+                    { key: 'highprotein', label: 'High protein' },
+                  ] as const
+                ).map((f) => {
+                  const active = activeFilter === f.key;
+                  return (
+                    <TouchableOpacity
+                      key={f.key}
+                      style={[styles.filter, active && styles.filterActive]}
+                      onPress={() => setActiveFilter(active && f.key !== 'all' ? 'all' : f.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterText, active && styles.filterTextActive]}>{f.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
 
-        {/* Global Floating Cart Bar */}
-        <FloatingCartBar />
-      </View>
+            {searchResults.length > 0 ? (
+              <View style={styles.card}>
+                {searchResults.map((product, idx) => {
+                  const cartItem = getProductCartItem(product.id);
+                  const qtyInCart = cartItem ? cartItem.quantity : 0;
+                  const off = product.originalPrice
+                    ? Math.round(((product.originalPrice - product.basePrice) / product.originalPrice) * 100)
+                    : 0;
+                  return (
+                    <View key={product.id}>
+                      {idx > 0 && <View style={[styles.divider, { marginLeft: 98 }]} />}
+                      <TouchableOpacity
+                        style={styles.resultRow}
+                        onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
+                        activeOpacity={0.7}
+                        accessibilityRole="button"
+                        accessibilityLabel={`${product.name}, ₹${product.basePrice}`}
+                      >
+                        <Image
+                          source={{ uri: optimizeImageUrl(product.image, 200) }}
+                          style={styles.thumb}
+                          resizeMode="cover"
+                          fadeDuration={0}
+                        />
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.resultName} numberOfLines={2}>
+                            {product.name}
+                          </Text>
+                          <Text style={styles.resultMeta} numberOfLines={1}>
+                            {product.netWeight}
+                            {product.pieces ? ` · ${product.pieces}` : ''}
+                          </Text>
+                          <View style={styles.priceRow}>
+                            <Text style={styles.price}>₹{product.basePrice}</Text>
+                            {!!product.originalPrice && product.originalPrice > product.basePrice && (
+                              <Text style={styles.mrp}>₹{product.originalPrice}</Text>
+                            )}
+                            {off > 0 && <Text style={styles.off}>{off}% off</Text>}
+                          </View>
+                        </View>
+
+                        {qtyInCart === 0 ? (
+                          <TouchableOpacity
+                            style={styles.addBtn}
+                            onPress={(e) => {
+                              e.stopPropagation();
+                              handleAddProduct(product);
+                            }}
+                            activeOpacity={0.8}
+                            accessibilityLabel={`Add ${product.name}`}
+                          >
+                            <Text style={styles.addText}>Add</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <View style={styles.stepper}>
+                            <TouchableOpacity
+                              style={styles.stepBtn}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                if (cartItem) updateQuantity(cartItem.cartItemId, -1);
+                              }}
+                              accessibilityLabel={`One less ${product.name}`}
+                            >
+                              <AppIcon icon={MinusSignIcon} size={14} color="#FFFFFF" strokeWidth={2.6} />
+                            </TouchableOpacity>
+                            <Text style={styles.stepQty}>{qtyInCart}</Text>
+                            <TouchableOpacity
+                              style={styles.stepBtn}
+                              onPress={(e) => {
+                                e.stopPropagation();
+                                if (cartItem) updateQuantity(cartItem.cartItemId, 1);
+                              }}
+                              accessibilityLabel={`One more ${product.name}`}
+                            >
+                              <AppIcon icon={PlusSignIcon} size={14} color="#FFFFFF" strokeWidth={2.6} />
+                            </TouchableOpacity>
+                          </View>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <View style={styles.empty}>
+                <Image
+                  source={require('../../assets/illustrations/search_not_found.png')}
+                  style={styles.emptyArt}
+                  resizeMode="contain"
+                />
+                <Text style={styles.emptyTitle}>No matches</Text>
+                <Text style={styles.emptySub}>
+                  {activeFilter !== 'all'
+                    ? 'Try removing the filter, or search for something else.'
+                    : 'Check the spelling or try one of these:'}
+                </Text>
+                <View style={[styles.chips, { justifyContent: 'center' }]}>
+                  {['Chicken Curry Cut', 'Mutton Curry Cut', 'Chicken Breast', 'Eggs', 'Rohu Fish'].map((item) => (
+                    <TouchableOpacity key={`sugg-${item}`} style={styles.chip} onPress={() => handleSelectKeyword(item)}>
+                      <Text style={styles.chipText}>{item}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+          </>
+        )}
+      </ScrollView>
+
+      <FloatingCartBar />
     </SafeAreaView>
   );
 }
@@ -530,420 +455,268 @@ export default function SearchScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.bg,
   },
-  mainContainer: {
-    flex: 1,
-    backgroundColor: '#F8FAFC',
-    width: '100%',
-    position: 'relative',
-  },
-  desktopContainer: {
-    maxWidth: 760,
-    alignSelf: 'center',
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  headerBar: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    gap: 10,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: C.bg,
   },
-  backBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+  field: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: C.fill,
+  },
+  input: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    color: C.text,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0 } as object) : null),
+  },
+  clearCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#AEAEB2',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#F1F5F9',
   },
-  searchInputContainer: {
-    flex: 1,
-    height: 44,
-    backgroundColor: '#F1F5F9',
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: '#0F172A',
+  cancel: {
+    fontSize: 16,
+    color: C.red,
     fontWeight: '500',
-    paddingVertical: 0,
-    outlineStyle: 'none' as any,
   },
-  clearBtn: {
-    padding: 4,
+  link: {
+    fontSize: 15,
+    color: C.red,
+    fontWeight: '600',
   },
-  scrollArea: {
-    flex: 1,
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 32,
   },
-  scrollContent: {
-    paddingBottom: 40,
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    overflow: 'hidden',
   },
-  discoveryWrapper: {
-    padding: 16,
-    gap: 24,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
   },
-  sectionBlock: {
-    gap: 12,
-  },
-  sectionHeaderRow: {
+  sectionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  sectionTitleWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    letterSpacing: 0.2,
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.3,
   },
-  clearActionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#DC2626',
+  sectionGap: {
+    marginTop: 24,
+    marginBottom: 12,
   },
-  chipsWrap: {
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    minHeight: 48,
+  },
+  listText: {
+    flex: 1,
+    fontSize: 16,
+    color: C.text,
+  },
+  chips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  recentChip: {
-    backgroundColor: '#FFFFFF',
+  chip: {
+    backgroundColor: C.card,
+    borderRadius: 18,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    height: 36,
+    justifyContent: 'center',
   },
-  recentChipText: {
-    fontSize: 13,
+  chipText: {
+    fontSize: 14,
     fontWeight: '500',
-    color: '#334155',
-  },
-  trendingChip: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#FEE2E2',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  trendingChipFlame: {
-    fontSize: 12,
-  },
-  trendingChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E293B',
+    color: C.text,
   },
   categoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    marginHorizontal: -6,
   },
-  categoryCard: {
-    width: '48%',
-    flexGrow: 1,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
+  categoryItem: {
+    width: '33.333%',
+    paddingHorizontal: 6,
+    marginBottom: 14,
     alignItems: 'center',
-    gap: 10,
   },
-  categoryEmoji: {
-    fontSize: 22,
-  },
-  categoryCardName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  guaranteeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ECFDF5',
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#A7F3D0',
-    gap: 12,
-  },
-  guaranteeIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#D1FAE5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  guaranteeTextCol: {
-    flex: 1,
-  },
-  guaranteeTitle: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#065F46',
-  },
-  guaranteeSub: {
-    fontSize: 11,
-    color: '#047857',
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  resultsWrapper: {
-    padding: 14,
-    gap: 12,
-  },
-  resultsMetaBar: {
-    gap: 10,
-    marginBottom: 4,
-  },
-  resultsCountText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-  },
-  filterRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-  },
-  filterPillActive: {
-    backgroundColor: '#DC2626',
-    borderColor: '#DC2626',
-  },
-  filterPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  filterPillTextActive: {
-    color: '#FFFFFF',
-  },
-  productsList: {
-    gap: 12,
-  },
-  searchProductCard: {
-    backgroundColor: '#FFFFFF',
+  categoryTile: {
+    width: '100%',
+    aspectRatio: 1,
     borderRadius: 16,
-    padding: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  cardImageWrapper: {
-    width: 90,
-    height: 90,
-    borderRadius: 12,
     overflow: 'hidden',
-    position: 'relative',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: '#E5E5EA',
   },
-  cardImage: {
+  categoryImg: {
     width: '100%',
     height: '100%',
   },
-  cardDiscountBadge: {
-    position: 'absolute',
-    top: 5,
-    left: 5,
-    backgroundColor: '#DC2626',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
+  categoryName: {
+    marginTop: 7,
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
   },
-  cardDiscountText: {
-    color: '#FFFFFF',
-    fontSize: 8.5,
-    fontWeight: '800',
+
+  /* results */
+  countText: {
+    fontSize: 13,
+    color: C.secondary,
+    marginLeft: 4,
   },
-  cardSpeedBadge: {
-    position: 'absolute',
-    bottom: 5,
-    left: 5,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 5,
-    paddingVertical: 2,
-    borderRadius: 4,
+  filterRow: {
+    gap: 8,
+    paddingVertical: 10,
   },
-  cardSpeedText: {
-    color: '#FFFFFF',
-    fontSize: 8,
-    fontWeight: '800',
-    letterSpacing: 0.4,
-  },
-  cardDetailsCol: {
-    flex: 1,
+  filter: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: C.card,
     justifyContent: 'center',
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0F172A',
-    lineHeight: 18,
+  filterActive: {
+    backgroundColor: C.text,
   },
-  cardHindiTitle: {
-    fontSize: 11,
-    color: '#64748B',
+  filterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
+  },
+  filterTextActive: {
+    color: '#FFFFFF',
+  },
+  resultRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  thumb: {
+    width: 74,
+    height: 74,
+    borderRadius: 12,
+    backgroundColor: C.bg,
+  },
+  resultName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+    lineHeight: 20,
+  },
+  resultMeta: {
+    fontSize: 13,
+    color: C.secondary,
     marginTop: 2,
   },
-  cardSpecsRow: {
-    marginTop: 4,
-  },
-  cardSpecText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  cardPriceRow: {
+  priceRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 6,
-    marginTop: 4,
+    marginTop: 5,
   },
-  cardPrice: {
-    fontSize: 15,
-    fontWeight: '900',
-    color: '#DC2626',
+  price: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.text,
   },
-  cardOrigPrice: {
+  mrp: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: '#9CA3AF',
     textDecorationLine: 'line-through',
   },
-  cardCustomizableHint: {
-    fontSize: 9.5,
-    color: '#059669',
+  off: {
+    fontSize: 12,
     fontWeight: '700',
-    marginTop: 2,
-  },
-  cardActionCol: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 70,
+    color: C.green,
   },
   addBtn: {
-    backgroundColor: '#FFFFFF',
+    height: 34,
+    minWidth: 68,
+    paddingHorizontal: 16,
+    borderRadius: 17,
     borderWidth: 1.5,
-    borderColor: '#DC2626',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  addBtnText: {
-    color: '#DC2626',
-    fontSize: 12,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  quantityStepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DC2626',
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  stepperMinus: {
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+    borderColor: C.red,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  stepperQtyText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '900',
-    minWidth: 18,
+  addText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.red,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: C.red,
+  },
+  stepBtn: {
+    width: 30,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepQty: {
+    minWidth: 16,
     textAlign: 'center',
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
   },
-  stepperPlus: {
-    paddingHorizontal: 8,
-    paddingVertical: 7,
+  empty: {
     alignItems: 'center',
-    justifyContent: 'center',
+    paddingTop: 24,
   },
-  emptyResultsBox: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    paddingHorizontal: 24,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    marginVertical: 16,
-  },
-  emptySearchIllustration: {
-    width: 130,
-    height: 130,
-    marginBottom: 12,
+  emptyArt: {
+    width: 180,
+    height: 150,
   },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '900',
-    color: '#0F172A',
-    letterSpacing: -0.3,
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+    marginTop: 8,
   },
-  emptySubtitle: {
-    fontSize: 13,
-    color: '#64748B',
+  emptySub: {
+    fontSize: 14,
+    color: C.secondary,
+    marginTop: 6,
+    marginBottom: 16,
     textAlign: 'center',
-    lineHeight: 18,
-  },
-  emptySuggestionsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'center',
-    marginTop: 10,
-  },
-  emptySuggestionPill: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 18,
-  },
-  emptySuggestionText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#DC2626',
   },
 });
