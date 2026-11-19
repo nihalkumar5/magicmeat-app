@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   Modal,
   Pressable,
+  type ImageSourcePropType,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DominosCard } from '../../components/DominosCard';
@@ -951,32 +952,18 @@ export default function HomeScreen() {
                 <View style={styles.mCategoryTile}>
                   {cat.mosaic ? (
                     <View style={styles.mCategoryMosaic}>
-                      {cat.mosaic.map((uri, i) => (
+                      {cat.mosaic.map((src, k) => (
                         <Image
-                          key={`${cat.id}-m${i}`}
-                          source={{ uri: optimizeImageUrl(uri, 120) }}
-                          style={{ width: (categoryTile - 2) / 2, height: (categoryTile - 2) / 2 }}
-                          resizeMode="cover"
+                          key={`${cat.id}-m${k}`}
+                          source={src}
+                          style={{ width: categoryTile * 0.4, height: categoryTile * 0.4 }}
+                          resizeMode="contain"
                           fadeDuration={0}
                         />
                       ))}
                     </View>
                   ) : (
-                    <Image
-                      source={{ uri: optimizeImageUrl(cat.image, 260) }}
-                      style={[
-                        styles.mCategoryImg,
-                        {
-                          transform: [
-                            { translateX: cat.focus.x * categoryTile },
-                            { translateY: cat.focus.y * categoryTile },
-                            { scale: cat.focus.s },
-                          ],
-                        },
-                      ]}
-                      resizeMode="cover"
-                      fadeDuration={0}
-                    />
+                    <Image source={cat.source} style={styles.mCategoryImg} resizeMode="contain" fadeDuration={0} />
                   )}
                 </View>
                 <Text style={styles.mCategoryLabel} numberOfLines={2}>
@@ -1171,30 +1158,30 @@ const PROMISES = [
 // Our own mutton curry cut photo for the jhatka story card.
 const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
 
-// Category grid (Instacart / Blinkit style): one clear photo per category,
-// zoomed onto the food so boards and props don't crowd a small tile.
-// focus: s = zoom, x / y = shift as a fraction of the tile (+ = right / down).
-const photoOf = (id: string) => PRODUCTS.find((p) => p.id === id)?.image || '';
+// Category grid (Instacart / Blinkit style): the store's own cut-out
+// photos (transparent, on a plate) sitting on a soft warm tile. See all is a
+// 2 x 2 of four of them.
+const CAT_IMG = {
+  chicken: require('../../../assets/categories/chicken.png'),
+  mutton: require('../../../assets/categories/mutton.png'),
+  fish: require('../../../assets/categories/fish.png'),
+  curry: require('../../../assets/categories/curry-cuts.png'),
+  eggs: require('../../../assets/categories/eggs.png'),
+  produce: require('../../../assets/categories/veggies-fruits.png'),
+};
 const HOME_CATEGORIES: {
   id: MeatCategory;
   label: string;
-  image: string;
-  focus: { s: number; x: number; y: number };
-  mosaic?: string[];
+  source?: ImageSourcePropType;
+  mosaic?: ImageSourcePropType[];
 }[] = [
-  { id: 'chicken', label: 'Chicken', image: photoOf('c3'), focus: { s: 1.3, x: 0.06, y: 0 } },
-  { id: 'mutton', label: 'Mutton', image: photoOf('m5'), focus: { s: 1.35, x: 0.05, y: 0 } },
-  { id: 'fish', label: 'Fish', image: photoOf('f2'), focus: { s: 1.15, x: -0.02, y: 0.02 } },
-  { id: 'curry-cuts', label: 'Curry cuts', image: photoOf('c1'), focus: { s: 1.5, x: -0.04, y: 0.08 } },
-  { id: 'eggs', label: 'Eggs', image: photoOf('e1'), focus: { s: 1.3, x: 0, y: 0.04 } },
-  { id: 'fresh-produce', label: 'Veggies & fruits', image: photoOf('v3'), focus: { s: 1.35, x: -0.02, y: 0 } },
-  {
-    id: 'all',
-    label: 'See all',
-    image: '',
-    focus: { s: 1, x: 0, y: 0 },
-    mosaic: ['c2', 'm2', 'f1', 'v6'].map(photoOf),
-  },
+  { id: 'chicken', label: 'Chicken', source: CAT_IMG.chicken },
+  { id: 'mutton', label: 'Mutton', source: CAT_IMG.mutton },
+  { id: 'fish', label: 'Fish', source: CAT_IMG.fish },
+  { id: 'curry-cuts', label: 'Curry cuts', source: CAT_IMG.curry },
+  { id: 'eggs', label: 'Eggs', source: CAT_IMG.eggs },
+  { id: 'fresh-produce', label: 'Veggies & fruits', source: CAT_IMG.produce },
+  { id: 'all', label: 'See all', mosaic: [CAT_IMG.chicken, CAT_IMG.mutton, CAT_IMG.fish, CAT_IMG.eggs] },
 ];
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
@@ -1593,24 +1580,24 @@ const styles = StyleSheet.create({
   mCategoryTile: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: 'hidden',
-    backgroundColor: '#F4F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBF4EE',
   },
   mCategoryImg: {
-    width: '100%',
-    height: '100%',
+    width: '92%',
+    height: '92%',
   },
   mCategoryMosaic: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    width: '100%',
+    height: '100%',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 2,
-    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    alignContent: 'center',
+    justifyContent: 'center',
   },
   mCategoryLabel: {
     marginTop: 6,
