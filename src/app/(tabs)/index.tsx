@@ -28,6 +28,7 @@ import { MeatCategory, Product } from '../../types';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
+import { FadeInUp, PressableScale } from '../../components/motion';
 import {
   AppIcon,
   Location01Icon,
@@ -935,50 +936,53 @@ export default function HomeScreen() {
 
         {/* Categories */}
         <View style={styles.mCategoryGrid}>
-          {HOME_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={`cat-${cat.id}`}
-              style={styles.mCategoryItem}
-              onPress={() => openCategory(cat.id)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={cat.label}
-            >
-              <View style={styles.mCategoryTile}>
-                {cat.mosaic ? (
-                  <View style={styles.mCategoryMosaic}>
-                    {cat.mosaic.map((uri, i) => (
-                      <Image
-                        key={`${cat.id}-m${i}`}
-                        source={{ uri: optimizeImageUrl(uri, 120) }}
-                        style={{ width: (categoryTile - 2) / 2, height: (categoryTile - 2) / 2 }}
-                        resizeMode="cover"
-                        fadeDuration={0}
-                      />
-                    ))}
-                  </View>
-                ) : (
-                  <Image
-                    source={{ uri: optimizeImageUrl(cat.image, 260) }}
-                    style={[
-                      styles.mCategoryImg,
-                      {
-                        transform: [
-                          { translateX: cat.focus.x * categoryTile },
-                          { translateY: cat.focus.y * categoryTile },
-                          { scale: cat.focus.s },
-                        ],
-                      },
-                    ]}
-                    resizeMode="cover"
-                    fadeDuration={0}
-                  />
-                )}
-              </View>
-              <Text style={styles.mCategoryLabel} numberOfLines={2}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
+          {HOME_CATEGORIES.map((cat, i) => (
+            <FadeInUp key={`cat-${cat.id}`} delay={80 + i * 45} style={styles.mCategoryItem}>
+              <PressableScale
+                containerStyle={{ width: '100%', alignItems: 'center' }}
+                style={{ width: '100%', alignItems: 'center' }}
+                scaleTo={0.93}
+                haptics="select"
+                onPress={() => openCategory(cat.id)}
+                accessibilityRole="button"
+                accessibilityLabel={cat.label}
+              >
+                <View style={styles.mCategoryTile}>
+                  {cat.mosaic ? (
+                    <View style={styles.mCategoryMosaic}>
+                      {cat.mosaic.map((uri, i) => (
+                        <Image
+                          key={`${cat.id}-m${i}`}
+                          source={{ uri: optimizeImageUrl(uri, 120) }}
+                          style={{ width: (categoryTile - 2) / 2, height: (categoryTile - 2) / 2 }}
+                          resizeMode="cover"
+                          fadeDuration={0}
+                        />
+                      ))}
+                    </View>
+                  ) : (
+                    <Image
+                      source={{ uri: optimizeImageUrl(cat.image, 260) }}
+                      style={[
+                        styles.mCategoryImg,
+                        {
+                          transform: [
+                            { translateX: cat.focus.x * categoryTile },
+                            { translateY: cat.focus.y * categoryTile },
+                            { scale: cat.focus.s },
+                          ],
+                        },
+                      ]}
+                      resizeMode="cover"
+                      fadeDuration={0}
+                    />
+                  )}
+                </View>
+                <Text style={styles.mCategoryLabel} numberOfLines={2}>
+                  {cat.label}
+                </Text>
+              </PressableScale>
+            </FadeInUp>
           ))}
         </View>
 

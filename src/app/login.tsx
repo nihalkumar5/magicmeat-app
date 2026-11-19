@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { OtpError, requestOtp, verifyOtp } from '../services/backend';
+import { haptic } from '../utils/haptics';
 import { AppIcon, ArrowLeft01Icon, CheckmarkCircle02Icon } from '../components/HugeIcon';
 
 const RED = '#DC2626';
@@ -83,9 +84,11 @@ export default function LoginScreen() {
     setError('');
     try {
       await verifyOtp(phone, value);
+      haptic.success();
       // The root layout swaps to the app when the session arrives.
       router.replace('/(tabs)');
     } catch (e) {
+      haptic.warn();
       setError((e as Error).message || 'That code is not right. Please try again.');
       setCode('');
       codeRef.current?.focus();

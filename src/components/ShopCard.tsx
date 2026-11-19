@@ -1,10 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
 import { router } from 'expo-router';
 import type { Product } from '../types';
 import { useStore, defaultCutFor } from '../store/useStore';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { AppIcon, PlusSignIcon, MinusSignIcon, Clock01Icon } from './HugeIcon';
+import { PressableScale, PopIn, useBump } from './motion';
+import { haptic } from '../utils/haptics';
 
 const RED = '#DC2626';
 
@@ -23,12 +25,16 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
   const mrp = product.originalPrice && product.originalPrice > product.basePrice ? product.originalPrice : 0;
   const off = mrp ? Math.round(((mrp - product.basePrice) / mrp) * 100) : 0;
 
-  const add = () => addToCart(product, defaultCutFor(product), true, 1);
+  const add = () => {
+    haptic.tap();
+    addToCart(product, defaultCutFor(product), true, 1);
+  };
+  const qtyBump = useBump(qty);
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={[styles.card, { width }]}
-      activeOpacity={0.85}
+      scaleTo={0.97}
       onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
       accessibilityRole="button"
       accessibilityLabel={`${product.name}, ₹${product.basePrice}`}
@@ -52,41 +58,45 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
               <Text style={styles.soldOutText}>Sold out</Text>
             </View>
           ) : qty > 0 ? (
-            <View style={styles.stepper}>
+            <PopIn key="stepper" style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
                 onPress={(e) => {
                   e.stopPropagation();
+                  haptic.tap();
                   if (cartItem) updateQuantity(cartItem.cartItemId, -1);
                 }}
                 accessibilityLabel={`One less ${product.name}`}
               >
                 <AppIcon icon={MinusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
               </TouchableOpacity>
-              <Text style={styles.stepQty}>{qty}</Text>
+              <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{qty}</Animated.Text>
               <TouchableOpacity
                 style={styles.stepBtn}
                 onPress={(e) => {
                   e.stopPropagation();
+                  haptic.tap();
                   if (cartItem) updateQuantity(cartItem.cartItemId, 1);
                 }}
                 accessibilityLabel={`One more ${product.name}`}
               >
                 <AppIcon icon={PlusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
               </TouchableOpacity>
-            </View>
+            </PopIn>
           ) : (
-            <TouchableOpacity
-              style={styles.addBtn}
-              onPress={(e) => {
-                e.stopPropagation();
-                add();
-              }}
-              activeOpacity={0.8}
-              accessibilityLabel={`Add ${product.name}`}
-            >
-              <Text style={styles.addText}>ADD</Text>
-            </TouchableOpacity>
+            <PopIn key="add">
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  add();
+                }}
+                activeOpacity={0.8}
+                accessibilityLabel={`Add ${product.name}`}
+              >
+                <Text style={styles.addText}>ADD</Text>
+              </TouchableOpacity>
+            </PopIn>
           )}
         </View>
       </View>
@@ -108,7 +118,7 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
           {!!lowStock && <Text style={styles.low}>· Only {lowStock} kg left</Text>}
         </View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 }
 

@@ -18,6 +18,7 @@ import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { PRODUCTS } from '../../data/mockData';
 import { DominosCard } from '../../components/DominosCard';
 import { useTabBarInset } from '../../components/FloatingTabBar';
+import { FadeInUp } from '../../components/motion';
 import type { DeliveryMode } from '../../types';
 import {
   AppIcon,
@@ -179,7 +180,7 @@ export default function CartScreen() {
             const lineMrp = mrpFor(item.product, item.selectedCut) * item.quantity;
             const linePrice = item.unitPrice * item.quantity;
             return (
-              <View key={item.cartItemId}>
+              <FadeInUp key={item.cartItemId} delay={idx * 50} distance={10}>
                 {idx > 0 && <View style={styles.divider} />}
                 <View style={styles.itemRow}>
                   <TouchableOpacity
@@ -233,7 +234,7 @@ export default function CartScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
+              </FadeInUp>
             );
           })}
 

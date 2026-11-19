@@ -1,14 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
 import { Product } from '../types';
 import { useStore, defaultCutFor } from '../store/useStore';
+import { PressableScale, PopIn, useBump } from './motion';
+import { haptic } from '../utils/haptics';
 import { router } from 'expo-router';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
-import {
-  AppIcon,
-  PlusSignIcon,
-  MinusSignIcon,
-} from './HugeIcon';
+import { AppIcon, PlusSignIcon, MinusSignIcon } from './HugeIcon';
 
 interface Props {
   product: Product;
@@ -19,11 +17,7 @@ interface Props {
   style?: any;
 }
 
-const DominosCardComponent: React.FC<Props> = ({
-  product,
-  cardWidth = 172,
-  style,
-}) => {
+const DominosCardComponent: React.FC<Props> = ({ product, cardWidth = 172, style }) => {
   const cartItem = useStore((state) => state.cart.find((item) => item.product.id === product.id));
   const qtyInCart = cartItem ? cartItem.quantity : 0;
   const isOutOfStock = useStore((state) => {
@@ -40,13 +34,17 @@ const DominosCardComponent: React.FC<Props> = ({
     });
   };
 
+  const qtyBump = useBump(qtyInCart);
+
   const handleAdd = () => {
+    haptic.tap();
     const defaultCut = defaultCutFor(product);
     addToCart(product, defaultCut, true, 1);
   };
 
   const handleIncrement = () => {
     if (cartItem) {
+      haptic.tap();
       updateQuantity(cartItem.cartItemId, 1);
     } else {
       handleAdd();
@@ -55,6 +53,7 @@ const DominosCardComponent: React.FC<Props> = ({
 
   const handleDecrement = () => {
     if (cartItem) {
+      haptic.tap();
       updateQuantity(cartItem.cartItemId, -1);
     }
   };
@@ -63,15 +62,7 @@ const DominosCardComponent: React.FC<Props> = ({
   const originalPrice = product.originalPrice || Math.round(basePrice * 1.25);
 
   return (
-    <TouchableOpacity
-      style={[
-        styles.card,
-        { width: cardWidth as any },
-        style,
-      ]}
-      activeOpacity={0.92}
-      onPress={handleCardPress}
-    >
+    <PressableScale style={[styles.card, { width: cardWidth as any }, style]} scaleTo={0.97} onPress={handleCardPress}>
       {/* 1. Image */}
       <View style={styles.imageContainer}>
         <Image
@@ -87,7 +78,6 @@ const DominosCardComponent: React.FC<Props> = ({
             <Text style={styles.outOfStockText}>Out of Stock</Text>
           </View>
         )}
-
       </View>
 
       {/* 2. Content Info */}
@@ -101,9 +91,7 @@ const DominosCardComponent: React.FC<Props> = ({
         <View style={styles.metaRow}>
           <Text style={styles.weightText}>{product.netWeight}</Text>
           <View style={styles.priceGroup}>
-            {originalPrice > basePrice && (
-              <Text style={styles.mrpText}>₹{originalPrice}</Text>
-            )}
+            {originalPrice > basePrice && <Text style={styles.mrpText}>₹{originalPrice}</Text>}
             <Text style={styles.priceText}>₹{basePrice}</Text>
           </View>
         </View>
@@ -114,7 +102,7 @@ const DominosCardComponent: React.FC<Props> = ({
             <Text style={styles.notifyBtnText}>Out of Stock</Text>
           </View>
         ) : qtyInCart > 0 ? (
-          <View style={styles.stepperContainer}>
+          <PopIn key="stepper" style={styles.stepperContainer}>
             <TouchableOpacity
               style={styles.stepBtn}
               onPress={handleDecrement}
@@ -123,7 +111,7 @@ const DominosCardComponent: React.FC<Props> = ({
             >
               <AppIcon icon={MinusSignIcon} size={14} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
-            <Text style={styles.stepQty}>{qtyInCart}</Text>
+            <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{qtyInCart}</Animated.Text>
             <TouchableOpacity
               style={styles.stepBtn}
               onPress={handleIncrement}
@@ -132,18 +120,16 @@ const DominosCardComponent: React.FC<Props> = ({
             >
               <AppIcon icon={PlusSignIcon} size={14} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
-          </View>
+          </PopIn>
         ) : (
-          <TouchableOpacity
-            style={styles.addBtn}
-            onPress={handleAdd}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.addBtnText}>Add</Text>
-          </TouchableOpacity>
+          <PopIn key="add">
+            <TouchableOpacity style={styles.addBtn} onPress={handleAdd} activeOpacity={0.8}>
+              <Text style={styles.addBtnText}>Add</Text>
+            </TouchableOpacity>
+          </PopIn>
         )}
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 };
 

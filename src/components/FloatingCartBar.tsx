@@ -1,11 +1,12 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, Image, Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
 import { useTabBarInset } from './FloatingTabBar';
 import { FREE_DELIVERY_ABOVE } from '../data/pricing';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { AppIcon, ArrowRight01Icon } from './HugeIcon';
+import { PressableScale, useBump, prefersReducedMotion } from './motion';
 
 const RED = '#DC2626';
 
@@ -19,7 +20,20 @@ const FloatingCartBarComponent: React.FC = () => {
   const deliveryMode = useStore((state) => state.deliveryMode);
 
   if (cart.length === 0) return null;
+  return <CartBarBody cart={cart} fulfillment={fulfillment} deliveryMode={deliveryMode} tabInset={tabInset} />;
+};
 
+function CartBarBody({
+  cart,
+  fulfillment,
+  deliveryMode,
+  tabInset,
+}: {
+  cart: ReturnType<typeof useStore.getState>['cart'];
+  fulfillment: string;
+  deliveryMode: string;
+  tabInset: number;
+}) {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const itemTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const toFree = FREE_DELIVERY_ABOVE - itemTotal;
@@ -28,11 +42,35 @@ const FloatingCartBarComponent: React.FC = () => {
   const showNudge = fulfillment === 'delivery' && deliveryMode !== 'instant';
   const thumbs = cart.slice(0, 3);
 
+  // Arrives from below with a spring the first time something is added.
+  const [enter] = useState(() => new Animated.Value(prefersReducedMotion() ? 1 : 0));
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    Animated.spring(enter, { toValue: 1, useNativeDriver: true, speed: 14, bounciness: 8 }).start();
+  }, [enter]);
+  const enterY = enter.interpolate({ inputRange: [0, 1], outputRange: [90, 0] });
+
+  // Pops when the count changes; the free-delivery line fills smoothly.
+  const bump = useBump(totalItems, 1.05);
+  const [fill] = useState(() => new Animated.Value(progress));
+  useEffect(() => {
+    Animated.timing(fill, { toValue: progress, duration: 500, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  }, [fill, progress]);
+  const fillWidth = fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+
   return (
-    <View pointerEvents="box-none" style={[styles.wrapper, tabInset > 0 && { bottom: tabInset + 6 }]}>
-      <TouchableOpacity
+    <Animated.View
+      pointerEvents="box-none"
+      style={[
+        styles.wrapper,
+        tabInset > 0 && { bottom: tabInset + 6 },
+        { opacity: enter, transform: [{ translateY: enterY }, { scale: bump }] },
+      ]}
+    >
+      <PressableScale
         style={styles.pill}
-        activeOpacity={0.9}
+        scaleTo={0.97}
+        haptics="tap"
         onPress={() => router.push('/(tabs)/cart')}
         accessibilityRole="button"
         accessibilityLabel={`View basket, ${totalItems} item${totalItems > 1 ? 's' : ''}, ₹${itemTotal}`}
@@ -60,10 +98,10 @@ const FloatingCartBarComponent: React.FC = () => {
 
         {showNudge && (
           <View style={styles.track}>
-            <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+            <Animated.View style={[styles.fill, { width: fillWidth }]} />
           </View>
         )}
-      </TouchableOpacity>
+      </PressableScale>
 
       {showNudge && (
         <Text style={styles.nudge}>
@@ -76,9 +114,9 @@ const FloatingCartBarComponent: React.FC = () => {
           )}
         </Text>
       )}
-    </View>
+    </Animated.View>
   );
-};
+}
 
 const styles = StyleSheet.create({
   wrapper: {

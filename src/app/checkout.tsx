@@ -17,6 +17,7 @@ import type { DeliveryMode } from '../types';
 import { DELIVERY_FEE, EXPRESS_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../data/pricing';
 import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
+import { haptic } from '../utils/haptics';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { saveProfile } from '../services/backend';
 import { router } from 'expo-router';
@@ -148,6 +149,7 @@ export default function CheckoutScreen() {
     setIsSubmitting(true);
     try {
       const order = await placeOrder(paymentMethod, deliveryNote);
+      haptic.success();
       router.replace({
         pathname: '/order-tracking/[id]',
         params: { id: order.id, placed: '1' },

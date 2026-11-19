@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { orderLabel } from '../../utils/orderId';
+import { EASE_OUT, prefersReducedMotion } from '../../components/motion';
 import { useStore } from '../../store/useStore';
 import { goBack } from '../../utils/navigation';
 import { confirmAction } from '../../utils/dialogs';
@@ -176,9 +177,11 @@ export default function OrderTrackingScreen() {
           {!isCancelled && (
             <View style={styles.segments} accessibilityLabel={`Step ${stageIndex + 1} of ${STAGES.length}`}>
               {STAGES.map((stage, i) => (
-                <View
+                <ProgressSegment
                   key={stage.key}
-                  style={[styles.segment, (i <= stageIndex || isDelivered) && styles.segmentDone]}
+                  done={i <= stageIndex || isDelivered}
+                  live={i === stageIndex && !isDelivered}
+                  delay={i * 140}
                 />
               ))}
             </View>
@@ -370,6 +373,46 @@ export default function OrderTrackingScreen() {
   );
 }
 
+// One step of the progress bar: fills from the left when reached, and the
+// current step breathes gently so the order feels live.
+function ProgressSegment({ done, live, delay }: { done: boolean; live: boolean; delay: number }) {
+  const [fill] = useState(() => new Animated.Value(0));
+  const [pulse] = useState(() => new Animated.Value(1));
+  useEffect(() => {
+    if (prefersReducedMotion()) {
+      fill.setValue(done ? 1 : 0);
+      return;
+    }
+    Animated.timing(fill, {
+      toValue: done ? 1 : 0,
+      duration: 650,
+      delay,
+      easing: EASE_OUT,
+      useNativeDriver: false,
+    }).start();
+  }, [fill, done, delay]);
+  useEffect(() => {
+    if (!live || prefersReducedMotion()) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.45, duration: 800, useNativeDriver: false }),
+        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: false }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, live]);
+  const width = fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
+  return (
+    <View style={styles.segment}>
+      <Animated.View style={[styles.segmentFill, { width, opacity: pulse }]} />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   placedBanner: {
     flexDirection: 'row',
@@ -536,9 +579,12 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 6,
     borderRadius: 3,
+    overflow: 'hidden',
     backgroundColor: C.track,
   },
-  segmentDone: {
+  segmentFill: {
+    height: '100%',
+    borderRadius: 3,
     backgroundColor: C.green,
   },
 
