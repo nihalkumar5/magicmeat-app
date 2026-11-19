@@ -155,7 +155,7 @@ export default function CheckoutScreen() {
           <View style={styles.slotBadge}>
             <Text style={styles.slotBadgeText}>
               {deliveryMode === 'instant'
-                ? '⚡ 22-Min Express Dark-Store Delivery'
+                ? '⚡ 30-Min Express Dark-Store Delivery'
                 : deliveryMode === 'sunday_morning'
                 ? '🌅 Sunday Morning 7:00 AM - 9:00 AM Guaranteed'
                 : '📦 Today Evening 5:00 PM - 7:00 PM'}
