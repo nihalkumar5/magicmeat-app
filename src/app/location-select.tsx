@@ -7,13 +7,13 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Image,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
 import { notify, confirmAction } from '../utils/dialogs';
+import { goBack } from '../utils/navigation';
 import { LocationData, MAGICMEAT_HUBS, DarkStoreHub } from '../types/location';
 import {
   detectDeviceLocation,
@@ -21,20 +21,35 @@ import {
 } from '../services/locationService';
 import {
   AppIcon,
-  ArrowLeft02Icon,
-  Scooter01Icon,
+  ArrowLeft01Icon,
   Store01Icon,
   Location01Icon,
   Clock01Icon,
-  ChevronDownIcon,
-  ChevronUpIcon,
   Search01Icon,
   Cancel01Icon,
-  CheckmarkCircle01Icon,
   Add01Icon,
   Delete02Icon,
-  CheckmarkBadge01Icon,
+  Home01Icon,
+  Briefcase01Icon,
+  Navigation03Icon,
+  Tick02Icon,
 } from '../components/HugeIcon';
+
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  placeholder: '#8E8E93',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  redBg: '#FEF2F2',
+  blue: '#2563EB',
+  blueBg: '#EFF6FF',
+  fill: 'rgba(118, 118, 128, 0.12)',
+};
+
+const TAG_ICON: Record<string, any> = { Home: Home01Icon, Work: Briefcase01Icon };
 
 export default function LocationSelectScreen() {
   const {
@@ -51,9 +66,7 @@ export default function LocationSelectScreen() {
     orderFulfillment || 'delivery'
   );
   const [isDetecting, setIsDetecting] = useState(false);
-  const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showAllSaved, setShowAllSaved] = useState(false);
   const [isAddingNew, setIsAddingNew] = useState(false);
 
   // New Address Form State
@@ -65,31 +78,10 @@ export default function LocationSelectScreen() {
   // Store Pickup Search
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
 
-  const [recentList, setRecentList] = useState<
-    { id: string; name: string; distance: string; full: string }[]
-  >([
-    {
-      id: 'r1',
-      name: 'Bilaspur',
-      distance: '114 km',
-      full: 'Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh',
-    },
-    {
-      id: 'r2',
-      name: 'Raipur Civil Lines',
-      distance: '0.4 km',
-      full: 'LK Corporate Tower, Civil Lines, Raipur',
-    },
-  ]);
-
   const handleSelectDeliveryLocation = (loc: LocationData) => {
     setCurrentLocation(loc);
     setOrderFulfillment('delivery');
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
+    goBack();
   };
 
   const handleSelectPickupStore = (hub: DarkStoreHub) => {
@@ -107,11 +99,7 @@ export default function LocationSelectScreen() {
     };
     setCurrentLocation(hubLocation);
     setOrderFulfillment('takeaway');
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
+    goBack();
   };
 
   const handleUseCurrentLocation = async () => {
@@ -121,11 +109,7 @@ export default function LocationSelectScreen() {
       setCurrentLocation(detected);
       setOrderFulfillment('delivery');
       setIsDetecting(false);
-      if (router.canGoBack()) {
-        router.back();
-      } else {
-        router.replace('/');
-      }
+      goBack();
     } catch (err: any) {
       setIsDetecting(false);
       notify(
@@ -160,11 +144,7 @@ export default function LocationSelectScreen() {
     setIsAddingNew(false);
     setNewTitle('');
     setNewAddress('');
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace('/');
-    }
+    goBack();
   };
 
   const filteredPlaces = POPULAR_LOCATIONS.filter(
@@ -183,566 +163,352 @@ export default function LocationSelectScreen() {
       (h.address && h.address.toLowerCase().includes(storeSearchQuery.toLowerCase()))
   );
 
-  const displayedSaved = showAllSaved ? savedAddresses : savedAddresses.slice(0, 3);
+  const q = searchQuery.trim().toLowerCase();
+  const isDeliveryMode = activeMode === 'delivery';
+  const isSavedSelected = (item: LocationData) =>
+    orderFulfillment === 'delivery' &&
+    (currentLocation.shortAddress === item.shortAddress || currentLocation.fullAddress === item.fullAddress);
+  const isHubSelected = (hub: DarkStoreHub) =>
+    orderFulfillment === 'takeaway' &&
+    (currentLocation.shortAddress.includes(hub.name) || !!currentLocation.nearestHubName?.includes(hub.name));
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      {/* 1. TOP NAV HEADER */}
-      <View style={styles.topHeader}>
+      <View style={styles.navBar}>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => {
-            if (router.canGoBack()) {
-              router.back();
-            } else {
-              router.replace('/');
-            }
-          }}
-          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          activeOpacity={0.7}
+          style={styles.navBtn}
+          onPress={() => goBack()}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
-          <AppIcon icon={ArrowLeft02Icon} size={22} color="#111827" strokeWidth={2.2} />
+          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
         </TouchableOpacity>
-        <Text style={styles.topHeaderTitle}>
-          {activeMode === 'delivery' ? 'Choose delivery address' : 'Choose pickup store'}
-        </Text>
+        <Text style={styles.navTitle}>{isDeliveryMode ? 'Delivery address' : 'Pickup store'}</Text>
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.scrollContainer}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* Hyperlocal Cold-Chain Network Banner */}
-        <View style={styles.hubBanner}>
-          <View style={styles.hubBannerTextCol}>
-            <View style={styles.hubBadge}>
-              <View style={styles.hubBadgeDot} />
-              <Text style={styles.hubBadgeText}>NEAR YOU</Text>
-            </View>
-            <Text style={styles.hubBannerTitle}>Delivery in 30 mins</Text>
-            <Text style={styles.hubBannerSub}>
-              Sent fresh and chilled from our stores in Bilaspur &amp; Raipur.
-            </Text>
-          </View>
-          <Image
-            source={require('../../assets/illustrations/location_explorer.png')}
-            style={styles.hubIllustration}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* 2. EXACT 2 SERVICE MODE CARDS (DELIVERY & PICKUP FROM STORE) */}
-        <View style={styles.modeTabsRow}>
-          {/* Card 1: Delivery */}
-          <TouchableOpacity
-            style={[
-              styles.modeTabCard,
-              activeMode === 'delivery' && styles.modeTabCardActive,
-            ]}
-            onPress={() => setActiveMode('delivery')}
-            activeOpacity={0.85}
-          >
-            <AppIcon
-              icon={Scooter01Icon}
-              size={24}
-              color={activeMode === 'delivery' ? '#FFFFFF' : '#334155'}
-              strokeWidth={1.9}
-            />
-            <Text
-              style={[
-                styles.modeTabLabel,
-                activeMode === 'delivery' && styles.modeTabLabelActive,
-              ]}
+      {/* Mode */}
+      <View style={styles.segmentWrap}>
+        <View style={styles.segmented}>
+          {(
+            [
+              { key: 'delivery', label: 'Delivery' },
+              { key: 'takeaway', label: 'Pickup' },
+            ] as const
+          ).map((m) => (
+            <TouchableOpacity
+              key={m.key}
+              style={[styles.segment, activeMode === m.key && styles.segmentActive]}
+              onPress={() => {
+                setActiveMode(m.key);
+                setSearchQuery('');
+                setStoreSearchQuery('');
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: activeMode === m.key }}
             >
-              Delivery
-            </Text>
-          </TouchableOpacity>
-
-          {/* Card 2: Pickup from Store */}
-          <TouchableOpacity
-            style={[
-              styles.modeTabCard,
-              activeMode === 'takeaway' && styles.modeTabCardActive,
-            ]}
-            onPress={() => setActiveMode('takeaway')}
-            activeOpacity={0.85}
-          >
-            <AppIcon
-              icon={Store01Icon}
-              size={24}
-              color={activeMode === 'takeaway' ? '#FFFFFF' : '#334155'}
-              strokeWidth={1.9}
-            />
-            <Text
-              style={[
-                styles.modeTabLabel,
-                activeMode === 'takeaway' && styles.modeTabLabelActive,
-              ]}
-            >
-              Pickup from Store
-            </Text>
-          </TouchableOpacity>
+              <Text style={[styles.segmentText, activeMode === m.key && { fontWeight: '700' }]}>{m.label}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
+      </View>
 
-        {/* ========================================================================= */}
-        {/* MODE 1: DELIVERY VIEW                                                     */}
-        {/* ========================================================================= */}
-        {activeMode === 'delivery' && (
-          <View>
-            {/* YOUR LOCATION CAPSULE */}
-            <View style={styles.sectionBlock}>
-              <Text style={styles.sectionSmallLabel}>YOUR LOCATION</Text>
-              <View style={styles.currentLocationBox}>
-                <Text style={styles.currentLocationText} numberOfLines={1}>
-                  {currentLocation.shortAddress || 'Ashok Nagar, Sarkanda'}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => setIsSearching((prev) => !prev)}
-                  activeOpacity={0.7}
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                >
-                  <Text style={styles.changeBtnText}>
-                    {isSearching ? 'Close' : 'Change'}
-                  </Text>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {isDeliveryMode ? (
+          <>
+            {/* Search */}
+            <View style={styles.field}>
+              <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Search area, street or city"
+                placeholderTextColor={C.placeholder}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                autoCorrect={false}
+                accessibilityLabel="Search address"
+              />
+              {!!searchQuery && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <View style={styles.clearCircle}>
+                    <AppIcon icon={Cancel01Icon} size={11} color="#FFFFFF" strokeWidth={3} />
+                  </View>
                 </TouchableOpacity>
-              </View>
+              )}
             </View>
 
-            {/* EXPANDED SEARCH BOX (WHEN USER CLICKS CHANGE) */}
-            {isSearching && (
-              <View style={styles.searchDropdownContainer}>
-                <View style={styles.searchCapsuleBox}>
-                  <AppIcon icon={Search01Icon} size={18} color="#64748B" strokeWidth={2} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search area, landmark or apartment..."
-                    placeholderTextColor="#94A3B8"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoFocus
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <AppIcon icon={Cancel01Icon} size={16} color="#94A3B8" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-
-                {/* Filtered suggestions list */}
-                <View style={styles.suggestionsList}>
-                  {filteredPlaces.map((place, idx) => (
-                    <TouchableOpacity
-                      key={`search-${idx}`}
-                      style={styles.suggestionRow}
-                      onPress={() => handleSelectDeliveryLocation(place)}
-                      activeOpacity={0.7}
-                    >
-                      <AppIcon icon={Location01Icon} size={18} color="#0055A5" />
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.suggestionTitle}>{place.shortAddress}</Text>
-                        <Text style={styles.suggestionSub} numberOfLines={1}>
-                          {place.fullAddress}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* BLUE SEAMLESS DELIVERY BANNER */}
-            <View style={styles.blueBanner}>
-              <View style={styles.blueBannerLeft}>
-                <View style={styles.bluePinCircle}>
-                  <AppIcon icon={Location01Icon} size={18} color="#FFFFFF" strokeWidth={2.2} />
-                </View>
-                <Text style={styles.blueBannerText}>
-                  Give us your exact location for seamless delivery
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.useCurrentBtn}
-                onPress={handleUseCurrentLocation}
-                disabled={isDetecting}
-                activeOpacity={0.8}
-              >
-                {isDetecting ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
+            {q ? (
+              <>
+                <Text style={styles.sectionLabel}>RESULTS</Text>
+                {filteredPlaces.length === 0 ? (
+                  <View style={[styles.card, styles.emptyCard]}>
+                    <Text style={styles.emptyTitle}>No matching area</Text>
+                    <Text style={styles.emptySub}>Try a nearby locality, or add the address yourself.</Text>
+                  </View>
                 ) : (
-                  <Text style={styles.useCurrentBtnText}>Use my current location</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-
-            {/* SAVED ADDRESSES SECTION */}
-            <View style={styles.savedSection}>
-              <View style={styles.savedHeaderRow}>
-                <Text style={styles.savedSectionHeading}>Saved addresses</Text>
-                <TouchableOpacity
-                  style={styles.addNewBtn}
-                  onPress={() => setIsAddingNew((prev) => !prev)}
-                  activeOpacity={0.8}
-                >
-                  <AppIcon icon={Add01Icon} size={14} color="#DC2626" strokeWidth={2.5} />
-                  <Text style={styles.addNewBtnText}>
-                    {isAddingNew ? 'Cancel' : 'Add New'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-
-              {/* INLINE ADD NEW ADDRESS FORM */}
-              {isAddingNew && (
-                <View style={styles.newAddressForm}>
-                  <Text style={styles.formTitle}>Add a new address</Text>
-
-                  {/* Tag Selector */}
-                  <View style={styles.tagSelectorRow}>
-                    {(['Home', 'Work', 'Other'] as const).map((tag) => (
-                      <TouchableOpacity
-                        key={tag}
-                        style={[
-                          styles.tagPill,
-                          newTag === tag && styles.tagPillActive,
-                        ]}
-                        onPress={() => setNewTag(tag)}
-                        activeOpacity={0.7}
-                      >
-                        <Text
-                          style={[
-                            styles.tagPillText,
-                            newTag === tag && styles.tagPillTextActive,
-                          ]}
+                  <View style={styles.card}>
+                    {filteredPlaces.map((place, idx) => (
+                      <View key={`${place.shortAddress}-${idx}`}>
+                        {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
+                        <TouchableOpacity
+                          style={styles.row}
+                          onPress={() => handleSelectDeliveryLocation(place)}
+                          activeOpacity={0.6}
                         >
-                          {tag}
-                        </Text>
-                      </TouchableOpacity>
+                          <View style={[styles.tile, { backgroundColor: C.bg }]}>
+                            <AppIcon icon={Location01Icon} size={17} color={C.secondary} strokeWidth={2} />
+                          </View>
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <Text style={styles.rowTitle} numberOfLines={1}>{place.shortAddress}</Text>
+                            <Text style={styles.rowSub} numberOfLines={2}>{place.fullAddress}</Text>
+                            {!place.isServiceable && <Text style={styles.notServed}>Not delivering here yet</Text>}
+                          </View>
+                        </TouchableOpacity>
+                      </View>
                     ))}
                   </View>
-
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="Address Title (e.g. Home, Flat 402, Mom's Place)"
-                    placeholderTextColor="#94A3B8"
-                    value={newTitle}
-                    onChangeText={setNewTitle}
-                  />
-
-                  <TextInput
-                    style={[styles.formInput, { height: 60, textAlignVertical: 'top' }]}
-                    placeholder="Flat / House No., Building, Street, Area"
-                    placeholderTextColor="#94A3B8"
-                    multiline
-                    value={newAddress}
-                    onChangeText={setNewAddress}
-                  />
-
-                  <TextInput
-                    style={styles.formInput}
-                    placeholder="City (e.g. Raipur, Bilaspur, Bengaluru)"
-                    placeholderTextColor="#94A3B8"
-                    value={newCity}
-                    onChangeText={setNewCity}
-                  />
-
+                )}
+              </>
+            ) : (
+              <>
+                {/* Actions */}
+                <View style={[styles.card, { marginTop: 16 }]}>
                   <TouchableOpacity
-                    style={styles.saveAddressBtn}
-                    onPress={handleSaveNewAddress}
-                    activeOpacity={0.85}
+                    style={styles.row}
+                    onPress={handleUseCurrentLocation}
+                    disabled={isDetecting}
+                    activeOpacity={0.6}
+                    accessibilityRole="button"
                   >
-                    <Text style={styles.saveAddressBtnText}>Save &amp; deliver here</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-
-              {/* SAVED ADDRESS ITEMS */}
-              {displayedSaved.map((item, idx) => {
-                const isSelected =
-                  orderFulfillment === 'delivery' &&
-                  (currentLocation.shortAddress === item.shortAddress ||
-                    currentLocation.fullAddress === item.fullAddress);
-
-                return (
-                  <View
-                    key={`saved-${item.shortAddress}-${idx}`}
-                    style={[
-                      styles.savedAddressRow,
-                      isSelected && styles.savedAddressRowSelected,
-                    ]}
-                  >
-                    {/* Clickable Area to Select Address */}
-                    <TouchableOpacity
-                      style={styles.savedAddressContent}
-                      onPress={() => handleSelectDeliveryLocation(item)}
-                      activeOpacity={0.75}
-                    >
-                      {/* Left Pin + Distance Column */}
-                      <View style={styles.savedLeftCol}>
-                        <AppIcon
-                          icon={Location01Icon}
-                          size={20}
-                          color={isSelected ? '#DC2626' : '#475569'}
-                          strokeWidth={1.8}
-                        />
-                        <Text style={styles.savedDistanceText}>
-                          {item.distanceKm ? `${item.distanceKm} km` : '15 km'}
-                        </Text>
-                      </View>
-
-                      {/* Right Address Details */}
-                      <View style={styles.savedRightCol}>
-                        <View style={styles.savedTitleBadgeRow}>
-                          <Text style={styles.savedTitle}>{item.shortAddress}</Text>
-                          {item.tag && (
-                            <View style={styles.itemTagBadge}>
-                              <Text style={styles.itemTagText}>{item.tag}</Text>
-                            </View>
-                          )}
-                          {isSelected && (
-                            <View style={styles.activeCheckBadge}>
-                              <AppIcon
-                                icon={CheckmarkCircle01Icon}
-                                size={16}
-                                color="#16A34A"
-                                strokeWidth={2.2}
-                              />
-                              <Text style={styles.activeCheckText}>Selected</Text>
-                            </View>
-                          )}
-                        </View>
-                        <Text style={styles.savedFullAddress} numberOfLines={2}>
-                          {item.fullAddress}
-                        </Text>
-                        <Text style={styles.savedAreaSub} numberOfLines={1}>
-                          {item.city ? `${item.shortAddress}, ${item.city}` : item.shortAddress}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Delete Option if more than 1 address */}
-                    {savedAddresses.length > 1 && (
-                      <TouchableOpacity
-                        style={styles.deleteAddressBtn}
-                        onPress={() => {
-                          confirmAction(
-                            'Delete Address',
-                            `Are you sure you want to remove "${item.shortAddress}"?`,
-                            'Delete',
-                            () => removeSavedAddress(item.shortAddress)
-                          );
-                        }}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                        activeOpacity={0.7}
-                      >
-                        <AppIcon icon={Delete02Icon} size={16} color="#94A3B8" />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                );
-              })}
-
-              {/* View More / View Less */}
-              {savedAddresses.length > 3 && (
-                <TouchableOpacity
-                  style={styles.viewMoreRow}
-                  onPress={() => setShowAllSaved((prev) => !prev)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.viewMoreText}>
-                    {showAllSaved
-                      ? 'View Less'
-                      : `View More (${savedAddresses.length - 3} more)`}
-                  </Text>
-                  <AppIcon
-                    icon={showAllSaved ? ChevronUpIcon : ChevronDownIcon}
-                    size={15}
-                    color="#0055A5"
-                    strokeWidth={2.5}
-                  />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* DIVIDER STRIP */}
-            <View style={styles.greyDividerStrip} />
-
-            {/* RECENTLY SEARCHED SECTION */}
-            <View style={styles.recentSection}>
-              <View style={styles.recentHeaderRow}>
-                <Text style={styles.recentSectionHeading}>Recent</Text>
-                {recentList.length > 0 && (
-                  <TouchableOpacity onPress={() => setRecentList([])} activeOpacity={0.7}>
-                    <Text style={styles.clearBtnText}>Clear</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {recentList.map((recent) => (
-                <TouchableOpacity
-                  key={recent.id}
-                  style={styles.recentItemRow}
-                  onPress={() => {
-                    const found =
-                      POPULAR_LOCATIONS.find((p) => p.shortAddress.includes(recent.name)) ||
-                      savedAddresses[0];
-                    handleSelectDeliveryLocation(found);
-                  }}
-                  activeOpacity={0.75}
-                >
-                  <View style={styles.recentLeftCol}>
-                    <AppIcon icon={Clock01Icon} size={18} color="#475569" strokeWidth={1.8} />
-                    <Text style={styles.recentDistanceText}>{recent.distance}</Text>
-                  </View>
-
-                  <View style={styles.recentRightCol}>
-                    <Text style={styles.recentTitle}>{recent.name}</Text>
-                    <Text style={styles.recentSubText}>
-                      {recent.distance} · {recent.name.toUpperCase()}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* ========================================================================= */}
-        {/* MODE 2: PICKUP FROM STORE VIEW                                            */}
-        {/* ========================================================================= */}
-        {activeMode === 'takeaway' && (
-          <View style={styles.pickupSectionContainer}>
-            {/* Store Pickup Banner */}
-            <View style={styles.storePickupBanner}>
-              <View style={styles.storeBannerBadge}>
-                <AppIcon icon={CheckmarkBadge01Icon} size={16} color="#DC2626" />
-                <Text style={styles.storeBannerBadgeText}>READY IN ABOUT 10 MINS</Text>
-              </View>
-              <Text style={styles.storeBannerTitle}>
-                Pick up from a MagicMeat store
-              </Text>
-              <Text style={styles.storeBannerDesc}>
-                Walk in and collect your freshly cut order chilled at 0-4°C. Zero queue, zero waiting.
-              </Text>
-            </View>
-
-            {/* Hub Search Box */}
-            <View style={styles.hubSearchContainer}>
-              <View style={styles.hubSearchCapsule}>
-                <AppIcon icon={Search01Icon} size={18} color="#64748B" strokeWidth={2} />
-                <TextInput
-                  style={styles.hubSearchInput}
-                  placeholder="Search butchery store or city..."
-                  placeholderTextColor="#94A3B8"
-                  value={storeSearchQuery}
-                  onChangeText={setStoreSearchQuery}
-                />
-                {storeSearchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setStoreSearchQuery('')}>
-                    <AppIcon icon={Cancel01Icon} size={16} color="#94A3B8" />
-                  </TouchableOpacity>
-                )}
-              </View>
-            </View>
-
-            {/* List of Butchery Stores */}
-            <View style={styles.storesList}>
-              <Text style={styles.storesListHeading}>
-                Stores near you ({filteredHubs.length})
-              </Text>
-
-              {filteredHubs.map((hub) => {
-                const isSelected =
-                  orderFulfillment === 'takeaway' &&
-                  (currentLocation.shortAddress.includes(hub.name) ||
-                    currentLocation.nearestHubName?.includes(hub.name));
-
-                return (
-                  <View
-                    key={hub.id}
-                    style={[
-                      styles.hubCard,
-                      isSelected && styles.hubCardSelected,
-                    ]}
-                  >
-                    {/* Header: Store Name & City */}
-                    <View style={styles.hubHeaderRow}>
-                      <View style={styles.hubTitleCol}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <AppIcon icon={Store01Icon} size={18} color="#DC2626" strokeWidth={2} />
-                          <Text style={styles.hubName}>{hub.name}</Text>
-                        </View>
-                        <Text style={styles.hubCityText}>{hub.city.toUpperCase()}</Text>
-                      </View>
-
-                      {isSelected ? (
-                        <View style={styles.selectedHubBadge}>
-                          <AppIcon
-                            icon={CheckmarkCircle01Icon}
-                            size={16}
-                            color="#16A34A"
-                            strokeWidth={2.2}
-                          />
-                          <Text style={styles.selectedHubBadgeText}>Selected</Text>
-                        </View>
+                    <View style={[styles.tile, { backgroundColor: C.blueBg }]}>
+                      {isDetecting ? (
+                        <ActivityIndicator size="small" color={C.blue} />
                       ) : (
-                        <View style={styles.hubDistanceBadge}>
-                          <Text style={styles.hubDistanceText}>
-                            {hub.distanceKm ? `${hub.distanceKm} km away` : 'Near you'}
-                          </Text>
-                        </View>
+                        <AppIcon icon={Navigation03Icon} size={17} color={C.blue} strokeWidth={2.2} />
                       )}
                     </View>
-
-                    {/* Address & Landmark */}
-                    <Text style={styles.hubAddressText}>{hub.address}</Text>
-                    {hub.landmark && (
-                      <Text style={styles.hubLandmarkText}>
-                        📍 Landmark: {hub.landmark}
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.rowTitle, { color: C.blue }]}>
+                        {isDetecting ? 'Finding your location…' : 'Use my current location'}
                       </Text>
-                    )}
+                      <Text style={styles.rowSub}>For the most accurate delivery</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <View style={[styles.divider, { marginLeft: 58 }]} />
+                  <TouchableOpacity
+                    style={styles.row}
+                    onPress={() => setIsAddingNew(!isAddingNew)}
+                    activeOpacity={0.6}
+                    accessibilityRole="button"
+                  >
+                    <View style={[styles.tile, { backgroundColor: C.redBg }]}>
+                      <AppIcon icon={isAddingNew ? Cancel01Icon : Add01Icon} size={17} color={C.red} strokeWidth={2.2} />
+                    </View>
+                    <Text style={[styles.rowTitle, { color: C.red, flex: 1 }]}>
+                      {isAddingNew ? 'Cancel new address' : 'Add a new address'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
 
-                    {/* Timings & Express Ready Badge */}
-                    <View style={styles.hubMetaRow}>
-                      <View style={styles.hubTimingGroup}>
-                        <AppIcon icon={Clock01Icon} size={14} color="#64748B" />
-                        <Text style={styles.hubTimingText}>
-                          {hub.timings || '7:00 AM - 10:00 PM Daily'}
-                        </Text>
+                {/* New address form */}
+                {isAddingNew && (
+                  <>
+                    <Text style={styles.sectionLabel}>NEW ADDRESS</Text>
+                    <View style={styles.card}>
+                      <View style={styles.tagRow}>
+                        {(['Home', 'Work', 'Other'] as const).map((tag) => (
+                          <TouchableOpacity
+                            key={tag}
+                            style={[styles.tagChip, newTag === tag && styles.tagChipActive]}
+                            onPress={() => {
+                              setNewTag(tag);
+                              if (!newTitle.trim() || ['Home', 'Work', 'Other'].includes(newTitle.trim())) setNewTitle(tag);
+                            }}
+                          >
+                            <Text style={[styles.tagChipText, newTag === tag && { color: '#FFFFFF' }]}>{tag}</Text>
+                          </TouchableOpacity>
+                        ))}
                       </View>
-
-                      <View style={styles.tenMinBadge}>
-                        <Text style={styles.tenMinBadgeText}>10 MIN PICKUP</Text>
+                      <View style={styles.divider} />
+                      <View style={styles.formRow}>
+                        <Text style={styles.formLabel}>Name</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={newTitle}
+                          onChangeText={setNewTitle}
+                          placeholder="e.g. Home, Mom’s place"
+                          placeholderTextColor={C.placeholder}
+                          maxLength={40}
+                        />
+                      </View>
+                      <View style={styles.divider} />
+                      <View style={[styles.formRow, { alignItems: 'flex-start' }]}>
+                        <Text style={[styles.formLabel, { paddingTop: 14 }]}>Address</Text>
+                        <TextInput
+                          style={[styles.formInput, { minHeight: 70, textAlignVertical: 'top' }]}
+                          value={newAddress}
+                          onChangeText={setNewAddress}
+                          placeholder="House / flat, street, landmark"
+                          placeholderTextColor={C.placeholder}
+                          multiline
+                          maxLength={200}
+                        />
+                      </View>
+                      <View style={styles.divider} />
+                      <View style={styles.formRow}>
+                        <Text style={styles.formLabel}>City</Text>
+                        <TextInput
+                          style={styles.formInput}
+                          value={newCity}
+                          onChangeText={setNewCity}
+                          placeholder="City"
+                          placeholderTextColor={C.placeholder}
+                          maxLength={40}
+                        />
                       </View>
                     </View>
-
-                    {/* Action Button */}
-                    <TouchableOpacity
-                      style={[
-                        styles.selectStoreBtn,
-                        isSelected && styles.selectStoreBtnActive,
-                      ]}
-                      onPress={() => handleSelectPickupStore(hub)}
-                      activeOpacity={0.85}
-                    >
-                      <Text
-                        style={[
-                          styles.selectStoreBtnText,
-                          isSelected && styles.selectStoreBtnTextActive,
-                        ]}
-                      >
-                        {isSelected ? '✓ Selected for Pickup' : 'Pick up here'}
-                      </Text>
+                    <TouchableOpacity style={styles.primaryBtn} onPress={handleSaveNewAddress} activeOpacity={0.85}>
+                      <Text style={styles.primaryBtnText}>Save & deliver here</Text>
                     </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Saved */}
+                {savedAddresses.length > 0 && (
+                  <>
+                    <Text style={styles.sectionLabel}>SAVED ADDRESSES</Text>
+                    <View style={styles.card}>
+                      {savedAddresses.map((item, idx) => {
+                        const selected = isSavedSelected(item);
+                        const TagIcon = TAG_ICON[item.tag || ''] || Location01Icon;
+                        return (
+                          <View key={`${item.shortAddress}-${idx}`}>
+                            {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
+                            <View style={styles.row}>
+                              <TouchableOpacity
+                                style={styles.rowMain}
+                                onPress={() => handleSelectDeliveryLocation(item)}
+                                activeOpacity={0.6}
+                                accessibilityRole="button"
+                                accessibilityState={{ selected }}
+                                accessibilityLabel={`Deliver to ${item.shortAddress}`}
+                              >
+                                <View style={[styles.tile, { backgroundColor: selected ? C.red : C.bg }]}>
+                                  <AppIcon icon={TagIcon} size={17} color={selected ? '#FFFFFF' : C.secondary} strokeWidth={2} />
+                                </View>
+                                <View style={{ flex: 1, minWidth: 0 }}>
+                                  <View style={styles.titleLine}>
+                                    <Text style={styles.rowTitle} numberOfLines={1}>{item.shortAddress}</Text>
+                                    {!!item.tag && item.tag !== item.shortAddress && (
+                                      <Text style={styles.tag}>{item.tag}</Text>
+                                    )}
+                                  </View>
+                                  <Text style={styles.rowSub} numberOfLines={2}>{item.fullAddress}</Text>
+                                  {item.isServiceable === false ? (
+                                    <Text style={styles.notServed}>Not delivering here yet</Text>
+                                  ) : (
+                                    !!item.distanceKm && <Text style={styles.distance}>{item.distanceKm} km away</Text>
+                                  )}
+                                </View>
+                                {selected && <AppIcon icon={Tick02Icon} size={20} color={C.red} strokeWidth={2.6} />}
+                              </TouchableOpacity>
+                              {savedAddresses.length > 1 && !selected && (
+                                <TouchableOpacity
+                                  onPress={() =>
+                                    confirmAction(
+                                      'Delete address?',
+                                      `“${item.shortAddress}” will be removed from your saved addresses.`,
+                                      'Delete',
+                                      () => removeSavedAddress(item.shortAddress)
+                                    )
+                                  }
+                                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                                  accessibilityLabel={`Delete ${item.shortAddress}`}
+                                >
+                                  <AppIcon icon={Delete02Icon} size={17} color="#C7C7CC" strokeWidth={2} />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </>
+                )}
+              </>
+            )}
+          </>
+        ) : (
+          <>
+            {/* Pickup */}
+            <View style={styles.field}>
+              <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+              <TextInput
+                style={styles.fieldInput}
+                placeholder="Search store or city"
+                placeholderTextColor={C.placeholder}
+                value={storeSearchQuery}
+                onChangeText={setStoreSearchQuery}
+                autoCorrect={false}
+                accessibilityLabel="Search stores"
+              />
+              {!!storeSearchQuery && (
+                <TouchableOpacity onPress={() => setStoreSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <View style={styles.clearCircle}>
+                    <AppIcon icon={Cancel01Icon} size={11} color="#FFFFFF" strokeWidth={3} />
                   </View>
-                );
-              })}
+                </TouchableOpacity>
+              )}
             </View>
-          </View>
+            <Text style={styles.helper}>Order now and pick it up in about 10 minutes. No delivery fee.</Text>
+
+            <Text style={styles.sectionLabel}>STORES ({filteredHubs.length})</Text>
+            {filteredHubs.length === 0 ? (
+              <View style={[styles.card, styles.emptyCard]}>
+                <Text style={styles.emptyTitle}>No store found</Text>
+              </View>
+            ) : (
+              <View style={styles.card}>
+                {filteredHubs.map((hub, idx) => {
+                  const selected = isHubSelected(hub);
+                  return (
+                    <View key={hub.id}>
+                      {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
+                      <TouchableOpacity
+                        style={styles.row}
+                        onPress={() => handleSelectPickupStore(hub)}
+                        activeOpacity={0.6}
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`Pick up from ${hub.name}`}
+                      >
+                        <View style={[styles.tile, { backgroundColor: selected ? C.red : C.redBg }]}>
+                          <AppIcon icon={Store01Icon} size={17} color={selected ? '#FFFFFF' : C.red} strokeWidth={2} />
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.rowTitle} numberOfLines={1}>{hub.name}</Text>
+                          {!!hub.address && <Text style={styles.rowSub} numberOfLines={2}>{hub.address}</Text>}
+                          <View style={styles.hubMeta}>
+                            <AppIcon icon={Clock01Icon} size={12} color={C.secondary} strokeWidth={2} />
+                            <Text style={styles.distance}>
+                              {hub.timings || '7 AM – 10 PM'}
+                              {hub.distanceKm ? ` · ${hub.distanceKm} km` : ''}
+                            </Text>
+                          </View>
+                        </View>
+                        {selected && <AppIcon icon={Tick02Icon} size={20} color={C.red} strokeWidth={2.6} />}
+                      </TouchableOpacity>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -751,709 +517,241 @@ export default function LocationSelectScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: C.bg,
   },
-  topHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    backgroundColor: '#FFFFFF',
-    gap: 16,
-  },
-  backButton: {
-    padding: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  topHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  scrollContainer: {
-    flex: 1,
-    backgroundColor: '#FFFFFF',
-  },
-  scrollContent: {
-    paddingBottom: 30,
-  },
-
-  /* 2 SERVICE MODE CARDS (Delivery & Pickup from Store) */
-  hubBanner: {
-    marginHorizontal: 16,
-    marginTop: 14,
-    backgroundColor: '#F8FAFC',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    padding: 16,
+  navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  hubBannerTextCol: {
-    flex: 1,
-    paddingRight: 10,
-  },
-  hubBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: 'rgba(220, 38, 38, 0.08)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginBottom: 6,
-  },
-  hubBadgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#DC2626',
-  },
-  hubBadgeText: {
-    color: '#DC2626',
-    fontSize: 9.5,
-    fontWeight: '800',
-    letterSpacing: 0.6,
-  },
-  hubBannerTitle: {
-    color: '#0F172A',
-    fontSize: 16,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-  hubBannerSub: {
-    color: '#64748B',
-    fontSize: 11.5,
-    marginTop: 3,
-    lineHeight: 16,
-  },
-  hubIllustration: {
-    width: 82,
-    height: 82,
-  },
-  modeTabsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    gap: 12,
-  },
-  modeTabCard: {
-    flex: 1,
-    height: 68,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-    gap: 6,
-  },
-  modeTabCardActive: {
-    backgroundColor: '#212121',
-    borderColor: '#212121',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  modeTabLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#1E293B',
-    textAlign: 'center',
-  },
-  modeTabLabelActive: {
-    color: '#FFFFFF',
-  },
-
-  /* YOUR LOCATION SECTION */
-  sectionBlock: {
-    paddingHorizontal: 16,
-    marginBottom: 14,
-  },
-  sectionSmallLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  currentLocationBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  currentLocationText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E293B',
-    flex: 1,
-    marginRight: 12,
-  },
-  changeBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0055A5',
-    textDecorationLine: 'underline',
-  },
-
-  /* EXPANDED SEARCH */
-  searchDropdownContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 14,
-  },
-  searchCapsuleBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#0055A5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    height: 44,
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13.5,
-    color: '#0F172A',
-    paddingVertical: 4,
-  },
-  suggestionsList: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    marginTop: 6,
-    paddingVertical: 4,
-  },
-  suggestionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F8FAFC',
-  },
-  suggestionTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  suggestionSub: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-
-  /* BLUE BANNER */
-  blueBanner: {
-    marginHorizontal: 16,
-    marginBottom: 18,
-    backgroundColor: '#0055A5',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  blueBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  bluePinCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  blueBannerText: {
-    color: '#FFFFFF',
-    fontSize: 12.5,
-    fontWeight: '600',
-    lineHeight: 16,
-    flex: 1,
-  },
-  useCurrentBtn: {
-    borderWidth: 1.5,
-    borderColor: '#FFFFFF',
-    borderRadius: 6,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  useCurrentBtnText: {
-    color: '#FFFFFF',
-    fontSize: 11.5,
-    fontWeight: '700',
-  },
-
-  /* SAVED ADDRESSES */
-  savedSection: {
-    paddingHorizontal: 16,
-  },
-  savedHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  savedSectionHeading: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  addNewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    backgroundColor: '#FEE2E2',
-    borderRadius: 6,
-  },
-  addNewBtnText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#DC2626',
-  },
-
-  /* NEW ADDRESS FORM */
-  newAddressForm: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 16,
-    gap: 10,
-  },
-  formTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0F172A',
-    marginBottom: 2,
-  },
-  tagSelectorRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tagPill: {
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-  },
-  tagPillActive: {
-    backgroundColor: '#212121',
-    borderColor: '#212121',
-  },
-  tagPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  tagPillTextActive: {
-    color: '#FFFFFF',
-  },
-  formInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    fontSize: 13,
-    color: '#0F172A',
   },
-  saveAddressBtn: {
-    backgroundColor: '#DC2626',
-    borderRadius: 8,
-    paddingVertical: 10,
+  navBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
-  saveAddressBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '700',
-  },
-
-  /* SAVED ADDRESS ROW */
-  savedAddressRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    borderRadius: 8,
-  },
-  savedAddressRowSelected: {
-    backgroundColor: '#F0FDF4',
-    paddingHorizontal: 8,
-    marginHorizontal: -8,
-  },
-  savedAddressContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  savedLeftCol: {
-    alignItems: 'center',
-    width: 48,
-    paddingTop: 2,
-    gap: 4,
-  },
-  savedDistanceText: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  savedRightCol: {
-    flex: 1,
-  },
-  savedTitleBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  savedTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  itemTagBadge: {
-    backgroundColor: '#E2E8F0',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  itemTagText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: '#334155',
-  },
-  activeCheckBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  activeCheckText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
-  savedFullAddress: {
-    fontSize: 12,
-    color: '#64748B',
-    lineHeight: 17,
-    marginBottom: 3,
-  },
-  savedAreaSub: {
-    fontSize: 11.5,
-    color: '#475569',
-    fontWeight: '500',
-  },
-  deleteAddressBtn: {
-    padding: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  viewMoreRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    gap: 4,
-  },
-  viewMoreText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0055A5',
-  },
-
-  /* GREY DIVIDER STRIP */
-  greyDividerStrip: {
-    height: 8,
-    backgroundColor: '#F1F5F9',
-    width: '100%',
-    marginVertical: 4,
-  },
-
-  /* RECENT SECTION */
-  recentSection: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  recentHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  recentSectionHeading: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  clearBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0055A5',
-  },
-  recentItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
-    gap: 12,
-  },
-  recentLeftCol: {
-    alignItems: 'center',
-    width: 48,
-    gap: 4,
-  },
-  recentDistanceText: {
-    fontSize: 10.5,
-    fontWeight: '500',
-    color: '#64748B',
-  },
-  recentRightCol: {
-    flex: 1,
-  },
-  recentTitle: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: '#0F172A',
-  },
-  recentSubText: {
-    fontSize: 11.5,
-    color: '#64748B',
-    marginTop: 2,
-  },
-
-  /* PICKUP / STORE VIEW STYLES */
-  pickupSectionContainer: {
-    paddingHorizontal: 16,
-  },
-  storePickupBanner: {
-    backgroundColor: '#0F172A',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 16,
-  },
-  storeBannerBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#FEE2E2',
-    alignSelf: 'flex-start',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    marginBottom: 8,
-  },
-  storeBannerBadgeText: {
-    fontSize: 10.5,
-    fontWeight: '800',
-    color: '#DC2626',
-    letterSpacing: 0.5,
-  },
-  storeBannerTitle: {
+  navTitle: {
     fontSize: 17,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    marginBottom: 6,
+    fontWeight: '700',
+    color: C.text,
   },
-  storeBannerDesc: {
-    fontSize: 12.5,
-    color: '#94A3B8',
-    lineHeight: 18,
+  segmentWrap: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
-
-  /* HUB SEARCH */
-  hubSearchContainer: {
-    marginBottom: 14,
+  segmented: {
+    flexDirection: 'row',
+    backgroundColor: C.fill,
+    borderRadius: 10,
+    padding: 2,
   },
-  hubSearchCapsule: {
+  segment: {
+    flex: 1,
+    height: 34,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentActive: {
+    backgroundColor: C.card,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.12,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  segmentText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+  content: {
+    paddingHorizontal: 16,
+  },
+  field: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    height: 44,
     gap: 8,
+    height: 40,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    backgroundColor: C.fill,
   },
-  hubSearchInput: {
+  fieldInput: {
     flex: 1,
-    fontSize: 13.5,
-    color: '#0F172A',
-    paddingVertical: 4,
+    minWidth: 0,
+    fontSize: 16,
+    color: C.text,
+    paddingVertical: 0,
+    ...(Platform.OS === 'web' ? ({ outlineWidth: 0 } as object) : null),
   },
-
-  /* STORES LIST */
-  storesList: {
+  clearCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#AEAEB2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  helper: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 10,
+    marginLeft: 4,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginTop: 22,
+    marginBottom: 8,
+    marginLeft: 6,
+  },
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 56,
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  storesListHeading: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#64748B',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 4,
-  },
-  hubCard: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-  },
-  hubCardSelected: {
-    borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
-  },
-  hubHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 8,
-  },
-  hubTitleCol: {
-    flex: 1,
-    gap: 2,
-  },
-  hubName: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: '#0F172A',
-  },
-  hubCityText: {
-    fontSize: 10.5,
-    fontWeight: '700',
-    color: '#64748B',
-    letterSpacing: 0.5,
-    marginLeft: 24,
-  },
-  hubDistanceBadge: {
-    backgroundColor: '#F1F5F9',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  hubDistanceText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  selectedHubBadge: {
-    flexDirection: 'row',
+  tile: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
     alignItems: 'center',
-    gap: 4,
-    backgroundColor: '#DCFCE7',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    justifyContent: 'center',
   },
-  selectedHubBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#16A34A',
-  },
-  hubAddressText: {
-    fontSize: 12.5,
-    color: '#475569',
-    lineHeight: 18,
-  },
-  hubLandmarkText: {
-    fontSize: 11.5,
-    color: '#64748B',
-    fontStyle: 'italic',
-  },
-  hubMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: '#F1F5F9',
-  },
-  hubTimingGroup: {
+  titleLine: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
   },
-  hubTimingText: {
-    fontSize: 11.5,
-    color: '#64748B',
-    fontWeight: '500',
+  rowTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: C.text,
+    flexShrink: 1,
   },
-  tenMinBadge: {
-    backgroundColor: '#FEF3C7',
-    paddingHorizontal: 7,
+  rowSub: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  tag: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: C.secondary,
+    backgroundColor: C.bg,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
-  tenMinBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#B45309',
+  distance: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 3,
   },
-  selectStoreBtn: {
-    backgroundColor: '#0F172A',
-    borderRadius: 8,
-    paddingVertical: 9,
+  notServed: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.red,
+    marginTop: 3,
+  },
+  hubMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 1,
+  },
+  emptyCard: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.text,
+  },
+  emptySub: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 4,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  tagRow: {
+    flexDirection: 'row',
+    gap: 8,
+    padding: 12,
+  },
+  tagChip: {
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 16,
+    backgroundColor: C.bg,
+    justifyContent: 'center',
+  },
+  tagChipActive: {
+    backgroundColor: C.text,
+  },
+  tagChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    minHeight: 50,
+    gap: 8,
+  },
+  formLabel: {
+    width: 70,
+    fontSize: 16,
+    color: C.text,
+  },
+  formInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    color: C.text,
+    paddingVertical: 12,
+  },
+  primaryBtn: {
+    marginTop: 14,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: C.red,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
   },
-  selectStoreBtnActive: {
-    backgroundColor: '#16A34A',
-  },
-  selectStoreBtnText: {
+  primaryBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
-  },
-  selectStoreBtnTextActive: {
-    color: '#FFFFFF',
   },
 });
