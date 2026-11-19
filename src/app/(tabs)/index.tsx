@@ -50,6 +50,10 @@ import {
   ArrowRight01Icon,
   Knife01Icon,
   RefreshIcon,
+  Tick02Icon,
+  PackageIcon,
+  Scooter01Icon,
+  Home01Icon,
 } from '../../components/HugeIcon';
 
 const VIDEO_RECIPES = [
@@ -917,22 +921,64 @@ export default function HomeScreen() {
           <AnimatedSearchCapsule />
         </View>
 
-        {/* Live order */}
+        {/* Live order (talabat-style status card) */}
         {activeOrder && (
           <TouchableOpacity
-            style={styles.mLiveOrder}
-            activeOpacity={0.85}
+            style={styles.liveCard}
+            activeOpacity={0.9}
             onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
             accessibilityRole="button"
+            accessibilityLabel={`${LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}. Track order`}
           >
-            <View style={styles.mLiveDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.mLiveTitle}>{LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}</Text>
-              <Text style={styles.mLiveSub} numberOfLines={1}>
-                {activeOrder.deliveryMode === 'instant' ? `Arriving in ${activeOrder.eta}` : `Arriving ${activeOrder.eta}`}
-              </Text>
+            <View style={styles.liveTop}>
+              {!!activeOrder.items[0] && (
+                <Image
+                  source={{ uri: optimizeImageUrl(activeOrder.items[0].product.image, 100) }}
+                  style={styles.liveThumb}
+                />
+              )}
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.liveEyebrow}>Your order</Text>
+                <Text style={styles.liveEta} numberOfLines={1}>
+                  {activeOrder.deliveryMode === 'instant' ? `Arriving in ${activeOrder.eta}` : `Arriving ${activeOrder.eta}`}
+                </Text>
+              </View>
+              <View style={styles.livePill}>
+                <View style={styles.livePillDot} />
+                <Text style={styles.livePillText}>Live</Text>
+              </View>
             </View>
-            <Text style={styles.mLiveAction}>Track</Text>
+
+            <View style={styles.liveSteps}>
+              {LIVE_STEPS.map((step, i) => {
+                const current = liveStep(activeOrder.status);
+                const done = i < current;
+                const now = i === current;
+                return (
+                  <React.Fragment key={step.key}>
+                    {i > 0 && <View style={[styles.liveLine, i <= current && styles.liveLineDone]} />}
+                    <View style={[styles.liveStep, done && styles.liveStepDone, now && styles.liveStepNow]}>
+                      <AppIcon
+                        icon={done ? Tick02Icon : step.icon}
+                        size={14}
+                        color={done ? '#FFFFFF' : now ? '#DC2626' : '#9CA3AF'}
+                        strokeWidth={2.2}
+                      />
+                    </View>
+                  </React.Fragment>
+                );
+              })}
+            </View>
+
+            <View style={styles.liveBottom}>
+              <Text style={styles.liveStatus} numberOfLines={1}>
+                {LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}
+              </Text>
+              <View style={styles.liveTrack}>
+                <Text style={styles.liveTrackText}>Track</Text>
+                <AppIcon icon={ArrowRight01Icon} size={14} color="#DC2626" strokeWidth={2.4} />
+              </View>
+            </View>
           </TouchableOpacity>
         )}
 
@@ -1218,12 +1264,37 @@ const HOME_CATEGORIES: { id: MeatCategory; label: string; image: string }[] = (
 }));
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
-  placed: 'Order placed',
-  butcher_prepping: 'Your order is being prepared',
-  cold_packed: 'Your order is packed',
-  rider_assigned: 'Rider assigned',
-  out_for_delivery: 'Your order is on the way',
+  placed: 'Order placed, starting soon',
+  butcher_prepping: 'Being cleaned and cut',
+  cold_packed: 'Packed, waiting for the rider',
+  rider_assigned: 'Rider is picking it up',
+  out_for_delivery: 'Rider is on the way',
 };
+
+const LIVE_STEPS = [
+  { key: 'placed', icon: Tick02Icon },
+  { key: 'prepping', icon: Knife01Icon },
+  { key: 'packed', icon: PackageIcon },
+  { key: 'onway', icon: Scooter01Icon },
+  { key: 'home', icon: Home01Icon },
+];
+
+// Which of the five steps the order is on (the last one, home, means delivered).
+function liveStep(status: string): number {
+  switch (status) {
+    case 'butcher_prepping':
+      return 1;
+    case 'cold_packed':
+      return 2;
+    case 'rider_assigned':
+    case 'out_for_delivery':
+      return 3;
+    case 'delivered':
+      return 4;
+    default:
+      return 0;
+  }
+}
 
 const TRUST_POINTS = [
   { title: '30 mins', sub: 'Fast delivery', icon: FlashIcon },
@@ -1389,37 +1460,116 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     backgroundColor: '#FFFFFF',
   },
-  mLiveOrder: {
+  liveCard: {
     marginHorizontal: 16,
     marginBottom: 12,
+    padding: 14,
+    borderRadius: 20,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#F1F1F3',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  liveTop: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#111111',
-    borderRadius: 16,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
   },
-  mLiveDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#22C55E',
+  liveThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F4F4F6',
   },
-  mLiveTitle: {
-    color: '#FFFFFF',
-    fontSize: 15,
+  liveEyebrow: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  liveEta: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.3,
+    marginTop: 1,
+  },
+  livePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: '#ECFDF3',
+  },
+  livePillDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#16A34A',
+  },
+  livePillText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#15803D',
   },
-  mLiveSub: {
-    color: '#A1A1AA',
+  liveSteps: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 14,
+  },
+  liveStep: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F4F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveStepDone: {
+    backgroundColor: '#DC2626',
+  },
+  liveStepNow: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 2,
+    borderColor: '#DC2626',
+  },
+  liveLine: {
+    flex: 1,
+    height: 3,
+    marginHorizontal: 4,
+    borderRadius: 2,
+    backgroundColor: '#ECECEE',
+  },
+  liveLineDone: {
+    backgroundColor: '#DC2626',
+  },
+  liveBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    marginTop: 12,
+  },
+  liveStatus: {
+    flex: 1,
     fontSize: 13,
-    marginTop: 2,
+    color: '#374151',
+    fontWeight: '500',
   },
-  mLiveAction: {
-    color: '#FFFFFF',
+  liveTrack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  liveTrackText: {
     fontSize: 14,
     fontWeight: '700',
+    color: '#DC2626',
   },
   mHeroWrap: {
     marginTop: 2,
