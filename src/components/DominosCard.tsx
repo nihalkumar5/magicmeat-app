@@ -16,11 +16,13 @@ interface Props {
   isTop10?: boolean;
   rank?: number;
   variant?: 'compact' | 'feed';
+  style?: any;
 }
 
 const DominosCardComponent: React.FC<Props> = ({
   product,
   cardWidth = 172,
+  style,
 }) => {
   const cartItem = useStore((state) => state.cart.find((item) => item.product.id === product.id));
   const qtyInCart = cartItem ? cartItem.quantity : 0;
@@ -65,6 +67,7 @@ const DominosCardComponent: React.FC<Props> = ({
       style={[
         styles.card,
         { width: cardWidth as any },
+        style,
       ]}
       activeOpacity={0.92}
       onPress={handleCardPress}
