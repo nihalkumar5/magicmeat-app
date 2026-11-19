@@ -6,18 +6,19 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { THEME } from '../../constants/theme';
+import { router } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
 import { slotInfo } from '../../data/slots';
-import { COLD_PACK_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../../data/pricing';
+import { COLD_PACK_FEE, DELIVERY_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../../data/pricing';
 import { formatGrams } from '../../utils/format';
-import { router } from 'expo-router';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
-import { StatusBar } from 'expo-status-bar';
 import { PRODUCTS } from '../../data/mockData';
 import { DominosCard } from '../../components/DominosCard';
+import type { DeliveryMode } from '../../types';
 import {
   AppIcon,
   FlashIcon,
@@ -28,10 +29,21 @@ import {
   MinusSignIcon,
   ShieldCheckIcon,
   ArrowRight01Icon,
-  ArrowLeft01Icon,
   SnowflakeIcon,
-  ScaleIcon,
+  WeightScaleIcon,
+  DeliveryTruck01Icon,
 } from '../../components/HugeIcon';
+
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  green: '#15803D',
+  greenBg: '#F0FDF4',
+};
 
 export default function CartScreen() {
   const {
@@ -54,41 +66,30 @@ export default function CartScreen() {
   const grandTotal = getCartTotal();
   const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
-  const savings = cart.reduce(
-    (sum, item) => sum + Math.max(0, mrpFor(item.product, item.selectedCut) - item.unitPrice) * item.quantity,
-    0
-  );
+  const mrpTotal = cart.reduce((sum, item) => sum + mrpFor(item.product, item.selectedCut) * item.quantity, 0);
+  const itemSavings = Math.max(0, mrpTotal - subtotal);
+  const isDelivery = orderFulfillment === 'delivery';
+  const deliverySaved = isDelivery && deliveryFee === 0 ? DELIVERY_FEE : 0;
+  const totalSavings = itemSavings + deliverySaved;
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_ABOVE - subtotal);
   const freeDeliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_ABOVE) * 100));
-  const sundaySlot = slotInfo('sunday_morning');
-  const eveningSlot = slotInfo('slot');
 
+  const slots: { mode: DeliveryMode; icon: any; title: string; time: string }[] = [
+    { mode: 'instant', icon: FlashIcon, title: 'Express', time: '30 mins' },
+    { mode: 'slot', icon: Clock01Icon, title: slotInfo('slot').title, time: '5–7 PM' },
+    { mode: 'sunday_morning', icon: Calendar01Icon, title: slotInfo('sunday_morning').title, time: '7–9 AM' },
+  ];
+
+  /* ------------------------------------------------------------ empty */
   if (cart.length === 0) {
     return (
       <SafeAreaView style={styles.safeArea} edges={['top']}>
         <StatusBar style="dark" />
         <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
-              activeOpacity={0.7}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            >
-              <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
-            </TouchableOpacity>
-            <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>Your basket</Text>
-            </View>
-          </View>
+          <Text style={styles.largeTitle}>Basket</Text>
         </View>
 
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={styles.emptyScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Hero Illustration Card */}
+        <ScrollView contentContainerStyle={styles.emptyContent} showsVerticalScrollIndicator={false}>
           <View style={styles.emptyCard}>
             <Image
               source={require('../../../assets/illustrations/empty_cart.png')}
@@ -97,342 +98,264 @@ export default function CartScreen() {
             />
             <Text style={styles.emptyTitle}>Your basket is empty</Text>
             <Text style={styles.emptySubtitle}>
-              Fresh, hand-cut chicken, mutton and fish, cleaned and chilled, at your door in 30 minutes.
+              Fresh, hand-cut chicken, mutton and fish, cleaned and packed cold, at your door in about 30 minutes.
             </Text>
             <TouchableOpacity
-              style={styles.browseButton}
+              style={styles.primaryButton}
               onPress={() => router.push('/(tabs)')}
-              activeOpacity={0.88}
+              activeOpacity={0.85}
+              accessibilityRole="button"
             >
-              <Text style={styles.browseButtonText}>Start shopping</Text>
-              <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.primaryButtonText}>Start shopping</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Senior UI/UX: Quick-Add Recommendations Shelf */}
-          <View style={styles.emptyRecommendationsSection}>
-            <View style={styles.emptyRecHeaderRow}>
-              <View>
-                <Text style={styles.emptyRecHeading}>Popular right now</Text>
-                <Text style={styles.emptyRecSub}>Our customers&apos; favourites, one tap away</Text>
-              </View>
-            </View>
-            <FlatList
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.emptyRecScroll}
-              data={PRODUCTS.slice(0, 6)}
-              keyExtractor={(p) => `empty-rec-${p.id}`}
-              renderItem={({ item }) => (
-                <DominosCard product={item} cardWidth={168} />
-              )}
-              getItemLayout={(_, index) => ({
-                length: 180,
-                offset: 180 * index,
-                index,
-              })}
-              initialNumToRender={3}
-              maxToRenderPerBatch={3}
-              windowSize={3}
-            />
-          </View>
+          <Text style={styles.sectionHeading}>Popular right now</Text>
+          <FlatList
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.shelf}
+            data={PRODUCTS.slice(0, 6)}
+            keyExtractor={(p) => `empty-rec-${p.id}`}
+            renderItem={({ item }) => <DominosCard product={item} cardWidth={160} />}
+            initialNumToRender={3}
+          />
           <View style={{ height: 40 }} />
         </ScrollView>
       </SafeAreaView>
     );
   }
 
+  /* ----------------------------------------------------------- filled */
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
-          </TouchableOpacity>
-          <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Your basket</Text>
-            <Text style={styles.headerSubtitle}>
-              {itemCount} item{itemCount > 1 ? 's' : ''}{netGrams > 0 ? ` · ${formatGrams(netGrams)} ready to cook` : ''}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.largeTitle}>Basket</Text>
+        <Text style={styles.headerSub}>
+          {itemCount} item{itemCount > 1 ? 's' : ''}
+          {netGrams > 0 ? ` · ${formatGrams(netGrams)} ready to cook` : ''}
+        </Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Delivery Speed / Slot Selector */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>When should we deliver?</Text>
-
-          <View style={styles.slotOptionRow}>
-            {/* Express Instant */}
-            <TouchableOpacity
-              style={[
-                styles.slotOption,
-                deliveryMode === 'instant' && styles.slotOptionActive,
-              ]}
-              onPress={() => setDeliveryMode('instant')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.slotIconRow}>
-                <AppIcon icon={FlashIcon} size={14} color="#000000" />
-                <Text
-                  style={[
-                    styles.slotTitle,
-                    deliveryMode === 'instant' && styles.slotTitleActive,
-                  ]}
-                >
-                  Express
-                </Text>
-              </View>
-              <Text style={styles.slotSubtitle}>30 mins</Text>
-              <Text style={styles.slotNote}>Fastest</Text>
-            </TouchableOpacity>
-
-            {/* Sunday Morning Slot */}
-            <TouchableOpacity
-              style={[
-                styles.slotOption,
-                deliveryMode === 'sunday_morning' && styles.slotOptionActive,
-              ]}
-              onPress={() => setDeliveryMode('sunday_morning')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.slotIconRow}>
-                <AppIcon icon={Calendar01Icon} size={14} color="#000000" />
-                <Text
-                  style={[
-                    styles.slotTitle,
-                    deliveryMode === 'sunday_morning' && styles.slotTitleActive,
-                  ]}
-                >
-                  {sundaySlot.title}
-                </Text>
-              </View>
-              <Text style={styles.slotSubtitle}>7 - 9 AM</Text>
-              <Text style={styles.slotNote}>Weekend</Text>
-            </TouchableOpacity>
-
-            {/* Scheduled Slot */}
-            <TouchableOpacity
-              style={[
-                styles.slotOption,
-                deliveryMode === 'slot' && styles.slotOptionActive,
-              ]}
-              onPress={() => setDeliveryMode('slot')}
-              activeOpacity={0.8}
-            >
-              <View style={styles.slotIconRow}>
-                <AppIcon icon={Clock01Icon} size={14} color="#000000" />
-                <Text
-                  style={[
-                    styles.slotTitle,
-                    deliveryMode === 'slot' && styles.slotTitleActive,
-                  ]}
-                >
-                  {eveningSlot.title}
-                </Text>
-              </View>
-              <Text style={styles.slotSubtitle}>5 - 7 PM</Text>
-              <Text style={styles.slotNote}>Evening</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Cart Items Bento Card */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>Items</Text>
-
-          {cart.map((item) => (
-            <View key={item.cartItemId} style={styles.cartItemRow}>
-              <Image
-                source={{ uri: optimizeImageUrl(item.product.image, 160) }}
-                style={styles.cartItemThumb}
-                fadeDuration={0}
-              />
-
-              <View style={styles.cartItemInfo}>
-                <Text style={styles.cartItemName}>{item.product.name}</Text>
-                <View style={styles.cutBadgeRow}>
-                  <Text style={styles.cutBadge}>{item.selectedCut.name}</Text>
-                  {item.selectedCut.allowsSkinOption && (
-                    <Text style={styles.skinBadge}>
-                      {item.isSkinless ? 'Skinless' : 'With Skin'}
-                    </Text>
-                  )}
-                </View>
-                <Text style={styles.cartItemYield}>
-                  {item.selectedCut.netWeight} · {item.product.macros.proteinGrams}g protein per 100g
-                </Text>
-                <Text style={styles.cartItemPrice}>₹{item.unitPrice * item.quantity}</Text>
-              </View>
-
-              {/* Quantity Stepper */}
-              <View style={styles.qtyContainer}>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => updateQuantity(item.cartItemId, -1)}
-                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                  accessibilityLabel={item.quantity === 1 ? `Remove ${item.product.name}` : `Decrease ${item.product.name}`}
-                >
-                  {item.quantity === 1 ? (
-                    <AppIcon icon={Delete02Icon} size={13} color="#FF3B30" />
-                  ) : (
-                    <AppIcon icon={MinusSignIcon} size={13} color="#000000" />
-                  )}
-                </TouchableOpacity>
-                <Text style={styles.qtyText}>{item.quantity}</Text>
-                <TouchableOpacity
-                  style={styles.qtyBtn}
-                  onPress={() => updateQuantity(item.cartItemId, 1)}
-                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
-                  accessibilityLabel={`Increase ${item.product.name}`}
-                >
-                  <AppIcon icon={PlusSignIcon} size={13} color="#000000" />
-                </TouchableOpacity>
-              </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Free delivery progress */}
+        {isDelivery && (
+          <View style={[styles.card, styles.freeCard]}>
+            <View style={styles.freeRow}>
+              <AppIcon icon={DeliveryTruck01Icon} size={20} color={C.green} strokeWidth={2} />
+              <Text style={styles.freeText}>
+                {amountToFreeDelivery > 0 ? (
+                  <>
+                    Add <Text style={styles.freeStrong}>₹{amountToFreeDelivery}</Text> more for free delivery
+                  </>
+                ) : (
+                  <>
+                    <Text style={styles.freeStrong}>Free delivery</Text> unlocked
+                  </>
+                )}
+              </Text>
             </View>
-          ))}
-        </View>
-
-        {netGrams > 0 && (
-          <>
-          {/* Weight Pan Yield Breakdown */}
-          <View style={styles.weightSummaryCard}>
-            <View style={styles.weightSummaryHeader}>
-              <AppIcon icon={ScaleIcon} size={15} color="#000000" />
-              <Text style={styles.weightSummaryTitle}>You pay only for clean meat</Text>
-            </View>
-            <View style={styles.weightCompareRow}>
-              <View style={styles.weightCol}>
-                <Text style={styles.weightColLabel}>Before cleaning</Text>
-                <Text style={styles.weightColGross}>{formatGrams(grossGrams)}</Text>
-                <Text style={styles.weightColSub}>with skin & trim</Text>
-              </View>
-              <Text style={styles.weightSeparator}>→</Text>
-              <View style={[styles.weightCol, styles.weightColActive]}>
-                <Text style={styles.weightColLabelActive}>You get</Text>
-                <Text style={styles.weightColNet}>{formatGrams(netGrams)}</Text>
-                <Text style={styles.weightColSubActive}>cleaned, ready to cook</Text>
-              </View>
+            <View style={styles.track}>
+              <View style={[styles.trackFill, { width: `${freeDeliveryProgress}%` }]} />
             </View>
           </View>
-          </>
         )}
 
-        {/* Cold-Chain Packaging Option */}
-        <TouchableOpacity
-          style={styles.packagingCard}
-          onPress={() => setColdPackagingEnabled(!coldPackagingEnabled)}
-          activeOpacity={0.8}
-        >
-          <View style={styles.packagingLeft}>
-            <AppIcon icon={SnowflakeIcon} size={20} color="#0284C7" />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.packagingTitle}>
-                Cold-pack delivery · ₹{COLD_PACK_FEE}
-              </Text>
-              <Text style={styles.packagingSub}>
-                Insulated pouch with gel packs keeps your order cold for hours.
-              </Text>
-            </View>
-          </View>
-          <View
-            style={[
-              styles.checkCircle,
-              coldPackagingEnabled && styles.checkCircleActive,
-            ]}
-          >
-            {coldPackagingEnabled && <View style={styles.checkInner} />}
-          </View>
-        </TouchableOpacity>
+        {/* Items */}
+        <View style={styles.card}>
+          {cart.map((item, idx) => {
+            const lineMrp = mrpFor(item.product, item.selectedCut) * item.quantity;
+            const linePrice = item.unitPrice * item.quantity;
+            return (
+              <View key={item.cartItemId}>
+                {idx > 0 && <View style={styles.divider} />}
+                <View style={styles.itemRow}>
+                  <TouchableOpacity
+                    onPress={() => router.push({ pathname: '/product/[id]', params: { id: item.product.id } })}
+                    activeOpacity={0.8}
+                    accessibilityLabel={`Open ${item.product.name}`}
+                  >
+                    <Image
+                      source={{ uri: optimizeImageUrl(item.product.image, 160) }}
+                      style={styles.thumb}
+                      fadeDuration={0}
+                    />
+                  </TouchableOpacity>
 
-        {/* Bill Breakdown */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>Bill details</Text>
+                  <View style={styles.itemInfo}>
+                    <Text style={styles.itemName} numberOfLines={2}>
+                      {item.product.name}
+                    </Text>
+                    <Text style={styles.itemMeta} numberOfLines={1}>
+                      {item.selectedCut.name}
+                      {item.selectedCut.allowsSkinOption ? ` · ${item.isSkinless ? 'Skinless' : 'With skin'}` : ''}
+                    </Text>
+                    <View style={styles.itemPriceRow}>
+                      <Text style={styles.itemPrice}>₹{linePrice}</Text>
+                      {lineMrp > linePrice && <Text style={styles.itemMrp}>₹{lineMrp}</Text>}
+                    </View>
+                  </View>
 
-          {orderFulfillment === 'delivery' && (
-            <View style={styles.freeDeliveryBox}>
-              <Text style={styles.freeDeliveryText}>
-                {amountToFreeDelivery > 0
-                  ? `Add ₹${amountToFreeDelivery} more for free delivery`
-                  : 'You’ve unlocked free delivery'}
-              </Text>
-              <View style={styles.freeDeliveryTrack}>
-                <View style={[styles.freeDeliveryFill, { width: `${freeDeliveryProgress}%` }]} />
+                  <View style={styles.stepper}>
+                    <TouchableOpacity
+                      style={styles.stepBtn}
+                      onPress={() => updateQuantity(item.cartItemId, -1)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
+                      accessibilityLabel={item.quantity === 1 ? `Remove ${item.product.name}` : `One less ${item.product.name}`}
+                    >
+                      <AppIcon
+                        icon={item.quantity === 1 ? Delete02Icon : MinusSignIcon}
+                        size={15}
+                        color={item.quantity === 1 ? C.red : C.text}
+                        strokeWidth={2.2}
+                      />
+                    </TouchableOpacity>
+                    <Text style={styles.stepQty}>{item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.stepBtn}
+                      onPress={() => updateQuantity(item.cartItemId, 1)}
+                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
+                      accessibilityLabel={`One more ${item.product.name}`}
+                    >
+                      <AppIcon icon={PlusSignIcon} size={15} color={C.text} strokeWidth={2.2} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-          )}
+            );
+          })}
 
+          <View style={styles.divider} />
+          <TouchableOpacity
+            style={styles.addMoreRow}
+            onPress={() => router.push('/(tabs)')}
+            activeOpacity={0.6}
+            accessibilityRole="button"
+          >
+            <AppIcon icon={PlusSignIcon} size={16} color={C.red} strokeWidth={2.4} />
+            <Text style={styles.addMoreText}>Add more items</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Clean meat */}
+        {netGrams > 0 && grossGrams > netGrams && (
+          <View style={[styles.card, styles.yieldCard]}>
+            <AppIcon icon={WeightScaleIcon} size={20} color={C.green} strokeWidth={2} />
+            <Text style={styles.yieldText}>
+              You pay only for clean meat: about {formatGrams(grossGrams)} before cleaning,{' '}
+              <Text style={{ fontWeight: '800' }}>{formatGrams(netGrams)} you get</Text>.
+            </Text>
+          </View>
+        )}
+
+        {/* Delivery time */}
+        <Text style={styles.sectionLabel}>{isDelivery ? 'DELIVERY TIME' : 'PICKUP TIME'}</Text>
+        <View style={styles.slotRow}>
+          {slots.map((slot) => {
+            const active = deliveryMode === slot.mode;
+            return (
+              <TouchableOpacity
+                key={slot.mode}
+                style={[styles.slot, active && styles.slotActive]}
+                onPress={() => setDeliveryMode(slot.mode)}
+                activeOpacity={0.8}
+                accessibilityRole="radio"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={`${slot.title}, ${slot.time}`}
+              >
+                <AppIcon icon={slot.icon} size={16} color={active ? '#FFFFFF' : C.text} strokeWidth={2} />
+                <Text style={[styles.slotTitle, active && styles.slotTextActive]}>{slot.title}</Text>
+                <Text style={[styles.slotTime, active && styles.slotTimeActive]}>{slot.time}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Cold pack */}
+        <View style={[styles.card, styles.toggleRow]}>
+          <View style={styles.toggleIcon}>
+            <AppIcon icon={SnowflakeIcon} size={18} color="#0284C7" strokeWidth={2} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.toggleTitle}>Cold-pack delivery · ₹{COLD_PACK_FEE}</Text>
+            <Text style={styles.toggleSub}>Insulated pouch with gel packs keeps it cold for hours.</Text>
+          </View>
+          <Switch
+            value={coldPackagingEnabled}
+            onValueChange={setColdPackagingEnabled}
+            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+            thumbColor="#FFFFFF"
+            accessibilityLabel="Cold-pack delivery"
+          />
+        </View>
+
+        {/* Bill */}
+        <Text style={styles.sectionLabel}>BILL DETAILS</Text>
+        <View style={styles.card}>
           <View style={styles.billRow}>
             <Text style={styles.billLabel}>Item total</Text>
-            <Text style={styles.billValue}>₹{subtotal}</Text>
+            <View style={styles.billValueRow}>
+              {itemSavings > 0 && <Text style={styles.billStrike}>₹{mrpTotal}</Text>}
+              <Text style={styles.billValue}>₹{subtotal}</Text>
+            </View>
           </View>
-
+          {isDelivery && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Delivery fee</Text>
+              {deliveryFee === 0 ? (
+                <View style={styles.billValueRow}>
+                  <Text style={styles.billStrike}>₹{DELIVERY_FEE}</Text>
+                  <Text style={[styles.billValue, { color: C.green }]}>FREE</Text>
+                </View>
+              ) : (
+                <Text style={styles.billValue}>₹{deliveryFee}</Text>
+              )}
+            </View>
+          )}
           {packagingFee > 0 && (
             <View style={styles.billRow}>
               <Text style={styles.billLabel}>Cold pack</Text>
               <Text style={styles.billValue}>₹{packagingFee}</Text>
             </View>
           )}
-
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>{orderFulfillment === 'takeaway' ? 'Pickup' : 'Delivery fee'}</Text>
-            {deliveryFee === 0 ? (
-              <Text style={styles.freeBadge}>FREE</Text>
-            ) : (
-              <Text style={styles.billValue}>₹{deliveryFee}</Text>
-            )}
-          </View>
-
-          <View style={[styles.billRow, styles.totalRow]}>
+          <View style={styles.divider} />
+          <View style={[styles.billRow, { paddingTop: 12 }]}>
             <Text style={styles.totalLabel}>To pay</Text>
             <Text style={styles.totalValue}>₹{grandTotal}</Text>
           </View>
-
-          {savings > 0 && (
-            <View style={styles.savingsRow}>
-              <Text style={styles.savingsText}>You save ₹{savings} on this order</Text>
+          {totalSavings > 0 && (
+            <View style={styles.savingsBanner}>
+              <Text style={styles.savingsText}>You’re saving ₹{totalSavings} on this order</Text>
             </View>
           )}
         </View>
 
-        {/* Guarantee */}
-        <View style={styles.safetyRow}>
-          <AppIcon icon={ShieldCheckIcon} size={14} color="#16A34A" />
-          <Text style={styles.safetyText}>
-            Fresh, or your money back · Pay cash on delivery
-          </Text>
+        <View style={styles.assurance}>
+          <AppIcon icon={ShieldCheckIcon} size={14} color={C.secondary} strokeWidth={2} />
+          <Text style={styles.assuranceText}>Fresh, or your money back · Pay cash or UPI on delivery</Text>
         </View>
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 110 }} />
       </ScrollView>
 
-      {/* Sticky Bottom Checkout Action */}
+      {/* Checkout bar */}
       <View style={styles.checkoutBar}>
         <View>
-          <Text style={styles.checkoutTotalLabel}>To pay</Text>
-          <Text style={styles.checkoutTotalPrice}>₹{grandTotal}</Text>
-          {savings > 0 && <Text style={styles.checkoutWeightNote}>Saving ₹{savings}</Text>}
+          <Text style={styles.checkoutTotal}>₹{grandTotal}</Text>
+          <Text style={styles.checkoutSub}>
+            {totalSavings > 0 ? `Saving ₹${totalSavings}` : 'Incl. all fees'}
+          </Text>
         </View>
-
         <TouchableOpacity
-          style={styles.proceedButton}
+          style={styles.checkoutButton}
           onPress={() => router.push('/checkout')}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           accessibilityRole="button"
+          accessibilityLabel={`Checkout, ₹${grandTotal}`}
         >
-          <Text style={styles.proceedButtonText}>Checkout</Text>
-          <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" />
+          <Text style={styles.checkoutButtonText}>Checkout</Text>
+          <AppIcon icon={ArrowRight01Icon} size={16} color="#FFFFFF" strokeWidth={2.4} />
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -440,570 +363,388 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  freeDeliveryBox: {
-    backgroundColor: '#F0FDF4',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    gap: 8,
-  },
-  freeDeliveryText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#166534',
-  },
-  freeDeliveryTrack: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#DCFCE7',
-    overflow: 'hidden',
-  },
-  freeDeliveryFill: {
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#16A34A',
-  },
-  savingsRow: {
-    marginTop: 10,
-    backgroundColor: '#F0FDF4',
-    borderRadius: 8,
-    paddingVertical: 8,
-    alignItems: 'center',
-  },
-  savingsText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#166534',
-  },
   safeArea: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: C.bg,
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
-    paddingBottom: THEME.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 10,
+    backgroundColor: C.bg,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
+  largeTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.6,
   },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextCol: {
-    flex: 1,
-  },
-  headerTitle: {
-    color: '#000000',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
+  headerSub: {
+    fontSize: 14,
+    color: C.secondary,
     marginTop: 2,
   },
   content: {
-    flex: 1,
-    backgroundColor: THEME.colors.background,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
-  scrollContent: {
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
-  },
-  emptyScrollContent: {
-    paddingBottom: 40,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    paddingTop: 36,
-    paddingBottom: 28,
-    marginHorizontal: 16,
-    marginTop: 12,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-  },
-  emptyIllustration: {
-    width: 170,
-    height: 170,
-    marginBottom: 16,
-  },
-  emptyBadgePill: {
-    backgroundColor: 'rgba(220, 38, 38, 0.08)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
-  emptyBadgeText: {
-    color: '#DC2626',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.8,
-  },
-  emptyTitle: {
-    color: '#0F172A',
-    fontSize: 21,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    color: '#64748B',
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 19,
-    maxWidth: 290,
-  },
-  browseButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F172A',
-    paddingVertical: 13,
-    paddingHorizontal: 24,
-    borderRadius: THEME.radius.full,
-    marginTop: 18,
-    gap: 8,
-    ...THEME.shadow.button,
-  },
-  browseButtonText: {
-    color: '#FFFFFF',
-    fontSize: 13.5,
-    fontWeight: '800',
-  },
-  emptyRecommendationsSection: {
-    marginTop: 24,
-  },
-  emptyRecHeaderRow: {
-    paddingHorizontal: 20,
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    paddingHorizontal: 14,
     marginBottom: 12,
   },
-  emptyRecHeading: {
-    color: '#0F172A',
-    fontSize: 17,
-    fontWeight: '900',
-    letterSpacing: -0.3,
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
   },
-  emptyRecSub: {
-    color: '#64748B',
+  sectionLabel: {
     fontSize: 12,
-    marginTop: 2,
-    fontWeight: '500',
+    fontWeight: '600',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginTop: 10,
+    marginBottom: 8,
+    marginLeft: 6,
   },
-  emptyRecScroll: {
-    paddingHorizontal: 16,
+
+  /* free delivery */
+  freeCard: {
+    paddingVertical: 14,
+    gap: 10,
   },
-  macroBannerCard: {
+  freeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
+    gap: 10,
   },
-  macroBannerLeft: {
+  freeText: {
+    flex: 1,
+    fontSize: 14,
+    color: C.text,
+  },
+  freeStrong: {
+    fontWeight: '800',
+    color: C.green,
+  },
+  track: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  trackFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#22C55E',
+  },
+
+  /* items */
+  itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
     gap: 12,
   },
-  flameCircle: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: THEME.colors.macroProteinBg,
+  thumb: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: C.bg,
+  },
+  itemInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+    lineHeight: 20,
+  },
+  itemMeta: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  itemPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 4,
+  },
+  itemPrice: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: C.text,
+  },
+  itemMrp: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.bg,
+    borderRadius: 18,
+    height: 36,
+  },
+  stepBtn: {
+    width: 34,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  macroBannerTitle: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  macroBannerSub: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    marginTop: 1,
-  },
-  macroProteinBadge: {
-    backgroundColor: '#000000',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: THEME.radius.md,
-    alignItems: 'center',
-  },
-  macroProteinNum: {
-    color: '#FFFFFF',
+  stepQty: {
+    minWidth: 18,
+    textAlign: 'center',
     fontSize: 15,
-    fontWeight: '900',
-  },
-  macroProteinLabel: {
-    color: '#D1D5DB',
-    fontSize: 9,
     fontWeight: '700',
+    color: C.text,
   },
-  sectionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
+  addMoreRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 14,
   },
-  sectionHeaderTitle: {
-    color: '#000000',
+  addMoreText: {
     fontSize: 15,
-    fontWeight: '800',
-    marginBottom: THEME.spacing.sm,
+    fontWeight: '600',
+    color: C.red,
   },
-  slotOptionRow: {
+
+  /* yield */
+  yieldCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 14,
+    backgroundColor: C.greenBg,
+  },
+  yieldText: {
+    flex: 1,
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#166534',
+  },
+
+  /* slots */
+  slotRow: {
     flexDirection: 'row',
     gap: 8,
+    marginBottom: 12,
   },
-  slotOption: {
+  slot: {
     flex: 1,
-    backgroundColor: '#F8F8FA',
-    borderRadius: THEME.radius.md,
-    padding: 10,
-    borderWidth: 1.5,
-    borderColor: '#EAEAEE',
+    backgroundColor: C.card,
+    borderRadius: 14,
+    paddingVertical: 12,
     alignItems: 'center',
+    gap: 3,
   },
-  slotOptionActive: {
-    borderColor: '#000000',
-    backgroundColor: '#FFFFFF',
-  },
-  slotIconRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
+  slotActive: {
+    backgroundColor: C.text,
   },
   slotTitle: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  slotTitleActive: {
-    color: '#000000',
-  },
-  slotSubtitle: {
-    color: '#000000',
     fontSize: 13,
-    fontWeight: '800',
-  },
-  slotNote: {
-    color: THEME.colors.textSecondary,
-    fontSize: 9,
-    marginTop: 2,
-  },
-  cartItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-    gap: 12,
-  },
-  cartItemThumb: {
-    width: 60,
-    height: 60,
-    borderRadius: THEME.radius.md,
-    backgroundColor: '#F2F2F7',
-  },
-  cartItemInfo: {
-    flex: 1,
-  },
-  cartItemName: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  cutBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginVertical: 3,
-  },
-  cutBadge: {
-    color: '#000000',
-    fontSize: 10,
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
     fontWeight: '700',
-  },
-  skinBadge: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    backgroundColor: '#F8F8FA',
-    paddingVertical: 2,
-    paddingHorizontal: 5,
-    borderRadius: 4,
-  },
-  cartItemYield: {
-    color: '#6B7280',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  cartItemPrice: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '900',
+    color: C.text,
     marginTop: 2,
   },
-  qtyContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F2F2F7',
-    borderRadius: THEME.radius.full,
+  slotTextActive: {
+    color: '#FFFFFF',
   },
-  qtyBtn: {
-    padding: 8,
-  },
-  qtyText: {
-    color: '#000000',
+  slotTime: {
     fontSize: 12,
-    fontWeight: '800',
-    minWidth: 16,
-    textAlign: 'center',
+    color: C.secondary,
   },
-  weightSummaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
+  slotTimeActive: {
+    color: '#D1D5DB',
   },
-  weightSummaryHeader: {
+
+  /* cold pack */
+  toggleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 8,
-  },
-  weightSummaryTitle: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  weightCompareRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8FA',
-    borderRadius: THEME.radius.md,
-    padding: THEME.spacing.sm,
-  },
-  weightCol: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  weightColActive: {
-    backgroundColor: '#E8F5E9',
-    borderRadius: THEME.radius.sm,
-    paddingVertical: 4,
-  },
-  weightColLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  weightColLabelActive: {
-    color: '#15803D',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  weightColGross: {
-    color: THEME.colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '700',
-    marginVertical: 2,
-  },
-  weightColNet: {
-    color: '#000000',
-    fontSize: 18,
-    fontWeight: '900',
-    marginVertical: 2,
-  },
-  weightColSub: {
-    color: THEME.colors.textMuted,
-    fontSize: 9,
-  },
-  weightColSubActive: {
-    color: '#15803D',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  weightSeparator: {
-    color: THEME.colors.textMuted,
-    fontSize: 16,
-    fontWeight: '700',
-    paddingHorizontal: 6,
-  },
-  packagingCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
-  },
-  packagingLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
     gap: 12,
-    marginRight: 10,
+    paddingVertical: 14,
   },
-  packagingTitle: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  packagingSub: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  checkCircle: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
+  toggleIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: '#F0F9FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  checkCircleActive: {
-    borderColor: '#000000',
+  toggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
   },
-  checkInner: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#000000',
+  toggleSub: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 2,
+    lineHeight: 17,
   },
+
+  /* bill */
   billRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    paddingVertical: 8,
   },
   billLabel: {
-    color: THEME.colors.textSecondary,
-    fontSize: 13,
+    fontSize: 14,
+    color: C.secondary,
+  },
+  billValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   billValue: {
-    color: '#000000',
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+  billStrike: {
     fontSize: 13,
-    fontWeight: '700',
-  },
-  freeBadge: {
-    color: '#15803D',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  totalRow: {
-    marginTop: 8,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-    marginBottom: 0,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
   },
   totalLabel: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '900',
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.text,
   },
   totalValue: {
-    color: '#000000',
     fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontWeight: '800',
+    color: C.text,
   },
-  safetyRow: {
+  savingsBanner: {
+    backgroundColor: C.greenBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  savingsText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.green,
+  },
+  assurance: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginVertical: 4,
+    marginTop: 4,
   },
-  safetyText: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
+  assuranceText: {
+    fontSize: 12,
+    color: C.secondary,
   },
+
+  /* checkout bar */
   checkoutBar: {
     position: 'absolute',
-    bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingVertical: THEME.spacing.md,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.hairline,
   },
-  checkoutTotalLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    textTransform: 'uppercase',
+  checkoutTotal: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+  },
+  checkoutSub: {
+    fontSize: 12,
     fontWeight: '600',
+    color: C.green,
+    marginTop: 1,
   },
-  checkoutTotalPrice: {
-    color: '#000000',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  checkoutWeightNote: {
-    color: '#15803D',
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  proceedButton: {
+  checkoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#000000',
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: THEME.radius.full,
     gap: 8,
-    ...THEME.shadow.button,
+    backgroundColor: C.red,
+    height: 50,
+    paddingHorizontal: 28,
+    borderRadius: 25,
   },
-  proceedButtonText: {
+  checkoutButtonText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+
+  /* empty */
+  emptyContent: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  emptyCard: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyIllustration: {
+    width: 180,
+    height: 150,
+    marginBottom: 8,
+  },
+  emptyTitle: {
+    fontSize: 20,
     fontWeight: '800',
+    color: C.text,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.secondary,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  primaryButton: {
+    backgroundColor: C.red,
+    height: 50,
+    borderRadius: 25,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  sectionHeading: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+    marginTop: 24,
+    marginBottom: 12,
+    marginLeft: 4,
+  },
+  shelf: {
+    gap: 12,
+    paddingRight: 16,
   },
 });
