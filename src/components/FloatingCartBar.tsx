@@ -1,60 +1,79 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { THEME } from '../constants/theme';
-import { useStore } from '../store/useStore';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { router } from 'expo-router';
+import { useStore } from '../store/useStore';
 import { useTabBarInset } from './FloatingTabBar';
 import { FREE_DELIVERY_ABOVE } from '../data/pricing';
-import { formatGrams } from '../utils/format';
-import { AppIcon, ShoppingBag01Icon, ArrowRight01Icon } from './HugeIcon';
+import { optimizeImageUrl } from '../utils/imageOptimizer';
+import { AppIcon, ArrowRight01Icon } from './HugeIcon';
 
+const RED = '#DC2626';
+
+// Compact "View basket" pill (Blinkit / Swiggy Instamart style): photos of
+// what's in the basket, item count and total, a free-delivery nudge
+// (Bolt Food style) and an arrow button.
 const FloatingCartBarComponent: React.FC = () => {
   const tabInset = useTabBarInset();
-  const cartLength = useStore((state) => state.cart.length);
-  const totalItems = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
-  const itemTotal = useStore((state) => state.getCartSubtotal());
-  const netGrams = useStore((state) => state.getCartNetWeightGrams());
+  const cart = useStore((state) => state.cart);
   const fulfillment = useStore((state) => state.orderFulfillment);
 
-  if (cartLength === 0) return null;
+  if (cart.length === 0) return null;
 
-  const itemsLabel = `${totalItems} item${totalItems > 1 ? 's' : ''}${netGrams > 0 ? ` · ${formatGrams(netGrams)}` : ''}`;
+  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const itemTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const toFree = FREE_DELIVERY_ABOVE - itemTotal;
-  const summary =
-    fulfillment === 'delivery'
-      ? toFree > 0
-        ? `Add ₹${toFree} for free delivery`
-        : 'Free delivery unlocked'
-      : itemsLabel;
+  const progress = Math.min(1, itemTotal / FREE_DELIVERY_ABOVE);
+  const showNudge = fulfillment === 'delivery';
+  const thumbs = cart.slice(0, 3);
 
   return (
-    <View style={[styles.wrapper, tabInset > 0 && { bottom: tabInset + 4 }]}>
+    <View pointerEvents="box-none" style={[styles.wrapper, tabInset > 0 && { bottom: tabInset + 6 }]}>
       <TouchableOpacity
-        style={styles.container}
-        activeOpacity={0.92}
+        style={styles.pill}
+        activeOpacity={0.9}
         onPress={() => router.push('/(tabs)/cart')}
+        accessibilityRole="button"
+        accessibilityLabel={`View basket, ${totalItems} item${totalItems > 1 ? 's' : ''}, ₹${itemTotal}`}
       >
-        <View style={styles.left}>
-          <View style={styles.iconCircle}>
-            <AppIcon icon={ShoppingBag01Icon} size={16} color="#FFFFFF" />
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{totalItems}</Text>
-            </View>
-          </View>
-          <View>
-            <Text style={styles.priceText}>
-              ₹{itemTotal}
-              <Text style={styles.weightText}>  {itemsLabel}</Text>
-            </Text>
-            <Text style={styles.weightText}>{summary}</Text>
-          </View>
+        <View style={[styles.thumbs, { width: 34 + (thumbs.length - 1) * 16 }]}>
+          {thumbs.map((item, i) => (
+            <Image
+              key={item.cartItemId}
+              source={{ uri: optimizeImageUrl(item.product.image, 80) }}
+              style={[styles.thumb, { left: i * 16, zIndex: 3 - i }]}
+            />
+          ))}
         </View>
 
-        <View style={styles.right}>
-          <Text style={styles.actionText}>View basket</Text>
-          <AppIcon icon={ArrowRight01Icon} size={14} color="#111111" />
+        <View style={styles.copy}>
+          <Text style={styles.title}>View basket</Text>
+          <Text style={styles.sub} numberOfLines={1}>
+            {totalItems} item{totalItems > 1 ? 's' : ''} · ₹{itemTotal}
+          </Text>
         </View>
+
+        <View style={styles.arrow}>
+          <AppIcon icon={ArrowRight01Icon} size={18} color={RED} strokeWidth={2.6} />
+        </View>
+
+        {showNudge && (
+          <View style={styles.track}>
+            <View style={[styles.fill, { width: `${progress * 100}%` }]} />
+          </View>
+        )}
       </TouchableOpacity>
+
+      {showNudge && (
+        <Text style={styles.nudge}>
+          {toFree > 0 ? (
+            <>
+              Add <Text style={styles.nudgeStrong}>₹{toFree}</Text> more for free delivery
+            </>
+          ) : (
+            <Text style={styles.nudgeStrong}>Free delivery unlocked</Text>
+          )}
+        </Text>
+      )}
     </View>
   );
 };
@@ -63,74 +82,91 @@ const styles = StyleSheet.create({
   wrapper: {
     position: 'absolute',
     bottom: 16,
-    left: 16,
-    right: 16,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
     zIndex: 99,
   },
-  container: {
-    backgroundColor: '#111111',
-    borderRadius: THEME.radius.full,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+  pill: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    ...THEME.shadow.button,
+    gap: 10,
+    minWidth: 250,
+    maxWidth: 340,
+    paddingLeft: 8,
+    paddingRight: 6,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: RED,
+    overflow: 'hidden',
+    shadowColor: RED,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.32,
+    shadowRadius: 16,
+    elevation: 10,
   },
-  left: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+  thumbs: {
+    height: 34,
   },
-  iconCircle: {
+  thumb: {
+    position: 'absolute',
+    top: 0,
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: '#262626',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  badge: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
+    borderWidth: 2,
+    borderColor: RED,
     backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    minWidth: 15,
-    height: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3,
   },
-  badgeText: {
-    color: '#111111',
-    fontSize: 9,
-    fontWeight: '800',
+  copy: {
+    flex: 1,
+    minWidth: 0,
   },
-  weightText: {
-    color: '#A1A1AA',
-    fontSize: 11,
-    fontWeight: '500',
-  },
-  priceText: {
+  title: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
+    letterSpacing: -0.2,
   },
-  right: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#FFFFFF',
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: THEME.radius.full,
-  },
-  actionText: {
-    color: '#111111',
+  sub: {
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
+    marginTop: 1,
+  },
+  arrow: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  track: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  fill: {
+    height: 3,
+    backgroundColor: '#FFFFFF',
+  },
+  nudge: {
+    marginTop: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    fontSize: 12,
+    color: '#374151',
+  },
+  nudgeStrong: {
+    fontWeight: '800',
+    color: '#15803D',
   },
 });
 
