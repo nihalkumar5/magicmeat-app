@@ -208,6 +208,13 @@ interface HeroProps {
 
 const HERO_GUTTER = 16;
 
+// Header colour, from the logo's crimson (#B41024) opened up a touch for a
+// large surface: #BE1E2D keeps white text at 6.2:1 (WCAG AA at any size).
+// The accent is a warm gold, the analogous partner of red, which reads as
+// "fast and fresh" and pulls the eye to the delivery time.
+const HEADER_BG = '#BE1E2D';
+const HEADER_ACCENT = '#FFC94A';
+
 // Rounded, inset hero card with small page dots, like the App Store's
 // featured cards. Swipe or wait; tapping a slide opens its product.
 const HeroBannerCarousel = React.memo<HeroProps>(function HeroBannerCarousel({ width, onSelectSlide }) {
@@ -815,7 +822,7 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.mSafeArea} edges={['top']}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       <ScrollView
         style={styles.mScroll}
         showsVerticalScrollIndicator={false}
@@ -827,6 +834,8 @@ export default function HomeScreen() {
       >
         {/* Location + profile */}
         <View style={styles.mTopBar}>
+          {/* Paints above the header too, so pulling down never shows white */}
+          <View pointerEvents="none" style={styles.mTopOverscroll} />
           <TouchableOpacity
             style={styles.mLocationBlock}
             onPress={handleOpenLocationModal}
@@ -836,7 +845,7 @@ export default function HomeScreen() {
           >
             <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Express delivery in'}</Text>
             <View style={styles.mLocationRow}>
-              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color="#DC2626" strokeWidth={2.4} />
+              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color={HEADER_ACCENT} strokeWidth={2.4} />
               <Text style={styles.mEta}>{isPickup ? '10 minutes' : '15–20 minutes'}</Text>
             </View>
             <View style={styles.mAddressRow}>
@@ -846,7 +855,7 @@ export default function HomeScreen() {
                 </Text>
                 {currentLocation.fullAddress ? ` · ${currentLocation.fullAddress}` : ''}
               </Text>
-              <AppIcon icon={ChevronDownIcon} size={14} color="#6B7280" strokeWidth={2.4} />
+              <AppIcon icon={ChevronDownIcon} size={14} color="rgba(255,255,255,0.8)" strokeWidth={2.4} />
             </View>
           </TouchableOpacity>
 
@@ -1257,9 +1266,10 @@ const styles = StyleSheet.create({
   /* ============================================================= */
   /* MOBILE (redesign)                                              */
   /* ============================================================= */
+  // Status-bar strip shares the header colour.
   mSafeArea: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HEADER_BG,
   },
   mScroll: {
     flex: 1,
@@ -1270,9 +1280,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingTop: 10,
-    paddingBottom: 6,
+    paddingBottom: 8,
     gap: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: HEADER_BG,
+  },
+  mTopOverscroll: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -1000,
+    height: 1000,
+    backgroundColor: HEADER_BG,
   },
   mLocationBlock: {
     flex: 1,
@@ -1286,12 +1304,12 @@ const styles = StyleSheet.create({
   mEyebrow: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.8)',
   },
   mEta: {
     fontSize: 28,
     fontWeight: '900',
-    color: '#111111',
+    color: '#FFFFFF',
     letterSpacing: -0.8,
   },
   mAddressRow: {
@@ -1301,7 +1319,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   mAddressStrong: {
-    color: '#111111',
+    color: '#FFFFFF',
     fontWeight: '700',
   },
   mOffer: {
@@ -1344,7 +1362,7 @@ const styles = StyleSheet.create({
   },
   mLocationSub: {
     fontSize: 13,
-    color: '#6B7280',
+    color: 'rgba(255,255,255,0.78)',
     marginTop: 1,
   },
   // 2 pt white gap inside a hairline brand ring, like an iOS avatar.
@@ -1354,7 +1372,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     padding: 2,
     borderWidth: 1.5,
-    borderColor: 'rgba(220,38,38,0.35)',
+    borderColor: 'rgba(255,255,255,0.55)',
     backgroundColor: '#FFFFFF',
   },
   mProfileImg: {
@@ -1383,11 +1401,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  // Header ends in soft rounded corners over the white page; it stays
+  // with the search bar when it sticks to the top.
   mSearchWrap: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    paddingBottom: 16,
+    marginBottom: 12,
+    backgroundColor: HEADER_BG,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
   liveCard: {
     marginHorizontal: 16,
