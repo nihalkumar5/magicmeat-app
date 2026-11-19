@@ -25,5 +25,5 @@ export const CATEGORY_TILE_3D: ViewStyle = {
 // follows its round shape (filter on web/Android, layer shadow on iOS).
 export const CATEGORY_IMG_3D: ImageStyle =
   Platform.OS === 'ios'
-    ? { shadowColor: '#4A2410', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.32, shadowRadius: 7 }
-    : ({ filter: 'drop-shadow(0px 8px 6px rgba(74,36,16,0.32)) drop-shadow(0px 2px 2px rgba(74,36,16,0.18))' } as ImageStyle);
+    ? { shadowColor: '#4A2410', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.14, shadowRadius: 4 }
+    : ({ filter: 'drop-shadow(0px 3px 3px rgba(74,36,16,0.14))' } as ImageStyle);
