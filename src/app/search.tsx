@@ -32,19 +32,19 @@ import {
 
 const TRENDING_KEYWORDS = [
   'Chicken Curry Cut',
-  'Boneless Breast',
-  'Goat Mutton',
+  'Chicken Breast',
+  'Mutton Curry Cut',
   'Biryani Cut',
-  'White Prawns',
+  'Rohu Fish',
   'Peri-Peri Wings',
-  'Country Brown Eggs',
-  'Mutton Keema',
+  'Eggs',
+  'Boneless',
 ];
 
 const SEARCH_CATEGORIES = [
   { id: 'chicken', name: 'Fresh Chicken', icon: '🍗', color: '#FEF2F2', borderColor: '#FECACA' },
   { id: 'mutton', name: 'Prime Mutton', icon: '🥩', color: '#FFF7ED', borderColor: '#FED7AA' },
-  { id: 'fish', name: 'Fish & Prawns', icon: '🦐', color: '#EFF6FF', borderColor: '#BFDBFE' },
+  { id: 'fish', name: 'Fish', icon: '🦐', color: '#EFF6FF', borderColor: '#BFDBFE' },
   { id: 'eggs', name: 'Farm Fresh Eggs', icon: '🥚', color: '#FEFCE8', borderColor: '#FEF08A' },
   { id: 'ready-to-cook', name: 'Ready to Cook', icon: '🔥', color: '#FAF5FF', borderColor: '#E9D5FF' },
   { id: 'fresh-produce', name: 'Veggies & Fruits', icon: '🥕', color: '#F0FDF4', borderColor: '#BBF7D0' },
@@ -65,11 +65,7 @@ const SYNONYM_MAP: Record<string, string[]> = {
 
 export default function SearchScreen() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [recentSearches, setRecentSearches] = useState<string[]>([
-    'Chicken Curry Cut',
-    'Boneless Breast',
-    'Goat Mutton',
-  ]);
+  const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [activeFilter, setActiveFilter] = useState<'all' | 'under300' | 'highprotein'>('all');
 
   const { cart, addToCart, updateQuantity, setCustomizerProduct } = useStore();
@@ -176,7 +172,7 @@ export default function SearchScreen() {
             <TextInput
               ref={inputRef}
               style={styles.searchInput}
-              placeholder="Search chicken, mutton, prawns, eggs..."
+              placeholder="Search chicken, mutton, fish, eggs"
               placeholderTextColor="#94A3B8"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -220,7 +216,7 @@ export default function SearchScreen() {
                   <View style={styles.sectionHeaderRow}>
                     <View style={styles.sectionTitleWithIcon}>
                       <AppIcon icon={Clock01Icon} size={16} color="#64748B" />
-                      <Text style={styles.sectionTitle}>Recent Searches</Text>
+                      <Text style={styles.sectionTitle}>Recent searches</Text>
                     </View>
                     <TouchableOpacity onPress={handleClearRecent} activeOpacity={0.7}>
                       <Text style={styles.clearActionText}>Clear</Text>
@@ -247,7 +243,7 @@ export default function SearchScreen() {
               <View style={styles.sectionBlock}>
                 <View style={styles.sectionTitleWithIcon}>
                   <AppIcon icon={FireIcon} size={17} color="#DC2626" />
-                  <Text style={styles.sectionTitle}>Trending Meats Today</Text>
+                  <Text style={styles.sectionTitle}>Popular searches</Text>
                 </View>
 
                 <View style={styles.chipsWrap}>
@@ -259,7 +255,7 @@ export default function SearchScreen() {
                       activeOpacity={0.8}
                       accessibilityRole="button"
                     >
-                      <Text style={styles.trendingChipFlame}>🔥</Text>
+                      <AppIcon icon={Search01Icon} size={12} color="#9CA3AF" strokeWidth={2} />
                       <Text style={styles.trendingChipText}>{item}</Text>
                     </TouchableOpacity>
                   ))}
@@ -268,7 +264,7 @@ export default function SearchScreen() {
 
               {/* Browse by Meat Category */}
               <View style={styles.sectionBlock}>
-                <Text style={styles.sectionTitle}>Explore by Category</Text>
+                <Text style={styles.sectionTitle}>Shop by category</Text>
                 <View style={styles.categoryGrid}>
                   {SEARCH_CATEGORIES.map((cat) => (
                     <TouchableOpacity
@@ -294,9 +290,9 @@ export default function SearchScreen() {
                   <AppIcon icon={CheckmarkBadge01Icon} size={20} color="#059669" />
                 </View>
                 <View style={styles.guaranteeTextCol}>
-                  <Text style={styles.guaranteeTitle}>30-Min Cold-Chain Delivery</Text>
+                  <Text style={styles.guaranteeTitle}>Delivery in 30 mins</Text>
                   <Text style={styles.guaranteeSub}>
-                    Temperature controlled at 0°C to 4°C. 100% antibiotic & chemical free.
+                    Cleaned, cut to order and packed cold. 100% halal.
                   </Text>
                 </View>
               </View>
@@ -308,7 +304,7 @@ export default function SearchScreen() {
               <View style={styles.resultsMetaBar}>
                 <Text style={styles.resultsCountText}>
                   {searchResults.length > 0
-                    ? `Found ${searchResults.length} fresh meats for "${searchQuery}"`
+                    ? `${searchResults.length} result${searchResults.length === 1 ? "" : "s"} for "${searchQuery}"`
                     : `No results for "${searchQuery}"`}
                 </Text>
 
@@ -440,7 +436,7 @@ export default function SearchScreen() {
                           </View>
 
                           {product.availableCuts.length > 1 && (
-                            <Text style={styles.cardCustomizableHint}>Customizable cuts</Text>
+                            <Text style={styles.cardCustomizableHint}>Choose your cut</Text>
                           )}
                         </View>
 
@@ -455,7 +451,7 @@ export default function SearchScreen() {
                               }}
                               activeOpacity={0.85}
                             >
-                              <Text style={styles.addBtnText}>ADD</Text>
+                              <Text style={styles.addBtnText}>Add</Text>
                               <AppIcon icon={PlusSignIcon} size={14} color="#DC2626" strokeWidth={2.5} />
                             </TouchableOpacity>
                           ) : (
@@ -498,13 +494,13 @@ export default function SearchScreen() {
                     style={styles.emptySearchIllustration}
                     resizeMode="contain"
                   />
-                  <Text style={styles.emptyTitle}>No exact cuts found</Text>
+                  <Text style={styles.emptyTitle}>No matches found</Text>
                   <Text style={styles.emptySubtitle}>
-                    We couldn&apos;t find anything matching &quot;{searchQuery}&quot;. Try exploring our bestsellers:
+                    We couldn&apos;t find anything matching &quot;{searchQuery}&quot;. Try one of these:
                   </Text>
 
                   <View style={styles.emptySuggestionsRow}>
-                    {['Chicken Curry Cut', 'Prime Mutton', 'Boneless Breast', 'Farm Eggs', 'White Prawns'].map(
+                    {['Chicken Curry Cut', 'Mutton Curry Cut', 'Chicken Breast', 'Eggs', 'Rohu Fish'].map(
                       (item, idx) => (
                         <TouchableOpacity
                           key={`sugg-${idx}`}

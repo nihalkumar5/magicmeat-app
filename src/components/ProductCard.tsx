@@ -123,7 +123,7 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
             onPress={handleCustomise}
             activeOpacity={0.8}
           >
-            <Text style={styles.customisePillText}>Customise &gt;</Text>
+            <Text style={styles.customisePillText}>Choose cut</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -195,7 +195,7 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
             activeOpacity={0.85}
             testID={`add-btn-${product.id}`}
           >
-            <Text style={styles.addBtnText}>ADD +</Text>
+            <Text style={styles.addBtnText}>Add</Text>
           </TouchableOpacity>
         )}
       </View>

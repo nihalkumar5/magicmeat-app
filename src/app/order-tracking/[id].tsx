@@ -29,28 +29,28 @@ import {
 const STAGES = [
   {
     key: 'placed',
-    title: 'Order Confirmed',
-    sub: 'Dark-store dispatch assigned',
+    title: 'Order placed',
+    sub: 'We’ve received your order',
   },
   {
     key: 'butcher_prepping',
-    title: 'Master Butcher Prepping',
-    sub: 'Cleaned, precision hand-cut to your cut specs',
+    title: 'Being prepared',
+    sub: 'Cleaned and cut the way you chose',
   },
   {
     key: 'cold_packed',
-    title: 'Vacuum Sealed & Cold-Packed',
-    sub: 'Packed in insulated thermal bag with dry-ice packs @ 2.1°C',
+    title: 'Packed',
+    sub: 'Sealed and packed cold',
   },
   {
     key: 'out_for_delivery',
-    title: 'Rider Out with Thermal Box',
-    sub: 'Direct express route to your doorstep',
+    title: 'On the way',
+    sub: 'Your rider is heading to you',
   },
   {
     key: 'delivered',
-    title: 'Delivered Fresh & Chilled',
-    sub: 'Check cold freshness before opening',
+    title: 'Delivered',
+    sub: 'Enjoy your meal',
   },
 ];
 
@@ -90,7 +90,7 @@ export default function OrderTrackingScreen() {
             style={styles.homeBtn}
             onPress={() => router.replace('/(tabs)')}
           >
-            <Text style={styles.homeBtnText}>Back to Home</Text>
+            <Text style={styles.homeBtnText}>Back to home</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -110,7 +110,7 @@ export default function OrderTrackingScreen() {
           <AppIcon icon={ArrowLeft01Icon} size={18} color="#000000" strokeWidth={2.5} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
-          <Text style={styles.navTitle}>Live Order Tracker</Text>
+          <Text style={styles.navTitle}>Order status</Text>
           <Text style={styles.orderIdSub}>Order #{order.id}</Text>
         </View>
         <TouchableOpacity
@@ -136,8 +136,8 @@ export default function OrderTrackingScreen() {
                   {order.status === 'cancelled'
                     ? 'CANCELLED'
                     : order.deliveryMode === 'instant'
-                    ? 'EXPRESS COLD-CHAIN'
-                    : 'SCHEDULED DELIVERY'}
+                    ? 'EXPRESS'
+                    : 'SCHEDULED'}
                 </Text>
               </View>
               <Text style={styles.slotLabelText}>{order.slotLabel}</Text>
@@ -156,11 +156,13 @@ export default function OrderTrackingScreen() {
               )}
             </Text>
             <Text style={styles.etaSub}>
-              Packed in sealed thermal foil pouches with sub-zero gel chillers.
+              {order.status === 'cancelled'
+                ? 'You haven’t been charged. Order again any time.'
+                : 'Packed cold in an insulated pouch with gel packs.'}
             </Text>
             <View style={styles.coldChainPill}>
               <AppIcon icon={SnowflakeIcon} size={13} color="#0284C7" strokeWidth={2.5} />
-              <Text style={styles.coldChainPillText}>0-4°C Thermal Controlled</Text>
+              <Text style={styles.coldChainPillText}>Kept cold</Text>
             </View>
           </View>
           <Image
@@ -172,11 +174,12 @@ export default function OrderTrackingScreen() {
 
         {/* Butcher & Delivery Lifecycle Stages */}
         <View style={styles.stagesCard}>
-          <Text style={styles.stagesTitle}>Butchery & Delivery Progress</Text>
+          <Text style={styles.stagesTitle}>Progress</Text>
 
           {STAGES.map((stg, idx) => {
-            const isCompleted = idx < currentStageIndex;
-            const isCurrent = idx === currentStageIndex;
+            const isDelivered = order.status === 'delivered';
+            const isCompleted = idx < currentStageIndex || (isDelivered && idx === currentStageIndex);
+            const isCurrent = !isDelivered && idx === currentStageIndex;
 
             return (
               <View key={stg.key} style={styles.stageRow}>
@@ -254,7 +257,7 @@ export default function OrderTrackingScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.riderName}>{order.riderName || 'Rider not assigned yet'}</Text>
             <Text style={styles.riderRole}>
-              {order.riderPhone ? `Delivery partner · ${order.riderPhone}` : 'Contact details will appear after dispatch.'}
+              {order.riderPhone ? `Delivery partner · ${order.riderPhone}` : 'You’ll see your rider here once your order is on the way.'}
             </Text>
           </View>
 
@@ -278,7 +281,7 @@ export default function OrderTrackingScreen() {
 
         {/* Order Details & Cut Specs */}
         <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>Your Butchered Items</Text>
+          <Text style={styles.detailsTitle}>Items</Text>
           {order.items.map((item, idx) => (
             <View key={idx} style={styles.itemSummaryRow}>
               <View style={{ flex: 1 }}>
@@ -295,15 +298,15 @@ export default function OrderTrackingScreen() {
 
           <View style={styles.summaryBreakdown}>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Payment Mode</Text>
+              <Text style={styles.breakdownLabel}>Payment</Text>
               <Text style={styles.breakdownVal}>{order.paymentMethod}</Text>
             </View>
             <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Delivering To</Text>
+              <Text style={styles.breakdownLabel}>Deliver to</Text>
               <Text style={styles.breakdownVal} numberOfLines={1}>{order.address}</Text>
             </View>
             <View style={[styles.breakdownRow, { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F2F2F7' }]}>
-              <Text style={styles.totalLabel}>Grand Total</Text>
+              <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalVal}>₹{order.total}</Text>
             </View>
           </View>

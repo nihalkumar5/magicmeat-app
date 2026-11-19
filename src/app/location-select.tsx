@@ -129,15 +129,15 @@ export default function LocationSelectScreen() {
     } catch (err: any) {
       setIsDetecting(false);
       notify(
-        'Location Detection',
-        err.message || 'Unable to detect GPS position. Please pick from saved addresses.'
+        'Couldn’t find your location',
+        err.message || 'Please allow location access, or pick a saved address.'
       );
     }
   };
 
   const handleSaveNewAddress = () => {
     if (!newTitle.trim() || !newAddress.trim()) {
-      notify('Required Fields', 'Please enter both location name and full address.');
+      notify('Add the address', 'Please enter a name (like Home) and the full address.');
       return;
     }
 
@@ -150,7 +150,7 @@ export default function LocationSelectScreen() {
       isServiceable: true,
       nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
       distanceKm: 2.5,
-      deliveryEta: '15-20 Mins (Express Cold-Chain)',
+      deliveryEta: '30 mins',
       tag: newTag,
     };
 
@@ -205,7 +205,7 @@ export default function LocationSelectScreen() {
           <AppIcon icon={ArrowLeft02Icon} size={22} color="#111827" strokeWidth={2.2} />
         </TouchableOpacity>
         <Text style={styles.topHeaderTitle}>
-          {activeMode === 'delivery' ? 'Delivery Location' : 'Store Pickup Location'}
+          {activeMode === 'delivery' ? 'Choose delivery address' : 'Choose pickup store'}
         </Text>
       </View>
 
@@ -219,11 +219,11 @@ export default function LocationSelectScreen() {
           <View style={styles.hubBannerTextCol}>
             <View style={styles.hubBadge}>
               <View style={styles.hubBadgeDot} />
-              <Text style={styles.hubBadgeText}>HYPERLOCAL DARK-STORES</Text>
+              <Text style={styles.hubBadgeText}>NEAR YOU</Text>
             </View>
-            <Text style={styles.hubBannerTitle}>15-20 Min Cold-Chain</Text>
+            <Text style={styles.hubBannerTitle}>Delivery in 30 mins</Text>
             <Text style={styles.hubBannerSub}>
-              Dispatched direct from our certified 0-4°C butchery dark stores in Bilaspur &amp; Raipur.
+              Sent fresh and chilled from our stores in Bilaspur &amp; Raipur.
             </Text>
           </View>
           <Image
@@ -372,7 +372,7 @@ export default function LocationSelectScreen() {
                 {isDetecting ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.useCurrentBtnText}>Use Current Location</Text>
+                  <Text style={styles.useCurrentBtnText}>Use my current location</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -380,7 +380,7 @@ export default function LocationSelectScreen() {
             {/* SAVED ADDRESSES SECTION */}
             <View style={styles.savedSection}>
               <View style={styles.savedHeaderRow}>
-                <Text style={styles.savedSectionHeading}>Saved Addresses</Text>
+                <Text style={styles.savedSectionHeading}>Saved addresses</Text>
                 <TouchableOpacity
                   style={styles.addNewBtn}
                   onPress={() => setIsAddingNew((prev) => !prev)}
@@ -396,7 +396,7 @@ export default function LocationSelectScreen() {
               {/* INLINE ADD NEW ADDRESS FORM */}
               {isAddingNew && (
                 <View style={styles.newAddressForm}>
-                  <Text style={styles.formTitle}>Add New Delivery Address</Text>
+                  <Text style={styles.formTitle}>Add a new address</Text>
 
                   {/* Tag Selector */}
                   <View style={styles.tagSelectorRow}>
@@ -452,7 +452,7 @@ export default function LocationSelectScreen() {
                     onPress={handleSaveNewAddress}
                     activeOpacity={0.85}
                   >
-                    <Text style={styles.saveAddressBtnText}>Save &amp; Deliver Here</Text>
+                    <Text style={styles.saveAddressBtnText}>Save &amp; deliver here</Text>
                   </TouchableOpacity>
                 </View>
               )}
@@ -571,7 +571,7 @@ export default function LocationSelectScreen() {
             {/* RECENTLY SEARCHED SECTION */}
             <View style={styles.recentSection}>
               <View style={styles.recentHeaderRow}>
-                <Text style={styles.recentSectionHeading}>Recently Searched</Text>
+                <Text style={styles.recentSectionHeading}>Recent</Text>
                 {recentList.length > 0 && (
                   <TouchableOpacity onPress={() => setRecentList([])} activeOpacity={0.7}>
                     <Text style={styles.clearBtnText}>Clear</Text>
@@ -617,10 +617,10 @@ export default function LocationSelectScreen() {
             <View style={styles.storePickupBanner}>
               <View style={styles.storeBannerBadge}>
                 <AppIcon icon={CheckmarkBadge01Icon} size={16} color="#DC2626" />
-                <Text style={styles.storeBannerBadgeText}>READY IN 10 MINS</Text>
+                <Text style={styles.storeBannerBadgeText}>READY IN ABOUT 10 MINS</Text>
               </View>
               <Text style={styles.storeBannerTitle}>
-                MagicMeat Artisan Butchery Stores
+                Pick up from a MagicMeat store
               </Text>
               <Text style={styles.storeBannerDesc}>
                 Walk in and collect your freshly cut order chilled at 0-4°C. Zero queue, zero waiting.
@@ -649,7 +649,7 @@ export default function LocationSelectScreen() {
             {/* List of Butchery Stores */}
             <View style={styles.storesList}>
               <Text style={styles.storesListHeading}>
-                Available Dark Stores &amp; Outlets ({filteredHubs.length})
+                Stores near you ({filteredHubs.length})
               </Text>
 
               {filteredHubs.map((hub) => {
@@ -684,7 +684,7 @@ export default function LocationSelectScreen() {
                             color="#16A34A"
                             strokeWidth={2.2}
                           />
-                          <Text style={styles.selectedHubBadgeText}>Current Store</Text>
+                          <Text style={styles.selectedHubBadgeText}>Selected</Text>
                         </View>
                       ) : (
                         <View style={styles.hubDistanceBadge}>
@@ -713,7 +713,7 @@ export default function LocationSelectScreen() {
                       </View>
 
                       <View style={styles.tenMinBadge}>
-                        <Text style={styles.tenMinBadgeText}>⚡ 10 MIN PICKUP</Text>
+                        <Text style={styles.tenMinBadgeText}>10 MIN PICKUP</Text>
                       </View>
                     </View>
 
@@ -732,7 +732,7 @@ export default function LocationSelectScreen() {
                           isSelected && styles.selectStoreBtnTextActive,
                         ]}
                       >
-                        {isSelected ? '✓ Selected for Pickup' : 'Select This Store'}
+                        {isSelected ? '✓ Selected for Pickup' : 'Pick up here'}
                       </Text>
                     </TouchableOpacity>
                   </View>

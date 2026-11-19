@@ -196,7 +196,7 @@ export default function ProductDetailScreen() {
 
               <View style={styles.bestsellerPill}>
                 <AppIcon icon={StarIcon} size={12} color="#FFFFFF" strokeWidth={3} />
-                <Text style={styles.bestsellerPillText}>Best Seller</Text>
+                <Text style={styles.bestsellerPillText}>Bestseller</Text>
               </View>
             </View>
 
@@ -255,7 +255,7 @@ export default function ProductDetailScreen() {
                   {/* Table Header Row */}
                   <View style={styles.tableHeaderRow}>
                     <View style={[styles.tableCol, { width: 85 }]}>
-                      <Text style={styles.colHeaderTitle}>Net Weight</Text>
+                      <Text style={styles.colHeaderTitle}>Net weight</Text>
                     </View>
                     <View style={[styles.tableCol, { width: 90 }]}>
                       <Text style={styles.colHeaderTitle}>Cut style</Text>
@@ -354,7 +354,7 @@ export default function ProductDetailScreen() {
               onPress={handleAddToCart}
               activeOpacity={0.88}
             >
-              <Text style={styles.bottomAddText}>Add to Cart</Text>
+              <Text style={styles.bottomAddText}>Add to basket</Text>
             </TouchableOpacity>
           )}
         </View>

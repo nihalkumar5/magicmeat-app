@@ -3,6 +3,8 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
 import { router } from 'expo-router';
+import { FREE_DELIVERY_ABOVE } from '../data/pricing';
+import { formatGrams } from '../utils/format';
 import { AppIcon, ShoppingBag01Icon, ArrowRight01Icon } from './HugeIcon';
 
 const FloatingCartBarComponent: React.FC = () => {
@@ -10,15 +12,18 @@ const FloatingCartBarComponent: React.FC = () => {
   const totalItems = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
   const itemTotal = useStore((state) => state.getCartSubtotal());
   const netGrams = useStore((state) => state.getCartNetWeightGrams());
+  const fulfillment = useStore((state) => state.orderFulfillment);
 
   if (cartLength === 0) return null;
 
+  const itemsLabel = `${totalItems} item${totalItems > 1 ? 's' : ''}${netGrams > 0 ? ` · ${formatGrams(netGrams)}` : ''}`;
+  const toFree = FREE_DELIVERY_ABOVE - itemTotal;
   const summary =
-    netGrams >= 1000
-      ? `${(netGrams / 1000).toFixed(netGrams % 1000 === 0 ? 0 : 1)}kg Net Cooking Meat`
-      : netGrams > 0
-      ? `${netGrams}g Net Cooking Meat`
-      : `${totalItems} item${totalItems > 1 ? 's' : ''} in basket`;
+    fulfillment === 'delivery'
+      ? toFree > 0
+        ? `Add ₹${toFree} for free delivery`
+        : 'Free delivery unlocked'
+      : itemsLabel;
 
   return (
     <View style={styles.wrapper}>
@@ -35,13 +40,16 @@ const FloatingCartBarComponent: React.FC = () => {
             </View>
           </View>
           <View>
+            <Text style={styles.priceText}>
+              ₹{itemTotal}
+              <Text style={styles.weightText}>  {itemsLabel}</Text>
+            </Text>
             <Text style={styles.weightText}>{summary}</Text>
-            <Text style={styles.priceText}>₹{itemTotal}</Text>
           </View>
         </View>
 
         <View style={styles.right}>
-          <Text style={styles.actionText}>View Basket</Text>
+          <Text style={styles.actionText}>View basket</Text>
           <AppIcon icon={ArrowRight01Icon} size={14} color="#111111" />
         </View>
       </TouchableOpacity>

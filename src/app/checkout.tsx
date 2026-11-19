@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
 import { slotInfo } from '../data/slots';
+import { feesFor } from '../data/pricing';
+import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { saveProfile } from '../services/backend';
@@ -38,8 +40,8 @@ function showError(message: string) {
 const PAYMENT_METHODS: { id: 'Cash on Delivery'; label: string; sub: string; icon: any }[] = [
   {
     id: 'Cash on Delivery',
-    label: 'Cash / Pay on Delivery',
-    sub: 'Pay cash or scan QR at door',
+    label: 'Pay on delivery',
+    sub: 'Cash or UPI when your order arrives',
     icon: Cash01Icon,
   },
 ];
@@ -69,8 +71,7 @@ export default function CheckoutScreen() {
 
   const grandTotal = getCartTotal();
   const subtotal = getCartSubtotal();
-  const deliveryFee = orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
-  const packagingFee = coldPackagingEnabled ? 15 : 0;
+  const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
   const netGrams = getCartNetWeightGrams();
 
   const handlePlaceOrder = async () => {
@@ -146,7 +147,7 @@ export default function CheckoutScreen() {
         >
           <AppIcon icon={ArrowLeft01Icon} size={18} color="#000000" strokeWidth={2.5} />
         </TouchableOpacity>
-        <Text style={styles.navTitle}>Confirm Order</Text>
+        <Text style={styles.navTitle}>Checkout</Text>
         <View style={{ width: 36 }} />
       </View>
 
@@ -160,7 +161,7 @@ export default function CheckoutScreen() {
           <View style={styles.cardHeader}>
             <AppIcon icon={Location01Icon} size={16} color="#000000" strokeWidth={2} />
             <Text style={[styles.cardTitle, { flex: 1 }]}>
-              {orderFulfillment === 'takeaway' ? 'Pickup Store' : 'Delivery Address'}
+              {orderFulfillment === 'takeaway' ? 'Pickup from' : 'Deliver to'}
             </Text>
             <TouchableOpacity
               onPress={() => router.push('/location-select')}
@@ -201,7 +202,7 @@ export default function CheckoutScreen() {
 
           <View style={styles.deliveryNoteContainer}>
             <Text style={styles.noteLabel}>
-              {orderFulfillment === 'takeaway' ? 'Pickup Instruction:' : 'Delivery Instruction:'}
+              {orderFulfillment === 'takeaway' ? 'Note for the store (optional)' : 'Note for the rider (optional)'}
             </Text>
             <TextInput
               style={styles.noteInput}
@@ -224,26 +225,26 @@ export default function CheckoutScreen() {
             ) : (
               <AppIcon icon={Clock01Icon} size={16} color="#000000" strokeWidth={2} />
             )}
-            <Text style={styles.cardTitle}>Scheduled Delivery Slot</Text>
+            <Text style={styles.cardTitle}>Delivery time</Text>
           </View>
 
           <View style={styles.slotBadge}>
             <Text style={styles.slotBadgeText}>
-              {deliveryMode === 'instant' ? '⚡ 30-Min Express Dark-Store Delivery' : slotInfo(deliveryMode).label}
+              {deliveryMode === 'instant' ? 'Express · in about 30 minutes' : slotInfo(deliveryMode).label}
             </Text>
           </View>
 
           <View style={styles.tempAssurance}>
             <AppIcon icon={SnowflakeIcon} size={14} color="#0284C7" strokeWidth={2} />
             <Text style={styles.tempAssuranceText}>
-              Delivered in sealed insulated thermal bag chilled at 0-4°C.
+              {coldPackagingEnabled ? 'Packed cold in an insulated pouch with gel packs.' : 'Packed fresh and sealed.'}
             </Text>
           </View>
         </View>
 
         {/* Payment Method Selector */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment Method</Text>
+          <Text style={styles.cardTitle}>Payment</Text>
 
           {PAYMENT_METHODS.map((pm) => {
             const isSelected = paymentMethod === pm.id;
@@ -257,7 +258,7 @@ export default function CheckoutScreen() {
               >
                 <View style={styles.paymentLeft}>
                   <View style={[styles.paymentIconBox, isSelected && styles.paymentIconBoxSelected]}>
-                    <AppIcon icon={Icon} size={18} color={isSelected ? '#000000' : '#8E8E93'} strokeWidth={2} />
+                    <AppIcon icon={Icon} size={18} color={isSelected ? '#FFFFFF' : '#8E8E93'} strokeWidth={2} />
                   </View>
                   <View>
                     <Text style={[styles.paymentLabel, isSelected && styles.paymentLabelSelected]}>
@@ -277,10 +278,10 @@ export default function CheckoutScreen() {
 
         {/* Order Basket Summary */}
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Order Summary</Text>
+          <Text style={styles.cardTitle}>Order summary</Text>
           {netGrams > 0 && (
             <Text style={styles.orderYieldSub}>
-              Total Net Cooking Yield: <Text style={{ color: '#15803D', fontWeight: '800' }}>{netGrams}g</Text>
+              <Text style={{ color: '#15803D', fontWeight: '800' }}>{formatGrams(netGrams)}</Text> ready to cook
             </Text>
           )}
 
@@ -295,19 +296,19 @@ export default function CheckoutScreen() {
 
           {deliveryFee > 0 && (
             <View style={styles.miniItemRow}>
-              <Text style={styles.miniItemTitle}>Delivery fee (free above ₹299)</Text>
+              <Text style={styles.miniItemTitle}>Delivery fee</Text>
               <Text style={styles.miniItemPrice}>₹{deliveryFee}</Text>
             </View>
           )}
           {packagingFee > 0 && (
             <View style={styles.miniItemRow}>
-              <Text style={styles.miniItemTitle}>Cold-chain thermal pouch</Text>
+              <Text style={styles.miniItemTitle}>Cold pack</Text>
               <Text style={styles.miniItemPrice}>₹{packagingFee}</Text>
             </View>
           )}
 
           <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Payable</Text>
+            <Text style={styles.totalLabel}>To pay</Text>
             <Text style={styles.totalAmount}>₹{grandTotal}</Text>
           </View>
         </View>
@@ -315,7 +316,7 @@ export default function CheckoutScreen() {
         <View style={styles.guaranteeRow}>
           <AppIcon icon={ShieldCheckIcon} size={14} color="#15803D" strokeWidth={2} />
           <Text style={styles.guaranteeText}>
-            Cash on delivery • Safe cold-chain handover
+            No advance payment · Pay when it arrives
           </Text>
         </View>
 
@@ -325,7 +326,7 @@ export default function CheckoutScreen() {
       {/* Sticky Bottom Place Order CTA */}
       <View style={styles.bottomBar}>
         <View>
-          <Text style={styles.bottomTotalLabel}>Total</Text>
+          <Text style={styles.bottomTotalLabel}>To pay</Text>
           <Text style={styles.bottomTotalPrice}>₹{grandTotal}</Text>
         </View>
 
@@ -336,7 +337,7 @@ export default function CheckoutScreen() {
           activeOpacity={0.8}
         >
           <Text style={styles.placeOrderText}>
-            {isSubmitting ? 'Dispatching...' : 'Place Butcher Order →'}
+            {isSubmitting ? 'Placing order…' : 'Place order'}
           </Text>
         </TouchableOpacity>
       </View>

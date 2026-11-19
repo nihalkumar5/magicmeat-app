@@ -76,3 +76,26 @@ export function priceTableFor(product: Product): Record<string, number> {
   }
   return table;
 }
+
+// MRP of one unit of a cart line, for the "you save" line. Bigger packs carry
+// their own MRP; other cuts use the product's MRP plus the cut's price delta.
+export function mrpFor(product: Product, cut: CutOption): number {
+  const packId = cut.id.includes('__') ? cut.id.split('__')[1] : null;
+  if (packId) {
+    const pack = packVariantsFor(product).find((p) => p.id === packId);
+    if (pack) return pack.originalPrice;
+  }
+  const mrp = (product.originalPrice || product.basePrice) + (cut.priceDelta || 0);
+  return Math.max(mrp, unitPriceFor(product, cut));
+}
+
+// Fees. Firestore rules check the same numbers (firestore.rules totalsOk).
+export const FREE_DELIVERY_ABOVE = 299;
+export const DELIVERY_FEE = 35;
+export const COLD_PACK_FEE = 15;
+
+export function feesFor(subtotal: number, fulfillment: 'delivery' | 'takeaway', coldPack: boolean) {
+  const deliveryFee = fulfillment === 'delivery' && subtotal > 0 && subtotal < FREE_DELIVERY_ABOVE ? DELIVERY_FEE : 0;
+  const packagingFee = coldPack && subtotal > 0 ? COLD_PACK_FEE : 0;
+  return { deliveryFee, packagingFee, total: subtotal + deliveryFee + packagingFee };
+}

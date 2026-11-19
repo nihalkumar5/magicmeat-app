@@ -111,11 +111,11 @@ const CRAVING_CATEGORIES = [
 
 const SEARCH_KEYWORDS = [
   'Chicken Curry Cut',
-  'Rich Goat Mutton',
-  'Boneless Breast',
-  'White Sea Prawns',
-  'Dum Biryani Cut',
-  'Farm Fresh Eggs',
+  'Mutton Curry Cut',
+  'Chicken Breast',
+  'Rohu Fish',
+  'Biryani Cut',
+  'Eggs',
   'Peri-Peri Wings',
 ];
 
@@ -282,7 +282,7 @@ const HeroBannerCarousel = React.memo<HeroProps>(function HeroBannerCarousel({
 
       <View style={styles.heroTickerStrip}>
         <Text style={styles.heroTickerText}>
-          LOWEST PRICES ONLY ON MAGICMEAT APP | FREE EXPRESS COLD-CHAIN DELIVERY
+          FREE DELIVERY ABOVE ₹299  ·  100% HALAL  ·  CLEANED & CHILLED
         </Text>
       </View>
 
@@ -418,7 +418,7 @@ export default function HomeScreen() {
                     ? 'Delivery to'
                     : activeOrderType === 'takeaway'
                     ? 'Takeaway from'
-                    : 'Feast Store at'}
+                    : 'Visit our store at'}
                 </Text>
                 <AppIcon icon={ChevronDownIcon} size={13} color="#E52320" strokeWidth={2.5} />
               </View>
@@ -492,7 +492,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <Text style={styles.desktopBlueSub}>
-                Delivering in {currentLocation.deliveryEta} · {currentLocation.distanceKm} km from dark store · 0-4°C certified
+                Delivery in about 30 mins · {currentLocation.distanceKm} km away
               </Text>
             </View>
           </View>
@@ -539,7 +539,7 @@ export default function HomeScreen() {
                   >
                     Delivery
                   </Text>
-                  <Text style={styles.desktopSegmentPillSub}>15-20 Min Express</Text>
+                  <Text style={styles.desktopSegmentPillSub}>Delivery in 30 mins</Text>
                 </View>
               </TouchableOpacity>
 
@@ -593,9 +593,9 @@ export default function HomeScreen() {
                       activeOrderType === 'dinein' && styles.desktopSegmentPillTitleActive,
                     ]}
                   >
-                    Dine-in
+                    Visit store
                   </Text>
-                  <Text style={styles.desktopSegmentPillSub}>Artisan Feast Store</Text>
+                  <Text style={styles.desktopSegmentPillSub}>Buy at the counter</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -648,7 +648,7 @@ export default function HomeScreen() {
                 <AppIcon icon={CrownIcon} size={26} color="#D97706" />
                 <View style={styles.top10AccentLine} />
               </View>
-              <Text style={styles.top10Heading}>Top 10 Bestsellers</Text>
+              <Text style={styles.top10Heading}>Bestsellers</Text>
               <View style={styles.top10LocationSub}>
                 <AppIcon icon={Location01Icon} size={13} color="#B45309" strokeWidth={2.5} />
                 <Text style={styles.top10CityText}>
@@ -681,7 +681,7 @@ export default function HomeScreen() {
               <View style={styles.shelfTitleGroup}>
                 <AppIcon icon={CheckmarkBadge01Icon} size={24} color="#F59E0B" />
                 <View>
-                  <Text style={styles.shelfTitle}>Popular Butchery Delights</Text>
+                  <Text style={styles.shelfTitle}>Popular right now</Text>
                   <Text style={styles.shelfSub}>
                     FREE Delivery For Orders Above ₹149
                   </Text>
@@ -775,9 +775,9 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#FEF2F2' }]}>
                   <AppIcon icon={WeightScaleIcon} size={22} color="#DC2626" />
                 </View>
-                <Text style={styles.promiseCardTitle}>100% Net Weight Yield</Text>
+                <Text style={styles.promiseCardTitle}>Pay only for clean meat</Text>
                 <Text style={styles.promiseCardText}>
-                  Weighed strictly after precision cleaning &amp; cutting. Zero excess fat, zero water glaze, 100% cooking yield.
+                  Weighed after cleaning and cutting, so the weight you see is the meat you cook.
                 </Text>
               </View>
 
@@ -785,9 +785,9 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#F0F9FF' }]}>
                   <AppIcon icon={SnowflakeIcon} size={22} color="#0284C7" />
                 </View>
-                <Text style={styles.promiseCardTitle}>Chilled at 0-4°C, Never Frozen</Text>
+                <Text style={styles.promiseCardTitle}>Fresh, never frozen</Text>
                 <Text style={styles.promiseCardText}>
-                  Constant thermal monitoring preserves natural cellular moisture and tenderness without ice crystals.
+                  Kept chilled from our cutting room to your door, so it stays tender and juicy.
                 </Text>
               </View>
 
@@ -795,9 +795,9 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#F0FDF4' }]}>
                   <AppIcon icon={ShieldCheckIcon} size={22} color="#16A34A" />
                 </View>
-                <Text style={styles.promiseCardTitle}>Antibiotic &amp; Hormone-Free</Text>
+                <Text style={styles.promiseCardTitle}>100% Halal</Text>
                 <Text style={styles.promiseCardText}>
-                  Certified veterinary checks with complete flock traceability and zero artificial growth promoters.
+                  Hand-slaughtered the traditional zabiha way, with Bismillah.
                 </Text>
               </View>
 
@@ -805,9 +805,9 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#FFFBEB' }]}>
                   <AppIcon icon={FlashIcon} size={22} color="#D97706" />
                 </View>
-                <Text style={styles.promiseCardTitle}>15-20 Min Express Dark Store</Text>
+                <Text style={styles.promiseCardTitle}>At your door in 30 mins</Text>
                 <Text style={styles.promiseCardText}>
-                  Dispatched directly in sealed insulated thermal foil pouches with food-grade sub-zero gel chillers.
+                  Packed in an insulated pouch with gel packs and sent straight from our nearest store.
                 </Text>
               </View>
             </View>
@@ -830,36 +830,30 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <Text style={styles.desktopFooterAbout}>
-                  India&apos;s premier cold-chain artisanal butchery. Delivering gourmet farm-fresh poultry, grass-fed mutton, and pristine coastal seafood chilled at 0-4°C within 15-20 minutes.
+                  Fresh, halal chicken, mutton and fish, cleaned and cut to order and delivered chilled in about 30 minutes.
                 </Text>
-                <View style={styles.fssaiRow}>
-                  <AppIcon icon={ShieldCheckIcon} size={16} color="#10B981" />
-                  <Text style={styles.fssaiText}>FSSAI Central License No. 10020042000123 • ISO 22000:2018 Certified</Text>
-                </View>
               </View>
 
               <View style={styles.desktopFooterColLinks}>
                 <Text style={styles.footerColTitle}>Fresh Butchery</Text>
                 <Text style={styles.footerLink}>Farm Chicken Curry Cut</Text>
                 <Text style={styles.footerLink}>Prime Boneless Breast</Text>
-                <Text style={styles.footerLink}>Grass-Fed Mutton Chops</Text>
-                <Text style={styles.footerLink}>Coastal White Prawns</Text>
+                <Text style={styles.footerLink}>Mutton Curry Cut</Text>
+                <Text style={styles.footerLink}>Rohu &amp; Katla Fish</Text>
               </View>
 
               <View style={styles.desktopFooterColLinks}>
-                <Text style={styles.footerColTitle}>Cold-Chain Tech</Text>
-                <Text style={styles.footerLink}>Sub-Zero Gel Chillers</Text>
-                <Text style={styles.footerLink}>Thermal Pouch Packaging</Text>
-                <Text style={styles.footerLink}>Dark Store Express Network</Text>
-                <Text style={styles.footerLink}>Daily Lab Inspections</Text>
+                <Text style={styles.footerColTitle}>How we deliver</Text>
+                <Text style={styles.footerLink}>Cold-pack delivery</Text>
+                <Text style={styles.footerLink}>Cut to order</Text>
+                <Text style={styles.footerLink}>Delivery in 30 mins</Text>
               </View>
 
               <View style={styles.desktopFooterColLinks}>
                 <Text style={styles.footerColTitle}>Customer Care</Text>
-                <Text style={styles.footerLink}>1800-MAGIC-MEAT</Text>
-                <Text style={styles.footerLink}>support@magicmeat.in</Text>
+                <Text style={styles.footerLink}>care@magicmeat.in</Text>
                 <Text style={styles.footerLink}>Live Delivery Tracking</Text>
-                <Text style={styles.footerLink}>Terms &amp; Refund Promise</Text>
+                <Text style={styles.footerLink}>Refunds &amp; replacements</Text>
               </View>
             </View>
 
@@ -984,7 +978,7 @@ export default function HomeScreen() {
         <View style={styles.mobileTop10Container}>
           <View style={styles.mobileTop10HeaderRow}>
             <View>
-              <Text style={styles.mobileTop10Heading}>Best Sellers</Text>
+              <Text style={styles.mobileTop10Heading}>Bestsellers</Text>
               <Text style={styles.mobileTop10Subtitle}>Our customers&apos; all-time favourites</Text>
             </View>
             <TouchableOpacity
@@ -1029,7 +1023,7 @@ export default function HomeScreen() {
           <View style={styles.sectionHeaderRow}>
             <View>
               <Text style={styles.sectionHeading}>Recipes</Text>
-              <Text style={styles.sectionSubtitle}>Watch and cook — add ingredients to cart</Text>
+              <Text style={styles.sectionSubtitle}>Easy dishes, step by step</Text>
             </View>
             <TouchableOpacity onPress={() => router.push('/(tabs)/recipes')} activeOpacity={0.7}>
               <Text style={styles.seeAllText}>See all &gt;</Text>
@@ -1089,7 +1083,7 @@ export default function HomeScreen() {
                 </View>
                 <Text style={styles.zabihaTitle}>Zabiha, the traditional way</Text>
                 <Text style={styles.zabihaSubtitle}>
-                  Hand-slaughtered with Bismillah. Zero stunning, 100% net meat yield.
+                  Hand-slaughtered the traditional way, with Bismillah.
                 </Text>
               </View>
               <Image

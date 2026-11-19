@@ -55,7 +55,7 @@ export const LocationSelectorModal: React.FC = () => {
     } catch (err: any) {
       setIsDetecting(false);
       setErrorMessage(
-        err.message || 'Unable to detect location. Please select manually.'
+        err.message || 'Couldn’t find your location. Please pick an address.'
       );
     }
   };
@@ -85,7 +85,7 @@ export const LocationSelectorModal: React.FC = () => {
           {/* Top Header */}
           <View style={styles.headerRow}>
             <View>
-              <Text style={styles.headerTitle}>Select Delivery Location</Text>
+              <Text style={styles.headerTitle}>Choose delivery address</Text>
               <Text style={styles.headerSubtitle}>
                 Chilled at 2°C &amp; delivered from your nearest hub
               </Text>
@@ -143,11 +143,11 @@ export const LocationSelectorModal: React.FC = () => {
               <View style={styles.gpsTextCol}>
                 <View style={styles.gpsRow}>
                   <Text style={styles.gpsMainText}>
-                    {isDetecting ? 'Detecting GPS Satellite...' : 'Use Current Location'}
+                    {isDetecting ? 'Finding your location…' : 'Use my current location'}
                   </Text>
                   <View style={styles.gpsPill}>
                     <AppIcon icon={SparklesIcon} size={10} color="#166534" />
-                    <Text style={styles.gpsPillText}>Auto GPS</Text>
+                    <Text style={styles.gpsPillText}>GPS</Text>
                   </View>
                 </View>
                 <Text style={styles.gpsSubText}>
@@ -160,7 +160,7 @@ export const LocationSelectorModal: React.FC = () => {
 
             {/* Saved Addresses Section */}
             <View style={styles.sectionDividerRow}>
-              <Text style={styles.sectionHeaderLabel}>SAVED ADDRESSES</Text>
+              <Text style={styles.sectionHeaderLabel}>SAVED</Text>
             </View>
 
             {savedAddresses.map((addr, idx) => {
@@ -228,7 +228,7 @@ export const LocationSelectorModal: React.FC = () => {
             {/* Suggested / Popular Cities & Areas */}
             <View style={styles.sectionDividerRow}>
               <Text style={styles.sectionHeaderLabel}>
-                {searchQuery.trim().length > 0 ? 'SEARCH RESULTS' : 'RECENT & POPULAR HUBS'}
+                {searchQuery.trim().length > 0 ? 'SEARCH RESULTS' : 'POPULAR AREAS'}
               </Text>
             </View>
 

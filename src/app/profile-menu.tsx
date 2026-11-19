@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../constants/support';
 import { notify } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { fetchProfile, saveProfile as saveRemoteProfile } from '../services/backend';
@@ -111,7 +112,7 @@ export default function ProfileMenuScreen() {
         <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
           <AppIcon icon={ArrowLeft02Icon} size={20} color="#111827" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
+        <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity onPress={openEditProfile} style={styles.editButton}>
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
@@ -153,44 +154,48 @@ export default function ProfileMenuScreen() {
 
         <Text style={styles.sectionTitle}>Help &amp; information</Text>
         <View style={styles.menuCard}>
-          <TouchableOpacity style={styles.menuRow} onPress={() => Linking.openURL('tel:18006244263')}>
-            <AppIcon icon={CustomerService01Icon} size={19} color="#111827" />
-            <View style={styles.menuCopy}>
-              <Text style={styles.menuTitle}>Contact support</Text>
-              <Text style={styles.menuSubtitle}>Call MagicMeat care</Text>
-            </View>
-            <Text style={styles.chevron}>›</Text>
-          </TouchableOpacity>
-          <View style={styles.divider} />
-          <TouchableOpacity style={styles.menuRow} onPress={() => Linking.openURL('mailto:care@magicmeat.in')}>
+          {!!SUPPORT_PHONE && (
+            <>
+              <TouchableOpacity style={styles.menuRow} onPress={() => Linking.openURL(`tel:+${SUPPORT_PHONE}`)}>
+                <AppIcon icon={CustomerService01Icon} size={19} color="#111827" />
+                <View style={styles.menuCopy}>
+                  <Text style={styles.menuTitle}>Call us</Text>
+                  <Text style={styles.menuSubtitle}>Talk to our support team</Text>
+                </View>
+                <Text style={styles.chevron}>›</Text>
+              </TouchableOpacity>
+              <View style={styles.divider} />
+            </>
+          )}
+          <TouchableOpacity style={styles.menuRow} onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}`)}>
             <AppIcon icon={Mail01Icon} size={19} color="#111827" />
             <View style={styles.menuCopy}>
-              <Text style={styles.menuTitle}>Email support</Text>
-              <Text style={styles.menuSubtitle}>care@magicmeat.in</Text>
+              <Text style={styles.menuTitle}>Email us</Text>
+              <Text style={styles.menuSubtitle}>{SUPPORT_EMAIL}</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => notify('Freshness promise', 'If your order arrives above 4°C, contact support for a replacement review.')}
+            onPress={() => notify('Our freshness promise', 'Every order is cut fresh and packed cold. If anything isn’t right, email us with your order number and we’ll replace it or refund you.')}
           >
             <AppIcon icon={ShieldCheckIcon} size={19} color="#111827" />
             <View style={styles.menuCopy}>
               <Text style={styles.menuTitle}>Freshness &amp; safety</Text>
-              <Text style={styles.menuSubtitle}>Cold-chain handling standards</Text>
+              <Text style={styles.menuSubtitle}>How we keep it fresh</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => notify('Terms & refunds', 'Refund and replacement requests are reviewed by MagicMeat support.')}
+            onPress={() => notify('Refunds & replacements', 'Email us with your order number and a photo if something is wrong. Our team reviews every request.')}
           >
             <AppIcon icon={Invoice01Icon} size={19} color="#111827" />
             <View style={styles.menuCopy}>
-              <Text style={styles.menuTitle}>Terms &amp; refunds</Text>
-              <Text style={styles.menuSubtitle}>Review order policies</Text>
+              <Text style={styles.menuTitle}>Refunds &amp; replacements</Text>
+              <Text style={styles.menuSubtitle}>If something isn’t right</Text>
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
@@ -207,7 +212,7 @@ export default function ProfileMenuScreen() {
 
         <View style={styles.noteCard}>
           <AppIcon icon={InformationCircleIcon} size={18} color="#0369A1" />
-          <Text style={styles.noteText}>Payments are Cash on Delivery for now. Online payment and rewards are coming soon.</Text>
+          <Text style={styles.noteText}>Pay with cash or UPI when your order arrives.</Text>
         </View>
       </ScrollView>
 
@@ -227,7 +232,7 @@ export default function ProfileMenuScreen() {
             <Text style={styles.inputLabel}>Email (optional)</Text>
             <TextInput value={editEmail} onChangeText={setEditEmail} placeholder="email@example.com" style={styles.input} />
             <TouchableOpacity style={styles.saveButton} onPress={saveProfile}>
-              <Text style={styles.saveButtonText}>Save profile</Text>
+              <Text style={styles.saveButtonText}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -61,8 +61,8 @@ export const CutSelectorModal: React.FC = () => {
           {/* Header Row */}
           <View style={styles.sheetHeader}>
             <View style={styles.sheetHeaderLeft}>
-              <Text style={styles.sheetTitle}>Customise Your Cut</Text>
-              <Text style={styles.sheetSubtitle}>Precision cut by master butchers</Text>
+              <Text style={styles.sheetTitle}>Choose your cut</Text>
+              <Text style={styles.sheetSubtitle}>Hand-cut fresh for your order</Text>
             </View>
             <TouchableOpacity
               style={styles.closeButton}
@@ -87,7 +87,7 @@ export const CutSelectorModal: React.FC = () => {
                 )}
                 <View style={styles.halalBadge}>
                   <AppIcon icon={ShieldCheckIcon} size={13} color="#00A082" />
-                  <Text style={styles.halalText}>100% Halal Certified</Text>
+                  <Text style={styles.halalText}>100% Halal</Text>
                 </View>
               </View>
             </View>
@@ -99,7 +99,7 @@ export const CutSelectorModal: React.FC = () => {
                   <AppIcon icon={WeightScaleIcon} size={16} color="#111111" strokeWidth={2} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.transparencyTitle}>Net Weight Transparency</Text>
+                  <Text style={styles.transparencyTitle}>You pay only for clean meat</Text>
                   <Text style={styles.transparencyDesc}>
                     Local markets weigh before cleaning. We deliver 100% clean cooking yield.
                   </Text>
@@ -108,15 +108,15 @@ export const CutSelectorModal: React.FC = () => {
 
               <View style={styles.weightMeterRow}>
                 <View style={styles.weightBox}>
-                  <Text style={styles.weightLabel}>Gross Weight</Text>
+                  <Text style={styles.weightLabel}>Before cleaning</Text>
                   <Text style={styles.weightValueMuted}>{selectedCut.grossWeight}</Text>
-                  <Text style={styles.weightNote}>Pre-cut with waste</Text>
+                  <Text style={styles.weightNote}>with skin & trim</Text>
                 </View>
                 <View style={styles.arrowBox}>
                   <Text style={styles.arrowText}>→</Text>
                 </View>
                 <View style={[styles.weightBox, styles.weightBoxHighlight]}>
-                  <Text style={styles.weightLabelHighlight}>Net Pan Yield</Text>
+                  <Text style={styles.weightLabelHighlight}>You get</Text>
                   <Text style={styles.weightValueHighlight}>{selectedCut.netWeight}</Text>
                   <Text style={styles.weightNoteHighlight}>{selectedCut.pieces}</Text>
                 </View>
@@ -125,7 +125,7 @@ export const CutSelectorModal: React.FC = () => {
 
             {/* Cut Options Selection */}
             <View style={styles.sectionContainer}>
-              <Text style={styles.sectionTitle}>Select Cut Style</Text>
+              <Text style={styles.sectionTitle}>Cut style</Text>
 
               {customizerProduct.availableCuts.map((cut) => {
                 const isSelected = selectedCut.id === cut.id;
@@ -164,7 +164,7 @@ export const CutSelectorModal: React.FC = () => {
             {/* Skin Preference */}
             {selectedCut.allowsSkinOption && (
               <View style={styles.sectionContainer}>
-                <Text style={styles.sectionTitle}>Skin Preference</Text>
+                <Text style={styles.sectionTitle}>Skin</Text>
                 <View style={styles.toggleRow}>
                   <TouchableOpacity
                     style={[styles.toggleButton, isSkinless && styles.toggleButtonActive]}
@@ -205,7 +205,7 @@ export const CutSelectorModal: React.FC = () => {
           {/* Sticky Bottom Action Bar with Glovo Yellow Button */}
           <View style={styles.bottomBar}>
             <View style={styles.bottomPriceContainer}>
-              <Text style={styles.bottomPriceLabel}>Total Price</Text>
+              <Text style={styles.bottomPriceLabel}>Price</Text>
               <View style={styles.priceRow}>
                 <Text style={styles.bottomPrice}>₹{currentPrice}</Text>
                 {customizerProduct.originalPrice && (
@@ -225,7 +225,7 @@ export const CutSelectorModal: React.FC = () => {
               activeOpacity={0.8}
             >
               <Text style={styles.addButtonText}>
-                {isAdded ? 'Added ✓' : 'Add to Order'}
+                {isAdded ? 'Added ✓' : 'Add to basket'}
               </Text>
             </TouchableOpacity>
           </View>

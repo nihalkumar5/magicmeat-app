@@ -142,7 +142,7 @@ const DominosCardComponent: React.FC<Props> = ({
             onPress={handleAdd}
             activeOpacity={0.8}
           >
-            <Text style={styles.addBtnText}>+ ADD</Text>
+            <Text style={styles.addBtnText}>Add</Text>
           </TouchableOpacity>
         )}
       </View>

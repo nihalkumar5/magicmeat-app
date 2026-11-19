@@ -41,7 +41,7 @@ export const RecipeCard: React.FC<Props> = ({ kit }) => {
           fadeDuration={0}
         />
         <View style={styles.overlayBadge}>
-          <Text style={styles.overlayBadgeText}>Gourmet Cook Kit</Text>
+          <Text style={styles.overlayBadgeText}>Recipe kit</Text>
         </View>
 
         <View style={styles.metaOverlay}>
@@ -72,7 +72,7 @@ export const RecipeCard: React.FC<Props> = ({ kit }) => {
 
         {/* Kit Items List */}
         <View style={styles.kitItemsContainer}>
-          <Text style={styles.kitItemsHeader}>Included in Box:</Text>
+          <Text style={styles.kitItemsHeader}>What’s inside</Text>
           {kit.kitItems.map((item, idx) => (
             <View key={idx} style={styles.kitItemRow}>
               <AppIcon icon={CheckmarkCircle01Icon} size={12} color="#15803D" strokeWidth={2} />
@@ -84,7 +84,7 @@ export const RecipeCard: React.FC<Props> = ({ kit }) => {
         {/* Price & CTA */}
         <View style={styles.footer}>
           <View>
-            <Text style={styles.allInclusiveLabel}>All-inclusive kit</Text>
+            <Text style={styles.allInclusiveLabel}>Everything you need</Text>
             <View style={styles.priceRow}>
               <Text style={styles.price}>₹{kit.bundlePrice}</Text>
               <Text style={styles.originalPrice}>₹{kit.originalPrice}</Text>
@@ -99,12 +99,12 @@ export const RecipeCard: React.FC<Props> = ({ kit }) => {
             {isAdded ? (
               <>
                 <AppIcon icon={CheckmarkCircle01Icon} size={14} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.buttonText}>Added ✓</Text>
+                <Text style={styles.buttonText}>Added</Text>
               </>
             ) : (
               <>
                 <AppIcon icon={ShoppingBag01Icon} size={14} color="#FFFFFF" strokeWidth={2} />
-                <Text style={styles.buttonText}>1-Tap Add Kit</Text>
+                <Text style={styles.buttonText}>Add kit</Text>
               </>
             )}
           </TouchableOpacity>

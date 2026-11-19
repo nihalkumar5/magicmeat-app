@@ -22,7 +22,6 @@ import {
   AppIcon,
   ArrowLeft01Icon,
   Search01Icon,
-  ThermometerColdIcon,
   DeliveryTruck01Icon,
   PlusSignIcon,
   MinusSignIcon,
@@ -191,13 +190,13 @@ export default function AdminScreen() {
 
   const handleNextStatus = (order: Order) => {
     if (order.status === 'placed') {
-      updateOrderStatus(order.id, 'butcher_prepping', 2.1);
+      updateOrderStatus(order.id, 'butcher_prepping');
     } else if (order.status === 'butcher_prepping') {
-      updateOrderStatus(order.id, 'cold_packed', 1.8);
+      updateOrderStatus(order.id, 'cold_packed');
     } else if (order.status === 'cold_packed') {
       dispatchOrder(order);
     } else if (order.status === 'out_for_delivery') {
-      updateOrderStatus(order.id, 'delivered', 2.4);
+      updateOrderStatus(order.id, 'delivered');
     }
   };
 
@@ -460,9 +459,9 @@ export default function AdminScreen() {
                     {/* Sensor / Cold Chain Telemetry */}
                     <View style={styles.telemetryRow}>
                       <View style={styles.telemetryItem}>
-                        <AppIcon icon={ThermometerColdIcon} size={14} color="#0284C7" />
-                        <Text style={styles.telemetryText}>
-                          Sensor: {typeof order.currentTempCelsius === 'number' ? order.currentTempCelsius.toFixed(1) + '°C' : ((order as any).sensorTemp || '2.1°C')} (Verified Cold)
+                        <AppIcon icon={UserIcon} size={14} color="#525252" />
+                        <Text style={styles.telemetryText} numberOfLines={2}>
+                          {order.deliveryNote ? `Note: ${order.deliveryNote}` : 'No note'}
                         </Text>
                       </View>
                       <View style={styles.telemetryItem}>
@@ -482,7 +481,7 @@ export default function AdminScreen() {
                           activeOpacity={0.8}
                         >
                           <Text style={styles.actionBtnPrimaryText}>
-                            Accept &amp; Start Butchering &gt;
+                            Accept &amp; start preparing &gt;
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -494,7 +493,7 @@ export default function AdminScreen() {
                           activeOpacity={0.8}
                         >
                           <Text style={styles.actionBtnPrimaryText}>
-                            Seal Vacuum Pack at 2°C &gt;
+                            Mark packed &gt;
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -527,7 +526,7 @@ export default function AdminScreen() {
                           activeOpacity={0.8}
                         >
                           <Text style={styles.actionBtnPrimaryText}>
-                            Dispatch with Rider &gt;
+                            Dispatch with rider &gt;
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -539,7 +538,7 @@ export default function AdminScreen() {
                           activeOpacity={0.8}
                         >
                           <Text style={styles.actionBtnPrimaryText}>
-                            Confirm Customer Delivery ✓
+                            Mark delivered
                           </Text>
                         </TouchableOpacity>
                       )}
@@ -1105,6 +1104,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    flexShrink: 1,
   },
   telemetryText: {
     fontSize: 11.5,

@@ -97,7 +97,7 @@ export default function ExploreScreen() {
           >
             <AppIcon icon={ArrowLeft01Icon} size={21} color="#0F172A" strokeWidth={2.5} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>MagicMeat Menu</Text>
+          <Text style={styles.headerTitle}>Shop</Text>
         </View>
 
         <TouchableOpacity
@@ -249,7 +249,7 @@ export default function ExploreScreen() {
         ListFooterComponent={
           filtered.length === 0 ? (
             <View style={[styles.emptyContainer, { width: contentWidth, alignSelf: 'center' }]}>
-              <Text style={styles.emptyTitle}>No matching cuts in this category</Text>
+              <Text style={styles.emptyTitle}>Nothing here yet</Text>
               <Text style={styles.emptySubtext}>
                 Try clearing filters or switching category tabs above.
               </Text>

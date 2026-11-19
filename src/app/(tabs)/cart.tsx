@@ -11,6 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../../constants/theme';
 import { useStore } from '../../store/useStore';
 import { slotInfo } from '../../data/slots';
+import { COLD_PACK_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../../data/pricing';
+import { formatGrams } from '../../utils/format';
 import { router } from 'expo-router';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { StatusBar } from 'expo-status-bar';
@@ -50,8 +52,14 @@ export default function CartScreen() {
   const netGrams = getCartNetWeightGrams();
   const grossGrams = getCartGrossWeightGrams();
   const grandTotal = getCartTotal();
-  const deliveryFee = orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
-  const packagingFee = coldPackagingEnabled ? 15 : 0;
+  const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
+  const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
+  const savings = cart.reduce(
+    (sum, item) => sum + Math.max(0, mrpFor(item.product, item.selectedCut) - item.unitPrice) * item.quantity,
+    0
+  );
+  const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_ABOVE - subtotal);
+  const freeDeliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_ABOVE) * 100));
   const sundaySlot = slotInfo('sunday_morning');
   const eveningSlot = slotInfo('slot');
 
@@ -70,7 +78,7 @@ export default function CartScreen() {
               <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
             </TouchableOpacity>
             <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>Butcher Basket</Text>
+              <Text style={styles.headerTitle}>Your basket</Text>
             </View>
           </View>
         </View>
@@ -87,19 +95,16 @@ export default function CartScreen() {
               style={styles.emptyIllustration}
               resizeMode="contain"
             />
-            <View style={styles.emptyBadgePill}>
-              <Text style={styles.emptyBadgeText}>BASKET WAITING</Text>
-            </View>
-            <Text style={styles.emptyTitle}>Your Basket is Empty</Text>
+            <Text style={styles.emptyTitle}>Your basket is empty</Text>
             <Text style={styles.emptySubtitle}>
-              Fresh artisanal cuts, succulent mutton, and coastal seafood chilled at 0-4°C ready for your feast.
+              Fresh, hand-cut chicken, mutton and fish, cleaned and chilled, at your door in 30 minutes.
             </Text>
             <TouchableOpacity
               style={styles.browseButton}
               onPress={() => router.push('/(tabs)')}
               activeOpacity={0.88}
             >
-              <Text style={styles.browseButtonText}>Explore Fresh Cuts</Text>
+              <Text style={styles.browseButtonText}>Start shopping</Text>
               <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
@@ -108,8 +113,8 @@ export default function CartScreen() {
           <View style={styles.emptyRecommendationsSection}>
             <View style={styles.emptyRecHeaderRow}>
               <View>
-                <Text style={styles.emptyRecHeading}>Chef&apos;s Popular Picks</Text>
-                <Text style={styles.emptyRecSub}>Quick add our most loved cuts to feast</Text>
+                <Text style={styles.emptyRecHeading}>Popular right now</Text>
+                <Text style={styles.emptyRecSub}>Our customers&apos; favourites, one tap away</Text>
               </View>
             </View>
             <FlatList
@@ -151,9 +156,9 @@ export default function CartScreen() {
             <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Butcher Basket</Text>
+            <Text style={styles.headerTitle}>Your basket</Text>
             <Text style={styles.headerSubtitle}>
-              {cart.length} item{cart.length > 1 ? 's' : ''}{netGrams > 0 ? ` • ${netGrams}g Net Cooking Yield` : ''}
+              {itemCount} item{itemCount > 1 ? 's' : ''}{netGrams > 0 ? ` · ${formatGrams(netGrams)} ready to cook` : ''}
             </Text>
           </View>
         </View>
@@ -166,7 +171,7 @@ export default function CartScreen() {
       >
         {/* Delivery Speed / Slot Selector */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>Delivery Speed & Slot</Text>
+          <Text style={styles.sectionHeaderTitle}>When should we deliver?</Text>
 
           <View style={styles.slotOptionRow}>
             {/* Express Instant */}
@@ -189,8 +194,8 @@ export default function CartScreen() {
                   Express
                 </Text>
               </View>
-              <Text style={styles.slotSubtitle}>30 Mins</Text>
-              <Text style={styles.slotNote}>Dark Store</Text>
+              <Text style={styles.slotSubtitle}>30 mins</Text>
+              <Text style={styles.slotNote}>Fastest</Text>
             </TouchableOpacity>
 
             {/* Sunday Morning Slot */}
@@ -214,7 +219,7 @@ export default function CartScreen() {
                 </Text>
               </View>
               <Text style={styles.slotSubtitle}>7 - 9 AM</Text>
-              <Text style={styles.slotNote}>Weekend Cut</Text>
+              <Text style={styles.slotNote}>Weekend</Text>
             </TouchableOpacity>
 
             {/* Scheduled Slot */}
@@ -238,14 +243,14 @@ export default function CartScreen() {
                 </Text>
               </View>
               <Text style={styles.slotSubtitle}>5 - 7 PM</Text>
-              <Text style={styles.slotNote}>{eveningSlot.title === 'Today' ? 'Dinner Cut' : 'Next Day'}</Text>
+              <Text style={styles.slotNote}>Evening</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Cart Items Bento Card */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>Selected Cuts & Yield</Text>
+          <Text style={styles.sectionHeaderTitle}>Items</Text>
 
           {cart.map((item) => (
             <View key={item.cartItemId} style={styles.cartItemRow}>
@@ -266,7 +271,7 @@ export default function CartScreen() {
                   )}
                 </View>
                 <Text style={styles.cartItemYield}>
-                  Net: {item.selectedCut.netWeight} • ⚡ {item.product.macros.proteinGrams}g Protein/100g
+                  {item.selectedCut.netWeight} · {item.product.macros.proteinGrams}g protein per 100g
                 </Text>
                 <Text style={styles.cartItemPrice}>₹{item.unitPrice * item.quantity}</Text>
               </View>
@@ -276,6 +281,8 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => updateQuantity(item.cartItemId, -1)}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  accessibilityLabel={item.quantity === 1 ? `Remove ${item.product.name}` : `Decrease ${item.product.name}`}
                 >
                   {item.quantity === 1 ? (
                     <AppIcon icon={Delete02Icon} size={13} color="#FF3B30" />
@@ -287,6 +294,8 @@ export default function CartScreen() {
                 <TouchableOpacity
                   style={styles.qtyBtn}
                   onPress={() => updateQuantity(item.cartItemId, 1)}
+                  hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                  accessibilityLabel={`Increase ${item.product.name}`}
                 >
                   <AppIcon icon={PlusSignIcon} size={13} color="#000000" />
                 </TouchableOpacity>
@@ -301,19 +310,19 @@ export default function CartScreen() {
           <View style={styles.weightSummaryCard}>
             <View style={styles.weightSummaryHeader}>
               <AppIcon icon={ScaleIcon} size={15} color="#000000" />
-              <Text style={styles.weightSummaryTitle}>Pan Yield Transparency</Text>
+              <Text style={styles.weightSummaryTitle}>You pay only for clean meat</Text>
             </View>
             <View style={styles.weightCompareRow}>
               <View style={styles.weightCol}>
-                <Text style={styles.weightColLabel}>Pre-Cut Gross</Text>
-                <Text style={styles.weightColGross}>{grossGrams}g</Text>
-                <Text style={styles.weightColSub}>With bone & trim</Text>
+                <Text style={styles.weightColLabel}>Before cleaning</Text>
+                <Text style={styles.weightColGross}>{formatGrams(grossGrams)}</Text>
+                <Text style={styles.weightColSub}>with skin & trim</Text>
               </View>
               <Text style={styles.weightSeparator}>→</Text>
               <View style={[styles.weightCol, styles.weightColActive]}>
-                <Text style={styles.weightColLabelActive}>100% Net Meat</Text>
-                <Text style={styles.weightColNet}>{netGrams}g</Text>
-                <Text style={styles.weightColSubActive}>Zero Waste in Cooking</Text>
+                <Text style={styles.weightColLabelActive}>You get</Text>
+                <Text style={styles.weightColNet}>{formatGrams(netGrams)}</Text>
+                <Text style={styles.weightColSubActive}>cleaned, ready to cook</Text>
               </View>
             </View>
           </View>
@@ -330,10 +339,10 @@ export default function CartScreen() {
             <AppIcon icon={SnowflakeIcon} size={20} color="#0284C7" />
             <View style={{ flex: 1 }}>
               <Text style={styles.packagingTitle}>
-                Thermal Pouch + Sub-Zero Gel Packs
+                Cold-pack delivery · ₹{COLD_PACK_FEE}
               </Text>
               <Text style={styles.packagingSub}>
-                Guarantees 0-4°C chill up to 3 hours after delivery.
+                Insulated pouch with gel packs keeps your order cold for hours.
               </Text>
             </View>
           </View>
@@ -349,20 +358,35 @@ export default function CartScreen() {
 
         {/* Bill Breakdown */}
         <View style={styles.sectionCard}>
-          <Text style={styles.sectionHeaderTitle}>Bill Breakdown</Text>
+          <Text style={styles.sectionHeaderTitle}>Bill details</Text>
+
+          {orderFulfillment === 'delivery' && (
+            <View style={styles.freeDeliveryBox}>
+              <Text style={styles.freeDeliveryText}>
+                {amountToFreeDelivery > 0
+                  ? `Add ₹${amountToFreeDelivery} more for free delivery`
+                  : 'You’ve unlocked free delivery'}
+              </Text>
+              <View style={styles.freeDeliveryTrack}>
+                <View style={[styles.freeDeliveryFill, { width: `${freeDeliveryProgress}%` }]} />
+              </View>
+            </View>
+          )}
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Item Total</Text>
+            <Text style={styles.billLabel}>Item total</Text>
             <Text style={styles.billValue}>₹{subtotal}</Text>
           </View>
 
-          <View style={styles.billRow}>
-            <Text style={styles.billLabel}>Cold-Chain Thermal Pouch</Text>
-            <Text style={styles.billValue}>₹{packagingFee}</Text>
-          </View>
+          {packagingFee > 0 && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Cold pack</Text>
+              <Text style={styles.billValue}>₹{packagingFee}</Text>
+            </View>
+          )}
 
           <View style={styles.billRow}>
-            <Text style={styles.billLabel}>{orderFulfillment === 'takeaway' ? 'Pickup Fee' : 'Delivery Fee'}</Text>
+            <Text style={styles.billLabel}>{orderFulfillment === 'takeaway' ? 'Pickup' : 'Delivery fee'}</Text>
             {deliveryFee === 0 ? (
               <Text style={styles.freeBadge}>FREE</Text>
             ) : (
@@ -371,16 +395,22 @@ export default function CartScreen() {
           </View>
 
           <View style={[styles.billRow, styles.totalRow]}>
-            <Text style={styles.totalLabel}>Total Payable</Text>
+            <Text style={styles.totalLabel}>To pay</Text>
             <Text style={styles.totalValue}>₹{grandTotal}</Text>
           </View>
+
+          {savings > 0 && (
+            <View style={styles.savingsRow}>
+              <Text style={styles.savingsText}>You save ₹{savings} on this order</Text>
+            </View>
+          )}
         </View>
 
         {/* Guarantee */}
         <View style={styles.safetyRow}>
           <AppIcon icon={ShieldCheckIcon} size={14} color="#16A34A" />
           <Text style={styles.safetyText}>
-            100% Fresh or Full Refund Promise • Lab Verified Quality
+            Fresh, or your money back · Pay cash on delivery
           </Text>
         </View>
 
@@ -390,17 +420,18 @@ export default function CartScreen() {
       {/* Sticky Bottom Checkout Action */}
       <View style={styles.checkoutBar}>
         <View>
-          <Text style={styles.checkoutTotalLabel}>Total</Text>
+          <Text style={styles.checkoutTotalLabel}>To pay</Text>
           <Text style={styles.checkoutTotalPrice}>₹{grandTotal}</Text>
-          {netGrams > 0 && <Text style={styles.checkoutWeightNote}>{netGrams}g Net Meat</Text>}
+          {savings > 0 && <Text style={styles.checkoutWeightNote}>Saving ₹{savings}</Text>}
         </View>
 
         <TouchableOpacity
           style={styles.proceedButton}
           onPress={() => router.push('/checkout')}
           activeOpacity={0.8}
+          accessibilityRole="button"
         >
-          <Text style={styles.proceedButtonText}>Select Address & Pay</Text>
+          <Text style={styles.proceedButtonText}>Checkout</Text>
           <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
@@ -409,6 +440,41 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
+  freeDeliveryBox: {
+    backgroundColor: '#F0FDF4',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+    gap: 8,
+  },
+  freeDeliveryText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
+  freeDeliveryTrack: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#DCFCE7',
+    overflow: 'hidden',
+  },
+  freeDeliveryFill: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16A34A',
+  },
+  savingsRow: {
+    marginTop: 10,
+    backgroundColor: '#F0FDF4',
+    borderRadius: 8,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  savingsText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#166534',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
@@ -697,9 +763,9 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   cartItemYield: {
-    color: THEME.colors.macroProtein,
-    fontSize: 10,
-    fontWeight: '700',
+    color: '#6B7280',
+    fontSize: 11,
+    fontWeight: '500',
   },
   cartItemPrice: {
     color: '#000000',

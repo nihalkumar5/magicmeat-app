@@ -34,8 +34,8 @@ export function slotInfo(mode: DeliveryMode, now: Date = new Date()): SlotInfo {
   if (mode === 'instant') {
     return {
       title: 'Express',
-      time: '30 Mins',
-      label: '⚡ Instant Express (30 mins)',
+      time: '30 mins',
+      label: 'Express · about 30 mins',
       eta: '30 mins',
     };
   }
@@ -47,8 +47,8 @@ export function slotInfo(mode: DeliveryMode, now: Date = new Date()): SlotInfo {
     return {
       title: isToday ? 'Today' : 'Sunday',
       time: '7 - 9 AM',
-      label: `🌅 Sunday Morning, ${dayMonth(sunday)} (7:00 AM - 9:00 AM)`,
-      eta: `${day}, 7:00 - 9:00 AM`,
+      label: `Sunday ${dayMonth(sunday)} · 7–9 AM`,
+      eta: `${day}, 7–9 AM`,
     };
   }
 
@@ -59,7 +59,7 @@ export function slotInfo(mode: DeliveryMode, now: Date = new Date()): SlotInfo {
   return {
     title: day,
     time: '5 - 7 PM',
-    label: `📦 ${day} Evening, ${dayMonth(date)} (5:00 PM - 7:00 PM)`,
-    eta: `${day}, 5:00 - 7:00 PM`,
+    label: `${day}, ${dayMonth(date)} · 5–7 PM`,
+    eta: `${day}, 5–7 PM`,
   };
 }

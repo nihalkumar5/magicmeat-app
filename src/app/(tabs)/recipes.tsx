@@ -16,7 +16,7 @@ export default function RecipesScreen() {
           <View style={styles.headerTextCol}>
             <View style={styles.headerTitleRow}>
               <AppIcon icon={ChefHatIcon} size={20} color="#DC2626" strokeWidth={2.2} />
-              <Text style={styles.title}>Cook-It-Yourself Kits</Text>
+              <Text style={styles.title}>Recipe kits</Text>
             </View>
             <Text style={styles.subtitle}>
               Zero prep. Fresh artisanal cuts paired with chef-crafted gravies &amp; macro breakdown.

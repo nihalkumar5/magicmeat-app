@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { Product, CutOption, CartItem, Order, DeliveryMode, MeatCategory, InventoryItem, OrderStatus } from '../types';
 import { LocationData } from '../types/location';
-import { unitPriceFor } from '../data/pricing';
+import { feesFor, unitPriceFor } from '../data/pricing';
 import { slotInfo } from '../data/slots';
 import { notify } from '../utils/dialogs';
 import {
@@ -98,7 +98,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bilaspur Butchery Hub (Sarkanda)',
     distanceKm: 0.8,
-    deliveryEta: '15-20 Mins (Express Cold-Chain)',
+    deliveryEta: '30 mins',
     tag: 'Home',
   },
   {
@@ -112,7 +112,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 15,
-    deliveryEta: '15-20 Mins',
+    deliveryEta: '30 mins',
     tag: 'Work',
   },
   {
@@ -139,7 +139,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 0.4,
-    deliveryEta: '15-20 Mins',
+    deliveryEta: '30 mins',
     tag: 'Work',
   },
   {
@@ -152,7 +152,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bengaluru East Express Hub',
     distanceKm: 1.8,
-    deliveryEta: '15-20 Mins',
+    deliveryEta: '30 mins',
     tag: 'Home',
   },
 ];
@@ -444,9 +444,7 @@ export const useStore = create<StoreState>()(
     const state = get();
     const subtotal = state.getCartSubtotal();
     if (subtotal === 0) return 0;
-    const deliveryFee = state.orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
-    const packagingFee = state.coldPackagingEnabled ? 15 : 0;
-    return subtotal + deliveryFee + packagingFee;
+    return feesFor(subtotal, state.orderFulfillment, state.coldPackagingEnabled).total;
   },
 
   getCartItemsCount: () => {
@@ -475,9 +473,11 @@ export const useStore = create<StoreState>()(
   placeOrder: async (paymentMethod, deliveryNote) => {
     const state = get();
     const subtotal = state.getCartSubtotal();
-    const deliveryFee = state.orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
-    const packagingFee = state.coldPackagingEnabled ? 15 : 0;
-    const total = subtotal + deliveryFee + packagingFee;
+    const { deliveryFee, packagingFee, total } = feesFor(
+      subtotal,
+      state.orderFulfillment,
+      state.coldPackagingEnabled
+    );
     const { label: slotLabel, eta } = slotInfo(state.deliveryMode);
     const id = newOrderId();
 

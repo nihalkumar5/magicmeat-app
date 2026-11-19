@@ -15,7 +15,6 @@ import { ColdChainBadge } from '../../components/ColdChainBadge';
 import {
   AppIcon,
   ArrowRight01Icon,
-  ShieldCheckIcon,
   RotateLeft01Icon,
   Clock01Icon,
   ArrowLeft01Icon,
@@ -48,8 +47,8 @@ export default function OrdersScreen() {
             <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
           </TouchableOpacity>
           <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Your Orders</Text>
-            <Text style={styles.headerSubtitle}>Live tracking & cold-chain delivery history</Text>
+            <Text style={styles.headerTitle}>Your orders</Text>
+            <Text style={styles.headerSubtitle}>Track current orders and see past ones</Text>
           </View>
         </View>
       </View>
@@ -76,14 +75,7 @@ export default function OrdersScreen() {
                 <View style={styles.livePulse} />
                 <Text style={styles.activeBadgeText}>ACTIVE • {(STATUS_LABEL[activeOrder.status] || activeOrder.status).toUpperCase()}</Text>
               </View>
-              <ColdChainBadge
-                temp={
-                  typeof activeOrder.currentTempCelsius === 'number'
-                    ? `${activeOrder.currentTempCelsius}°C Monitored`
-                    : 'Temperature updates after dispatch'
-                }
-                size="sm"
-              />
+              <ColdChainBadge temp="Packed cold" size="sm" />
             </View>
 
             <View style={styles.activeBody}>
@@ -93,19 +85,19 @@ export default function OrdersScreen() {
               </Text>
               <Text style={styles.activeSlot}>{activeOrder.slotLabel}</Text>
               <Text style={styles.activeItemsCount}>
-                {activeOrder.items.length} item{activeOrder.items.length > 1 ? 's' : ''} • Total ₹{activeOrder.total}
+                {activeOrder.items.length} item{activeOrder.items.length > 1 ? 's' : ''} · ₹{activeOrder.total}
               </Text>
             </View>
 
             <View style={styles.activeFooter}>
-              <Text style={styles.trackText}>View Live Cold Sensor & Map</Text>
+              <Text style={styles.trackText}>Track order</Text>
               <AppIcon icon={ArrowRight01Icon} size={16} color="#FFFFFF" strokeWidth={2.5} />
             </View>
           </TouchableOpacity>
         )}
 
         {/* Past Orders */}
-        <Text style={styles.sectionTitle}>Order History</Text>
+        <Text style={styles.sectionTitle}>Past orders</Text>
 
         {orders.length === 0 && !activeOrder && (
           <View style={styles.emptyCard}>
@@ -114,16 +106,16 @@ export default function OrdersScreen() {
               style={styles.emptyIllustration}
               resizeMode="contain"
             />
-            <Text style={styles.emptyTitle}>No Orders Yet</Text>
+            <Text style={styles.emptyTitle}>No orders yet</Text>
             <Text style={styles.emptySubtitle}>
-              Your artisanal fresh cuts, live cold-chain tracking, and digital temperature receipts will appear here.
+              When you place an order, you can track it live from here.
             </Text>
             <TouchableOpacity
               style={styles.orderNowBtn}
               onPress={() => router.push('/(tabs)')}
               activeOpacity={0.88}
             >
-              <Text style={styles.orderNowBtnText}>Browse Fresh Butchery</Text>
+              <Text style={styles.orderNowBtnText}>Start shopping</Text>
               <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
@@ -170,16 +162,6 @@ export default function OrdersScreen() {
           </View>
         ))}
 
-        {/* Butcher Quality Assurance Pass */}
-        <View style={styles.complianceCard}>
-          <View style={styles.complianceHeader}>
-            <AppIcon icon={ShieldCheckIcon} size={18} color="#15803D" strokeWidth={2} />
-            <Text style={styles.complianceTitle}>MagicMeat Quality Certification</Text>
-          </View>
-          <Text style={styles.complianceDesc}>
-            FSSAI License #10021043000129 • ISO 22000 Certified Cold-Chain Processing Unit • 100% Halal Certified.
-          </Text>
-        </View>
 
         <View style={{ height: 110 }} />
       </ScrollView>
