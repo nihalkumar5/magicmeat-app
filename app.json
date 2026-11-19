@@ -45,6 +45,12 @@
           "resizeMode": "contain",
           "backgroundColor": "#000000"
         }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "MagicMeat uses your location to find your exact delivery address and the nearest store."
+        }
       ]
     ]
   }

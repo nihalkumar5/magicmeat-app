@@ -24,6 +24,8 @@ export interface LocationData {
   state: string;
   postalCode?: string;
   coords: Coordinates;
+  /** GPS uncertainty radius in metres, for detected locations. */
+  accuracyM?: number;
   isServiceable: boolean;
   nearestHubName: string;
   distanceKm: number;

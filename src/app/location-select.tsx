@@ -107,6 +107,12 @@ export default function LocationSelectScreen() {
     try {
       const detected = await detectDeviceLocation();
       setCurrentLocation(detected);
+      if ((detected.accuracyM ?? 0) > 75) {
+        notify(
+          'Please check your address',
+          `Your location is accurate to about ${detected.accuracyM} m. Make sure the address is right before you order.`
+        );
+      }
       setOrderFulfillment('delivery');
       setIsDetecting(false);
       goBack();

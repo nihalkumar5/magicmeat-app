@@ -40,211 +40,246 @@ export function evaluateHubServiceability(coords: Coordinates) {
     deliveryEta: isExpress
       ? '15–20 mins'
       : isStandard
-      ? '30-45 Mins (Standard Slot)'
-      : '45-60 Mins (Special Cold Delivery)',
+        ? '30-45 Mins (Standard Slot)'
+        : '45-60 Mins (Special Cold Delivery)',
   };
 }
 
 // Clean administrative suffixes like "Tahsil", "Tehsil", "District"
 function cleanLocationName(name: string): string {
   if (!name) return '';
-  return name
-    .replace(/\s+(Tahsil|Tehsil|district|District|Division)\b/gi, '')
-    .trim();
+  return name.replace(/\s+(Tahsil|Tehsil|district|District|Division)\b/gi, '').trim();
 }
 
-// Resilient Coordinate Detection (Hardware GPS -> High-Precision IP Fallback)
-async function getDeviceCoordinates(): Promise<{ coords: Coordinates; source: 'gps' | 'ip' | 'fallback' }> {
-  // 1. Web Environment
-  if (Platform.OS === 'web') {
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      try {
-        const gpsCoords = await new Promise<Coordinates>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(
-            (pos) =>
-              resolve({
-                latitude: pos.coords.latitude,
-                longitude: pos.coords.longitude,
-              }),
-            (err) => reject(err),
-            { timeout: 6000, enableHighAccuracy: true, maximumAge: 30000 }
+/** A location problem the customer can act on; the message says what to do. */
+export class LocationError extends Error {}
+
+const GOOD_ACCURACY_M = 25; // stop as soon as a fix is this good
+const MAX_WAIT_MS = 12000; // otherwise keep the best fix seen in this time
+const LAST_KNOWN_MAX_AGE_MS = 2 * 60 * 1000;
+
+type Fix = { coords: Coordinates; accuracyM: number };
+
+// Precise device position. Watches GPS for a few seconds and keeps the most
+// accurate reading, instead of trusting the first (often Wi-Fi / cell-tower)
+// fix. Never guesses from the IP address or a default city: if there is no
+// real fix it throws a LocationError that tells the customer what to do.
+async function getPreciseFix(): Promise<Fix> {
+  return Platform.OS === 'web' ? getWebFix() : getNativeFix();
+}
+
+function getWebFix(): Promise<Fix> {
+  if (typeof navigator === 'undefined' || !navigator.geolocation) {
+    return Promise.reject(
+      new LocationError("This browser can't share your location. Please search for your address instead."),
+    );
+  }
+  return new Promise<Fix>((resolve, reject) => {
+    let best: Fix | null = null;
+    let done = false;
+    const finish = (err?: Error) => {
+      if (done) return;
+      done = true;
+      navigator.geolocation.clearWatch(watchId);
+      clearTimeout(timer);
+      if (best) resolve(best);
+      else
+        reject(
+          err ||
+            new LocationError(
+              "We couldn't get a GPS fix. Move near a window or outdoors and try again, or search for your address.",
+            ),
+        );
+    };
+    const watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const accuracyM = pos.coords.accuracy ?? 9999;
+        if (!best || accuracyM < best.accuracyM) {
+          best = { coords: { latitude: pos.coords.latitude, longitude: pos.coords.longitude }, accuracyM };
+        }
+        if (accuracyM <= GOOD_ACCURACY_M) finish();
+      },
+      (err) => {
+        if (err.code === 1) {
+          finish(
+            new LocationError(
+              'Location is blocked for this site. Allow location in your browser settings, or search for your address.',
+            ),
           );
-        });
-        return { coords: gpsCoords, source: 'gps' };
-      } catch (err) {
-        console.warn('Browser GPS unavailable/denied, falling back to IP geolocation', err);
-      }
-    }
+        }
+        // Other errors (timeout, position unavailable): keep waiting for the timer.
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: MAX_WAIT_MS },
+    );
+    const timer = setTimeout(() => finish(), MAX_WAIT_MS);
+  });
+}
 
-    // IP Geolocation Fallback (Fast, Free, Client-side CORS friendly)
-    try {
-      const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client');
-      const data = await res.json();
-      if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-        return {
-          coords: { latitude: data.latitude, longitude: data.longitude },
-          source: 'ip',
-        };
-      }
-    } catch (ipErr) {
-      console.warn('IP geolocation failed', ipErr);
+async function getNativeFix(): Promise<Fix> {
+  // Location services (GPS) switched off for the whole phone.
+  if (!(await Location.hasServicesEnabledAsync())) {
+    if (Platform.OS === 'android') {
+      // Shows the system "Turn on location / improve accuracy" dialog.
+      await Location.enableNetworkProviderAsync().catch(() => {
+        throw new LocationError('Please turn on Location (GPS) on your phone, then try again.');
+      });
+    } else {
+      throw new LocationError('Please turn on Location Services in Settings → Privacy & Security, then try again.');
     }
+  }
 
-    // Default to user home coordinates in Bilaspur
+  const perm = await Location.requestForegroundPermissionsAsync();
+  if (perm.status !== 'granted') {
+    throw new LocationError(
+      'MagicMeat needs location access to find your address. Allow it in Settings, or search for your address.',
+    );
+  }
+  // "Approximate location" is only accurate to a few kilometres.
+  const iosAccuracy = (perm as any).ios?.accuracy;
+  const androidAccuracy = (perm as any).android?.accuracy;
+  if (iosAccuracy === 'reduced' || androidAccuracy === 'coarse') {
+    throw new LocationError(
+      Platform.OS === 'ios'
+        ? 'Precise Location is off for MagicMeat. Turn it on in Settings → MagicMeat → Location → Precise Location.'
+        : 'MagicMeat has only approximate location. In Settings → Apps → MagicMeat → Location, turn on "Use precise location".',
+    );
+  }
+  if (Platform.OS === 'android') {
+    // Ask for Google's high-accuracy mode (GPS + Wi-Fi + cell); ignore "no".
+    await Location.enableNetworkProviderAsync().catch(() => {});
+  }
+
+  let best: Fix | null = null;
+  await new Promise<void>((resolve) => {
+    let sub: Location.LocationSubscription | null = null;
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      sub?.remove();
+      resolve();
+    };
+    const timer = setTimeout(finish, MAX_WAIT_MS);
+    Location.watchPositionAsync(
+      { accuracy: Location.Accuracy.BestForNavigation, timeInterval: 1000, distanceInterval: 0 },
+      (pos) => {
+        const accuracyM = pos.coords.accuracy ?? 9999;
+        if (!best || accuracyM < best.accuracyM) {
+          best = { coords: { latitude: pos.coords.latitude, longitude: pos.coords.longitude }, accuracyM };
+        }
+        if (accuracyM <= GOOD_ACCURACY_M) finish();
+      },
+    )
+      .then((s) => {
+        sub = s;
+        if (done) s.remove();
+      })
+      .catch(finish);
+  });
+  if (best) return best;
+
+  // No live fix in time: accept a very recent, reasonably accurate one.
+  const last = await Location.getLastKnownPositionAsync({
+    maxAge: LAST_KNOWN_MAX_AGE_MS,
+    requiredAccuracy: 100,
+  }).catch(() => null);
+  if (last) {
     return {
-      coords: { latitude: 22.0797, longitude: 82.1409 },
-      source: 'fallback',
+      coords: { latitude: last.coords.latitude, longitude: last.coords.longitude },
+      accuracyM: last.coords.accuracy ?? 100,
     };
   }
-
-  // 2. Native Mobile Environment (iOS / Android)
-  try {
-    const { status } = await Location.requestForegroundPermissionsAsync();
-    if (status === 'granted') {
-      const pos = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      return {
-        coords: {
-          latitude: pos.coords.latitude,
-          longitude: pos.coords.longitude,
-        },
-        source: 'gps',
-      };
-    }
-  } catch (nativeErr) {
-    console.warn('Native GPS error, trying IP fallback', nativeErr);
-  }
-
-  // Native IP Fallback
-  try {
-    const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client');
-    const data = await res.json();
-    if (typeof data.latitude === 'number' && typeof data.longitude === 'number') {
-      return {
-        coords: { latitude: data.latitude, longitude: data.longitude },
-        source: 'ip',
-      };
-    }
-  } catch {}
-
-  return {
-    coords: { latitude: 22.0797, longitude: 82.1409 },
-    source: 'fallback',
-  };
+  throw new LocationError(
+    "We couldn't get a GPS fix. Move near a window or outdoors and try again, or search for your address.",
+  );
 }
 
-// Detect User's Real Location & Reverse Geocode to Clean Address
-export async function detectDeviceLocation(): Promise<LocationData> {
-  const { coords } = await getDeviceCoordinates();
-  const serviceability = evaluateHubServiceability(coords);
+const join = (parts: (string | null | undefined)[]) =>
+  parts
+    .map((p) => (p || '').trim())
+    .filter((p, i, arr) => p && arr.findIndex((q) => (q || '').trim().toLowerCase() === p.toLowerCase()) === i)
+    .join(', ');
 
-  let locality = '';
-  let city = '';
-  let state = 'Chhattisgarh';
-  let postalCode = '';
-  let fullAddress = '';
+type Address = { line: string; locality: string; city: string; state: string; postalCode: string };
 
-  // 1. Try BigDataCloud Reverse Geocoding (fast, accurate for Indian cities/tehsils)
-  try {
-    const bdcRes = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=en`
-    );
-    const bdcData = await bdcRes.json();
-    if (bdcData) {
-      city = cleanLocationName(bdcData.city || bdcData.locality || '');
-      locality = cleanLocationName(bdcData.locality || city || '');
-      state = bdcData.principalSubdivision || 'Chhattisgarh';
-      postalCode = bdcData.postcode || '';
+// Street-level address for a point. Native uses the phone's geocoder (Apple /
+// Google); web uses OpenStreetMap at building zoom. BigDataCloud is only a
+// last resort for the city name.
+async function reverseGeocode(coords: Coordinates): Promise<Address> {
+  const out: Address = { line: '', locality: '', city: '', state: '', postalCode: '' };
 
-      // Check detailed administrative components for more specific locality
-      const admins = bdcData.localityInfo?.administrative || [];
-      const subLocalities = admins
-        .filter((a: any) => a.adminLevel >= 6 && a.name)
-        .map((a: any) => cleanLocationName(a.name));
-
-      if (subLocalities.length > 0) {
-        const candidate = subLocalities[subLocalities.length - 1];
-        if (candidate.toLowerCase() !== city.toLowerCase()) {
-          locality = candidate;
-        }
+  if (Platform.OS !== 'web') {
+    try {
+      const [g] = await Location.reverseGeocodeAsync(coords);
+      if (g) {
+        const street = join([g.streetNumber, g.street]);
+        out.line = join([g.name !== g.street ? g.name : '', street]);
+        out.locality = cleanLocationName(g.district || g.subregion || '');
+        out.city = cleanLocationName(g.city || g.subregion || '');
+        out.state = g.region || '';
+        out.postalCode = g.postalCode || '';
       }
+    } catch (err) {
+      console.warn('[location] native reverse geocode failed', err);
     }
-  } catch (err) {
-    console.warn('BigDataCloud reverse geocode error', err);
-  }
-
-  // 2. Also try Nominatim / Native Reverse Geocode for street level details
-  try {
-    if (Platform.OS === 'web') {
-      const osmRes = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${coords.latitude}&lon=${coords.longitude}&addressdetails=1`
+  } else {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&addressdetails=1&accept-language=en&lat=${coords.latitude}&lon=${coords.longitude}`,
       );
-      const osmData = await osmRes.json();
-      if (osmData && osmData.address) {
-        const addr = osmData.address;
-        const streetLocality =
-          cleanLocationName(
-            addr.suburb ||
-              addr.neighbourhood ||
-              addr.residential ||
-              addr.road ||
-              addr.quarter ||
-              addr.village ||
-              addr.town ||
-              ''
-          );
-
-        if (streetLocality && streetLocality.toLowerCase() !== city.toLowerCase()) {
-          locality = streetLocality;
-        }
-        if (!city) {
-          city = cleanLocationName(addr.city || addr.town || addr.county || '');
-        }
-        if (!postalCode) {
-          postalCode = addr.postcode || '';
-        }
-        if (osmData.display_name) {
-          fullAddress = osmData.display_name;
-        }
-      }
-    } else {
-      const geocoded = await Location.reverseGeocodeAsync(coords);
-      if (geocoded && geocoded.length > 0) {
-        const first = geocoded[0];
-        const street = cleanLocationName(first.name || first.street || '');
-        const sub = cleanLocationName(first.subregion || '');
-        if (street) locality = street;
-        else if (sub && sub.toLowerCase() !== city.toLowerCase()) locality = sub;
-        if (!city) city = cleanLocationName(first.city || first.region || '');
-        if (!postalCode) postalCode = first.postalCode || '';
-        fullAddress = `${first.name || ''} ${first.street || ''}, ${locality}, ${city}, ${state} ${postalCode}`.trim();
-      }
+      const data = await res.json();
+      const a = data?.address || {};
+      out.line = join([
+        join([a.house_number, a.road].filter(Boolean) as string[]).replace(', ', ' '),
+        a.building,
+        a.amenity,
+      ]);
+      out.locality = cleanLocationName(a.neighbourhood || a.suburb || a.quarter || a.residential || a.hamlet || '');
+      out.city = cleanLocationName(a.city || a.town || a.village || a.municipality || a.county || '');
+      out.state = a.state || '';
+      out.postalCode = a.postcode || '';
+    } catch (err) {
+      console.warn('[location] OSM reverse geocode failed', err);
     }
-  } catch (err) {
-    console.warn('Secondary reverse geocode error', err);
   }
 
-  // Clean and synthesize final names
-  if (!city) city = locality || 'Bilaspur';
-  if (!locality) locality = city;
-
-  let shortAddress = locality;
-  if (locality.toLowerCase() !== city.toLowerCase() && !locality.toLowerCase().includes(city.toLowerCase())) {
-    shortAddress = `${locality}, ${city}`;
+  if (!out.city) {
+    try {
+      const res = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${coords.latitude}&longitude=${coords.longitude}&localityLanguage=en`,
+      );
+      const d = await res.json();
+      out.city = cleanLocationName(d.city || d.locality || '');
+      out.locality = out.locality || cleanLocationName(d.locality || '');
+      out.state = out.state || d.principalSubdivision || '';
+      out.postalCode = out.postalCode || d.postcode || '';
+    } catch {}
   }
+  return out;
+}
 
-  if (!fullAddress) {
-    fullAddress = `${locality}, ${city}, ${state}${postalCode ? ` ${postalCode}` : ''}, India`;
-  }
+/** The customer's precise current location with a clean street address. */
+export async function detectDeviceLocation(): Promise<LocationData> {
+  const { coords, accuracyM } = await getPreciseFix();
+  const serviceability = evaluateHubServiceability(coords);
+  const addr = await reverseGeocode(coords);
+
+  const city = addr.city || addr.locality || 'Current location';
+  const locality = addr.locality && addr.locality.toLowerCase() !== city.toLowerCase() ? addr.locality : '';
+  const shortAddress = join([addr.line || locality, city]) || 'Current location';
+  const fullAddress =
+    join([addr.line, locality, city, join([addr.state, addr.postalCode]).replace(', ', ' '), 'India']) ||
+    `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`;
 
   return {
     shortAddress,
     fullAddress,
     city,
-    state,
-    postalCode,
+    state: addr.state,
+    postalCode: addr.postalCode,
     coords,
+    accuracyM: Math.round(accuracyM),
     isServiceable: serviceability.isServiceable,
     nearestHubName: serviceability.nearestHubName,
     distanceKm: serviceability.distanceKm,
@@ -274,7 +309,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     city: 'Raipur',
     state: 'Chhattisgarh',
     postalCode: '492018',
-    coords: { latitude: 21.1500, longitude: 81.7700 },
+    coords: { latitude: 21.15, longitude: 81.77 },
     isServiceable: true,
     nearestHubName: 'Naya Raipur Express Hub (Atal Nagar)',
     distanceKm: 1.2,
@@ -352,7 +387,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     city: 'Pune',
     state: 'Maharashtra',
     postalCode: '411001',
-    coords: { latitude: 18.5362, longitude: 73.8940 },
+    coords: { latitude: 18.5362, longitude: 73.894 },
     isServiceable: true,
     nearestHubName: 'Pune Green Pastures Hub (Koregaon Park)',
     distanceKm: 0.9,

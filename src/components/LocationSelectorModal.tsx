@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useStore } from '../store/useStore';
+import { notify } from '../utils/dialogs';
 import {
   detectDeviceLocation,
   POPULAR_LOCATIONS,
@@ -50,6 +51,12 @@ export const LocationSelectorModal: React.FC = () => {
     try {
       const detected = await detectDeviceLocation();
       setCurrentLocation(detected);
+      if ((detected.accuracyM ?? 0) > 75) {
+        notify(
+          'Please check your address',
+          `Your location is accurate to about ${detected.accuracyM} m. Make sure the address is right before you order.`
+        );
+      }
       setIsDetecting(false);
       setLocationModalOpen(false);
     } catch (err: any) {
