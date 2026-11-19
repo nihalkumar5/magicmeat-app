@@ -3,8 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
-import { PRODUCTS } from '../../data/mockData';
-import { notify } from '../../utils/dialogs';
+import { reorderToCart } from '../../utils/reorder';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import type { Order } from '../../types';
 import { AppIcon, ArrowRight01Icon, RotateLeft01Icon } from '../../components/HugeIcon';
@@ -42,37 +41,13 @@ function summary(o: Order): string {
 }
 
 export default function OrdersScreen() {
-  const { orders, addToCart, inventory } = useStore();
+  const { orders } = useStore();
   const active = orders.filter(isActive);
   const past = orders.filter((o) => !isActive(o));
 
   const openOrder = (o: Order) => router.push({ pathname: '/order-tracking/[id]', params: { id: o.id } });
 
-  // Put an old order back in the basket. Prices come from today's price
-  // table; items we no longer sell or that are out of stock are skipped.
-  const orderAgain = (o: Order) => {
-    const skipped: string[] = [];
-    let added = 0;
-    for (const item of o.items) {
-      const product = PRODUCTS.find((p) => p.id === item.product.id);
-      const inv = inventory[item.product.id];
-      const soldOut = inv ? !inv.inStock || inv.stockKg <= 0 : false;
-      if (!product || soldOut) {
-        skipped.push(item.product.name);
-        continue;
-      }
-      addToCart(product, item.selectedCut, item.isSkinless, item.quantity);
-      added += 1;
-    }
-    if (added === 0) {
-      notify('Not available right now', 'Everything in this order is out of stock. Please try again later.');
-      return;
-    }
-    if (skipped.length) {
-      notify('Added to your basket', `${skipped.join(', ')} ${skipped.length > 1 ? 'are' : 'is'} out of stock and was left out.`);
-    }
-    router.push('/(tabs)/cart');
-  };
+  const orderAgain = reorderToCart;
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>

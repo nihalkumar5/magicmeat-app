@@ -13,7 +13,8 @@ import {
   View,
 } from 'react-native';
 import Constants from 'expo-constants';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { reorderToCart, savedOn } from '../utils/reorder';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
@@ -35,7 +36,12 @@ import {
   ShieldCheckIcon,
   Store01Icon,
   UserIcon,
+  RotateLeft01Icon,
 } from '../components/HugeIcon';
+
+const MAROON = '#7F1D1D';
+const GOLD = '#E8C27A';
+const GREEN = '#15803D';
 
 const C = {
   bg: '#F2F2F7',
@@ -97,7 +103,6 @@ export default function ProfileMenuScreen() {
   const userName = profile.name;
   const userPhone = profile.phone;
   const userEmail = profile.email;
-  const [firebaseStatus, setFirebaseStatus] = useState<'idle' | 'synced'>('idle');
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -118,7 +123,6 @@ export default function ProfileMenuScreen() {
         phone: remote.phone || current.phone,
         email: remote.email || current.email,
       });
-      setFirebaseStatus('synced');
     });
 
     return () => {
@@ -151,7 +155,6 @@ export default function ProfileMenuScreen() {
     setProfile({ name: profile.name, phone: profile.phone, email: profile.email || '' });
     try {
       await saveRemoteProfile(profile);
-      setFirebaseStatus('synced');
       setIsEditOpen(false);
     } catch {
       setIsEditOpen(false);
@@ -159,76 +162,156 @@ export default function ProfileMenuScreen() {
     }
   };
 
+  const insets = useSafeAreaInsets();
   const initial = userName.trim() ? userName.trim()[0].toUpperCase() : '';
   const hasDetails = !!userName.trim() && !!userPhone;
   const version = Constants.expoConfig?.version || '1.0.0';
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar style="dark" />
-      <View style={styles.navBar}>
-        <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => goBack()}
-          accessibilityRole="button"
-          accessibilityLabel="Back"
-        >
-          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
-        </TouchableOpacity>
-        {hasDetails && (
-          <TouchableOpacity onPress={openEditProfile} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={styles.link}>Edit</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+  // Real numbers from this customer's orders.
+  const completed = orders.filter((o) => o.status === 'delivered');
+  const nonCancelled = orders.filter((o) => o.status !== 'cancelled');
+  const totalSaved = nonCancelled.reduce((sum, o) => sum + savedOn(o), 0);
+  const kgOrdered =
+    Math.round(
+      nonCancelled.reduce(
+        (sum, o) =>
+          sum + o.items.reduce((g, item) => g + (parseInt(item.selectedCut.netWeight, 10) || 0) * item.quantity, 0),
+        0
+      ) / 100
+    ) / 10;
+  const firstOrderMs = orders.reduce((min, o) => Math.min(min, o.createdAtMs || Infinity), Infinity);
+  const memberSince = Number.isFinite(firstOrderMs)
+    ? new Date(firstOrderMs).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+    : '';
+  const lastOrder = orders.find((o) => o.status === 'delivered') || orders.find((o) => o.status === 'cancelled');
+  const lastSummary = lastOrder
+    ? `${lastOrder.items[0]?.quantity ?? 1}× ${(lastOrder.items[0]?.product.name || 'Order').replace(/\s*\(.*?\)\s*/g, ' ').trim()}${
+        lastOrder.items.length > 1 ? ` + ${lastOrder.items.length - 1} more` : ''
+      }`
+    : '';
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Identity */}
-        <View style={styles.identity}>
-          <View style={styles.avatar}>
-            {initial ? (
-              <Text style={styles.avatarText}>{initial}</Text>
-            ) : (
-              <AppIcon icon={UserIcon} size={36} color="#FFFFFF" strokeWidth={1.8} />
+  return (
+    <SafeAreaView style={styles.safeArea} edges={['bottom']}>
+      <StatusBar style="light" />
+      <ScrollView contentContainerStyle={{ paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+        {/* Royal header */}
+        <View style={[styles.hero, { paddingTop: insets.top + 8 }]}>
+          <View style={styles.heroNav}>
+            <TouchableOpacity
+              style={styles.heroBtn}
+              onPress={() => goBack()}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <AppIcon icon={ArrowLeft01Icon} size={20} color="#FFFFFF" strokeWidth={2.4} />
+            </TouchableOpacity>
+            {hasDetails && (
+              <TouchableOpacity onPress={openEditProfile} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Text style={styles.heroLink}>Edit</Text>
+              </TouchableOpacity>
             )}
           </View>
-          <Text style={styles.name}>{userName.trim() || 'Welcome'}</Text>
-          {hasDetails ? (
-            <>
-              <Text style={styles.meta}>+91 {userPhone}</Text>
-              {!!userEmail && <Text style={styles.meta}>{userEmail}</Text>}
-              {firebaseStatus === 'synced' && <Text style={styles.synced}>Saved to your account</Text>}
-            </>
-          ) : (
-            <>
-              <Text style={[styles.meta, { textAlign: 'center' }]}>
-                Add your name and number once for faster checkout.
+
+          <View style={styles.heroIdentity}>
+            <View style={styles.avatarRing}>
+              <View style={styles.avatar}>
+                {initial ? (
+                  <Text style={styles.avatarText}>{initial}</Text>
+                ) : (
+                  <AppIcon icon={UserIcon} size={32} color={GOLD} strokeWidth={1.8} />
+                )}
+              </View>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.name} numberOfLines={1}>
+                {userName.trim() || 'Welcome'}
               </Text>
-              <TouchableOpacity style={styles.addBtn} onPress={openEditProfile} activeOpacity={0.85}>
-                <Text style={styles.addBtnText}>Add your details</Text>
-              </TouchableOpacity>
-            </>
-          )}
+              {hasDetails ? (
+                <Text style={styles.heroMeta} numberOfLines={1}>
+                  +91 {userPhone}
+                  {userEmail ? `  ·  ${userEmail}` : ''}
+                </Text>
+              ) : (
+                <Text style={styles.heroMeta}>Add your details for faster checkout</Text>
+              )}
+              {!!memberSince && (
+                <View style={styles.sincePill}>
+                  <Text style={styles.sinceText}>Customer since {memberSince}</Text>
+                </View>
+              )}
+            </View>
+          </View>
         </View>
 
-        {/* Live order */}
-        {activeOrder && (
-          <TouchableOpacity
-            style={styles.liveCard}
-            activeOpacity={0.85}
-            onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
-            accessibilityRole="button"
-          >
-            <View style={styles.liveDot} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.liveTitle}>{LIVE_STATUS[activeOrder.status] || 'Order in progress'}</Text>
-              <Text style={styles.liveSub} numberOfLines={1}>
-                #{activeOrder.id.replace('MM-', '')} · ₹{activeOrder.total}
-              </Text>
+        <View style={styles.content}>
+          {/* Stats */}
+          <View style={styles.stats}>
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{completed.length}</Text>
+              <Text style={styles.statLabel}>Delivered</Text>
             </View>
-            <Text style={styles.liveAction}>Track</Text>
-          </TouchableOpacity>
-        )}
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={[styles.statValue, { color: GREEN }]}>₹{totalSaved}</Text>
+              <Text style={styles.statLabel}>Saved</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statValue}>{kgOrdered} kg</Text>
+              <Text style={styles.statLabel}>Fresh meat</Text>
+            </View>
+          </View>
+
+          {!hasDetails && (
+            <TouchableOpacity style={styles.addDetails} onPress={openEditProfile} activeOpacity={0.85}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.addTitle}>Add your name & number</Text>
+                <Text style={styles.addSub}>So checkout takes one tap and the rider can reach you.</Text>
+              </View>
+              <Text style={styles.addCta}>Add</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Live order */}
+          {activeOrder && (
+            <TouchableOpacity
+              style={styles.liveCard}
+              activeOpacity={0.85}
+              onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
+              accessibilityRole="button"
+            >
+              <View style={styles.liveDot} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.liveTitle}>{LIVE_STATUS[activeOrder.status] || 'Order in progress'}</Text>
+                <Text style={styles.liveSub} numberOfLines={1}>
+                  #{activeOrder.id.replace('MM-', '')} · ₹{activeOrder.total}
+                </Text>
+              </View>
+              <Text style={styles.liveAction}>Track</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Order again */}
+          {!!lastOrder && (
+            <View style={styles.againCard}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <Text style={styles.againEyebrow}>ORDER AGAIN</Text>
+                <Text style={styles.againTitle} numberOfLines={1}>
+                  {lastSummary}
+                </Text>
+                <Text style={styles.againSub}>Your last order · one tap to the basket</Text>
+              </View>
+              <TouchableOpacity
+                style={styles.againBtn}
+                onPress={() => reorderToCart(lastOrder)}
+                activeOpacity={0.85}
+                accessibilityRole="button"
+                accessibilityLabel={`Order ${lastSummary} again`}
+              >
+                <AppIcon icon={RotateLeft01Icon} size={16} color={MAROON} strokeWidth={2.4} />
+              </TouchableOpacity>
+            </View>
+          )}
 
         <View style={styles.group}>
           <Row
@@ -304,11 +387,13 @@ export default function ProfileMenuScreen() {
           />
         </View>
 
-        <View style={styles.footer}>
-          <AppIcon icon={Cash01Icon} size={15} color={C.secondary} strokeWidth={2} />
-          <Text style={styles.footerText}>Pay with cash or UPI when your order arrives.</Text>
+          <View style={styles.footer}>
+            <AppIcon icon={Cash01Icon} size={15} color={C.secondary} strokeWidth={2} />
+            <Text style={styles.footerText}>Pay with cash or UPI when your order arrives.</Text>
+          </View>
+          <Text style={styles.brand}>MAGICMEAT</Text>
+          <Text style={styles.version}>100% Halal · v{version}</Text>
         </View>
-        <Text style={styles.version}>MagicMeat {version}</Text>
       </ScrollView>
 
       {/* Edit sheet */}
@@ -381,33 +466,207 @@ export default function ProfileMenuScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: C.bg,
+  /* royal header */
+  hero: {
+    backgroundColor: MAROON,
+    paddingHorizontal: 16,
+    paddingBottom: 56,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
-  navBar: {
+  heroNav: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    marginBottom: 18,
   },
-  navBtn: {
+  heroBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.card,
+    backgroundColor: 'rgba(255,255,255,0.14)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  heroLink: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: GOLD,
+  },
+  heroIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  avatarRing: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatar: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#5B1414',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    color: GOLD,
+    fontSize: 30,
+    fontWeight: '700',
+  },
+  name: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.4,
+  },
+  heroMeta: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 3,
+  },
+  sincePill: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(232,194,122,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.4)',
+  },
+  sinceText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: GOLD,
+    letterSpacing: 0.3,
+  },
+  content: {
+    paddingHorizontal: 16,
+  },
+
+  /* stats */
+  stats: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: C.card,
+    borderRadius: 18,
+    paddingVertical: 16,
+    marginTop: -36,
+    marginBottom: 16,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.08,
+    shadowRadius: 14,
+    elevation: 4,
+  },
+  stat: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  statDivider: {
+    width: StyleSheet.hairlineWidth,
+    height: 32,
+    backgroundColor: C.hairline,
+  },
+  addDetails: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FFF7ED',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+  },
+  addTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+  },
+  addSub: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  addCta: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.red,
+  },
+  againCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#1C1917',
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(232,194,122,0.35)',
+  },
+  againEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: GOLD,
+    letterSpacing: 1,
+  },
+  againTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    marginTop: 4,
+  },
+  againSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+    marginTop: 2,
+  },
+  againBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: GOLD,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  brand: {
+    marginTop: 22,
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '900',
+    letterSpacing: 4,
+    color: MAROON,
+  },
+  version: {
+    fontSize: 11,
+    color: C.placeholder,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  safeArea: {
+    flex: 1,
+    backgroundColor: C.bg,
   },
   link: {
     fontSize: 16,
     fontWeight: '600',
     color: C.red,
-  },
-  content: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
   },
   divider: {
     height: StyleSheet.hairlineWidth,
@@ -415,57 +674,6 @@ const styles = StyleSheet.create({
   },
 
   /* identity */
-  identity: {
-    alignItems: 'center',
-    paddingTop: 4,
-    paddingBottom: 20,
-  },
-  avatar: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
-    backgroundColor: C.red,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarText: {
-    color: '#FFFFFF',
-    fontSize: 36,
-    fontWeight: '700',
-  },
-  name: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: C.text,
-    marginTop: 12,
-    letterSpacing: -0.4,
-    textAlign: 'center',
-  },
-  meta: {
-    fontSize: 15,
-    color: C.secondary,
-    marginTop: 3,
-  },
-  synced: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.green,
-    marginTop: 6,
-  },
-  addBtn: {
-    marginTop: 14,
-    backgroundColor: C.red,
-    height: 44,
-    borderRadius: 22,
-    paddingHorizontal: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  addBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
 
   /* live order */
   liveCard: {
@@ -549,12 +757,6 @@ const styles = StyleSheet.create({
   footerText: {
     fontSize: 13,
     color: C.secondary,
-  },
-  version: {
-    fontSize: 12,
-    color: C.placeholder,
-    textAlign: 'center',
-    marginTop: 6,
   },
 
   /* sheet */
