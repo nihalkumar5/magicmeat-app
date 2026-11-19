@@ -1,5 +1,6 @@
 import {
   collection,
+  deleteDoc,
   doc,
   getDoc,
   onSnapshot,
@@ -21,7 +22,7 @@ import {
 } from 'firebase/auth';
 import { auth, db } from './firebase';
 import { PRODUCTS } from '../data/mockData';
-import type { CartItem, CutOption, InventoryItem, Order, OrderStatus } from '../types';
+import type { CartItem, Coupon, CutOption, InventoryItem, Order, OrderStatus } from '../types';
 
 // ---------------------------------------------------------------- auth
 
@@ -165,6 +166,65 @@ export async function adminUpdateProduct(
   await updateDoc(doc(db, 'products', productId), patch);
 }
 
+// -------------------------------------------------------------- coupons
+// coupons/{CODE}: public read, admins write (firestore.rules validates the
+// shape and re-checks every order's discount against it).
+
+export function subscribeCoupons(cb: (coupons: Coupon[]) => void): Unsubscribe {
+  if (!db) return () => {};
+  return onSnapshot(
+    collection(db, 'coupons'),
+    (snap) => {
+      const list: Coupon[] = [];
+      snap.forEach((d) => {
+        const c = d.data() as Partial<Coupon>;
+        if (typeof c.code !== 'string') return;
+        list.push({
+          code: c.code,
+          title: c.title || c.code,
+          description: c.description || undefined,
+          type: c.type === 'percent' ? 'percent' : 'flat',
+          value: Number(c.value) || 0,
+          minOrder: Number(c.minOrder) || 0,
+          maxDiscount: Number(c.maxDiscount) || 0,
+          active: c.active === true,
+        });
+      });
+      list.sort((x, y) => Number(y.active) - Number(x.active) || x.minOrder - y.minOrder);
+      cb(list);
+    },
+    (err) => console.warn('[backend] coupons listener', err.code),
+  );
+}
+
+export const normalizeCouponCode = (code: string) =>
+  code
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+
+export async function adminSaveCoupon(c: Coupon): Promise<void> {
+  if (!db) throw new Error('Firebase is not configured.');
+  const code = normalizeCouponCode(c.code);
+  const data: Record<string, unknown> = {
+    code,
+    title: c.title.trim().slice(0, 60),
+    type: c.type,
+    value: Math.round(c.value),
+    minOrder: Math.round(c.minOrder),
+    maxDiscount: Math.round(c.maxDiscount),
+    active: c.active,
+    updatedAt: serverTimestamp(),
+  };
+  if (c.description?.trim()) data.description = c.description.trim().slice(0, 200);
+  await setDoc(doc(db, 'coupons', code), data);
+}
+
+export async function adminDeleteCoupon(code: string): Promise<void> {
+  if (!db) throw new Error('Firebase is not configured.');
+  await deleteDoc(doc(db, 'coupons', code));
+}
+
 // --------------------------------------------------------------- orders
 
 interface OrderItemDoc {
@@ -258,6 +318,7 @@ function fromOrderDoc(d: OrderDoc): Order {
     deliveryFee: d.deliveryFee,
     coldPackagingFee: d.coldPackagingFee,
     discount: d.discount,
+    couponCode: typeof (d as any).couponCode === 'string' ? (d as any).couponCode : undefined,
     total: d.total,
     status: d.status,
     currentTempCelsius: d.currentTempCelsius,
@@ -339,6 +400,8 @@ export interface NewOrderInput {
   customerPhone?: string;
   lat?: number;
   lng?: number;
+  couponCode?: string;
+  discount?: number;
 }
 
 // Firestore rules re-check every price, fee and total in this document.
@@ -353,7 +416,7 @@ export async function createOrder(input: NewOrderInput): Promise<void> {
     subtotal: input.subtotal,
     deliveryFee: input.deliveryFee,
     coldPackagingFee: input.coldPackagingFee,
-    discount: 0,
+    discount: input.discount || 0,
     total: input.total,
     status: 'placed',
     paymentMethod: 'Cash on Delivery',
@@ -368,6 +431,7 @@ export async function createOrder(input: NewOrderInput): Promise<void> {
   if (input.deliveryNote) data.deliveryNote = input.deliveryNote.slice(0, 300);
   if (input.customerName) data.customerName = input.customerName.slice(0, 80);
   if (input.customerPhone) data.customerPhone = input.customerPhone.slice(0, 20);
+  if (input.couponCode) data.couponCode = input.couponCode;
   if (validCoords(input.lat, input.lng)) {
     data.lat = input.lat;
     data.lng = input.lng;

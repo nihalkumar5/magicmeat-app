@@ -93,6 +93,21 @@ export type OrderStatus =
   | 'delivered'
   | 'cancelled';
 
+export interface Coupon {
+  /** Upper-case code customers type, also the Firestore doc id. */
+  code: string;
+  title: string;
+  description?: string;
+  /** 'flat' = ₹value off; 'percent' = value% off, capped at maxDiscount. */
+  type: 'flat' | 'percent';
+  value: number;
+  /** Minimum item total to use it (₹). */
+  minOrder: number;
+  /** Cap for percent coupons (₹); 0 means no cap. */
+  maxDiscount: number;
+  active: boolean;
+}
+
 export interface Order {
   id: string;
   items: CartItem[];
@@ -102,6 +117,7 @@ export interface Order {
   deliveryFee: number;
   coldPackagingFee: number;
   discount: number;
+  couponCode?: string;
   total: number;
   status: OrderStatus;
   currentTempCelsius?: number;

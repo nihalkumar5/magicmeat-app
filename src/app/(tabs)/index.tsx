@@ -30,6 +30,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { FadeInUp, PressableScale } from '../../components/motion';
+import { OffersStrip } from '../../components/OffersStrip';
 import { CATEGORY_IMAGES, CATEGORY_IMG_3D, categoryTint } from '../../data/categoryImages';
 import {
   AppIcon,
@@ -277,6 +278,14 @@ export default function HomeScreen() {
   const setLocationModalOpen = useStore((state) => state.setLocationModalOpen);
   const orderFulfillment = useStore((state) => state.orderFulfillment);
   const profilePhoto = useStore((state) => state.profilePhoto);
+  const profileName = useStore((state) => state.profile.name);
+  const initials = profileName
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0].toUpperCase())
+    .join('');
   const activeOrder = useStore((state) => state.activeOrder);
   const orders = useStore((state) => state.orders);
   const cartCount = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
@@ -840,19 +849,27 @@ export default function HomeScreen() {
             </View>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.mProfileBtn}
+          {/* Profile: photo in a thin ring, or initials (Contacts style), or a person glyph */}
+          <PressableScale
+            style={styles.mProfileRing}
+            scaleTo={0.92}
+            haptics="tap"
             onPress={() => router.push('/profile-menu')}
-            activeOpacity={0.7}
             accessibilityRole="button"
-            accessibilityLabel="Profile"
+            accessibilityLabel={profileName ? `Profile, ${profileName}` : 'Profile'}
           >
             {profilePhoto ? (
               <Image source={{ uri: profilePhoto }} style={styles.mProfileImg} />
+            ) : initials ? (
+              <View style={styles.mProfileInitials}>
+                <Text style={styles.mProfileInitialsText}>{initials}</Text>
+              </View>
             ) : (
-              <AppIcon icon={UserIcon} size={20} color="#111111" strokeWidth={2} />
+              <View style={styles.mProfileInitials}>
+                <AppIcon icon={UserIcon} size={20} color="#B91C1C" strokeWidth={2} />
+              </View>
             )}
-          </TouchableOpacity>
+          </PressableScale>
         </View>
 
         {/* Search (sticks to the top while scrolling) */}
@@ -935,6 +952,9 @@ export default function HomeScreen() {
             </Text>
           </View>
         )}
+
+        {/* Coupons (thin ticket row; hidden when there are none) */}
+        <OffersStrip background="#FFFFFF" />
 
         {/* Categories */}
         <View style={styles.mCategoryGrid}>
@@ -1323,10 +1343,33 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginTop: 1,
   },
+  // 2 pt white gap inside a hairline brand ring, like an iOS avatar.
+  mProfileRing: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    padding: 2,
+    borderWidth: 1.5,
+    borderColor: 'rgba(220,38,38,0.35)',
+    backgroundColor: '#FFFFFF',
+  },
   mProfileImg: {
     width: '100%',
     height: '100%',
     borderRadius: 999,
+  },
+  mProfileInitials: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: '#FDECEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mProfileInitialsText: {
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    color: '#B91C1C',
   },
   mProfileBtn: {
     width: 44,

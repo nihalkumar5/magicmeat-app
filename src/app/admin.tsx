@@ -24,6 +24,7 @@ import { notify, confirmAction } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { adminSignIn, adminSignOut, validCoords } from '../services/backend';
+import { AdminOffers } from '../components/AdminOffers';
 import { orderLabel } from '../utils/orderId';
 import { PRODUCTS } from '../data/mockData';
 import type { Order, Product } from '../types';
@@ -383,10 +384,11 @@ function OrderCard({
 /* ================================================================ screen */
 
 export default function AdminScreen() {
+  const liveOffers = useStore((s) => s.coupons.filter((c) => c.active).length);
   const { isAdmin, orders, inventory, updateOrderStatus, cancelOrder, assignRider, toggleStock, updateStockKg } =
     useStore();
 
-  const [tab, setTab] = useState<'orders' | 'stock' | 'riders'>('orders');
+  const [tab, setTab] = useState<'orders' | 'stock' | 'offers' | 'riders'>('orders');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [assignId, setAssignId] = useState<string | null>(null);
   const [rider, setRider] = useState({ name: '', phone: '' });
@@ -604,6 +606,7 @@ export default function AdminScreen() {
               [
                 { key: 'orders', label: 'Orders', n: active.length },
                 { key: 'stock', label: 'Stock', n: outCount },
+                { key: 'offers', label: 'Offers', n: liveOffers },
                 { key: 'riders', label: 'Riders', n: onRoad.length },
               ] as const
             ).map((s) => {
@@ -843,6 +846,9 @@ export default function AdminScreen() {
               <Text style={styles.footnote}>Turning an item on with 0 kg adds 5 kg so customers can order it.</Text>
             </>
           )}
+
+          {/* ======================================================== offers */}
+          {tab === 'offers' && <AdminOffers />}
 
           {/* ======================================================== riders */}
           {tab === 'riders' && (

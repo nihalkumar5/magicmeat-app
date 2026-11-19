@@ -112,6 +112,8 @@ async function main() {
   await privileged.doc(`products/${chicken.id}`).set({ prices, inStock: true, stockKg: 20 });
   await privileged.doc('products/oos').set({ prices: { x: 100 }, inStock: false, stockKg: 0 });
   await privileged.doc('admins/admin1').set({ email: 'admin@test' });
+  await privileged.doc('coupons/FLAT50').set({ code: 'FLAT50', title: 'Flat 50', type: 'flat', value: 50, minOrder: 0, maxDiscount: 0, active: true });
+  await privileged.doc('coupons/OFF').set({ code: 'OFF', title: 'Paused', type: 'flat', value: 50, minOrder: 0, maxDiscount: 0, active: false });
 
   const alice = clientAs('alice');
   const bob = clientAs('bob');
@@ -154,6 +156,36 @@ async function main() {
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11E'), order('alice', 'MM-AAA11E', undefined, { lat: 22.08 }))));
   await test('pin out of range is rejected', () =>
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11F'), order('alice', 'MM-AAA11F', undefined, { lat: 200, lng: 82.14 }))));
+  await test('order with a valid coupon is accepted', () => {
+    const o = order('alice', 'MM-AAA12A');
+    return assertSucceeds(
+      setDoc(doc(alice, 'orders', 'MM-AAA12A'), { ...o, couponCode: 'FLAT50', discount: 50, total: (o.total as number) - 50 })
+    );
+  });
+  await test('coupon with the wrong discount is rejected', () => {
+    const o = order('alice', 'MM-AAA12B');
+    return assertFails(
+      setDoc(doc(alice, 'orders', 'MM-AAA12B'), { ...o, couponCode: 'FLAT50', discount: 500, total: (o.total as number) - 500 })
+    );
+  });
+  await test('paused coupon is rejected', () => {
+    const o = order('alice', 'MM-AAA12C');
+    return assertFails(
+      setDoc(doc(alice, 'orders', 'MM-AAA12C'), { ...o, couponCode: 'OFF', discount: 50, total: (o.total as number) - 50 })
+    );
+  });
+  await test('discount without a coupon is rejected', () => {
+    const o = order('alice', 'MM-AAA12D');
+    return assertFails(setDoc(doc(alice, 'orders', 'MM-AAA12D'), { ...o, discount: 50, total: (o.total as number) - 50 }));
+  });
+  await test('customer cannot create a coupon', () =>
+    assertFails(
+      setDoc(doc(alice, 'coupons', 'FREE'), { code: 'FREE', title: 'x', type: 'flat', value: 999, minOrder: 0, maxDiscount: 0, active: true })
+    ));
+  await test('admin can create a coupon', () =>
+    assertSucceeds(
+      setDoc(doc(admin, 'coupons', 'NEW20'), { code: 'NEW20', title: '20% off', type: 'percent', value: 20, minOrder: 300, maxDiscount: 150, active: true })
+    ));
   await test('unknown cut id is rejected', () =>
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA116'), order('alice', 'MM-AAA116', [line('free-cut', 1, 0)]))));
   await test('out-of-stock product is rejected', () =>

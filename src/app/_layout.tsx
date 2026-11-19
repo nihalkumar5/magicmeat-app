@@ -14,6 +14,7 @@ import {
   phoneOf,
   subscribeAllOrders,
   subscribeMyOrders,
+  subscribeCoupons,
   subscribeProducts,
   watchAuth,
 } from '../services/backend';
@@ -51,6 +52,9 @@ export default function RootLayout() {
       }
     }
   }, []);
+
+  // Live coupons (offers strip, checkout, admin).
+  useEffect(() => subscribeCoupons((coupons) => useStore.setState({ coupons })), []);
 
   // Live prices and stock for everyone.
   useEffect(() => {

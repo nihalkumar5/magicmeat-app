@@ -1,12 +1,5 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  FlatList,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -19,6 +12,7 @@ import { PRODUCTS } from '../../data/mockData';
 import { DominosCard } from '../../components/DominosCard';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { FadeInUp } from '../../components/motion';
+import { CouponSheet } from '../../components/CouponSheet';
 import type { DeliveryMode } from '../../types';
 import {
   AppIcon,
@@ -30,6 +24,7 @@ import {
   ShieldCheckIcon,
   ArrowRight01Icon,
   DeliveryTruck01Icon,
+  DiscountTag01Icon,
 } from '../../components/HugeIcon';
 
 const ADD_ON_IDS = ['v2', 'v3', 'v5', 'v4', 'v6', 'v1', 'e1'];
@@ -62,6 +57,8 @@ export default function CartScreen() {
   const subtotal = getCartSubtotal();
   const netGrams = getCartNetWeightGrams();
   const grandTotal = getCartTotal();
+  const { coupon, discount: couponOff, short: couponShort } = useStore((s) => s.getCouponState)();
+  const [couponOpen, setCouponOpen] = useState(false);
   const { deliveryFee } = feesFor(subtotal, orderFulfillment, deliveryMode);
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
   const mrpTotal = cart.reduce((sum, item) => sum + mrpFor(item.product, item.selectedCut) * item.quantity, 0);
@@ -71,7 +68,7 @@ export default function CartScreen() {
   // Only Normal delivery has a free threshold; Express is always paid.
   const showFreeNudge = isDelivery && !isExpress;
   const deliverySaved = showFreeNudge && deliveryFee === 0 ? DELIVERY_FEE : 0;
-  const totalSavings = itemSavings + deliverySaved;
+  const totalSavings = itemSavings + deliverySaved + couponOff;
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_ABOVE - subtotal);
   const inCart = new Set(cart.map((item) => item.product.id));
   const hasMeat = cart.some((item) => ['chicken', 'mutton', 'fish'].includes(item.product.category));
@@ -110,7 +107,8 @@ export default function CartScreen() {
             />
             <Text style={styles.emptyTitle}>Your basket is empty</Text>
             <Text style={styles.emptySubtitle}>
-              Fresh, hand-cut chicken, mutton and fish, cleaned and packed cold, at your door in as little as 15 minutes.
+              Fresh, hand-cut chicken, mutton and fish, cleaned and packed cold, at your door in as little as 15
+              minutes.
             </Text>
             <TouchableOpacity
               style={styles.primaryButton}
@@ -214,7 +212,9 @@ export default function CartScreen() {
                       style={styles.stepBtn}
                       onPress={() => updateQuantity(item.cartItemId, -1)}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
-                      accessibilityLabel={item.quantity === 1 ? `Remove ${item.product.name}` : `One less ${item.product.name}`}
+                      accessibilityLabel={
+                        item.quantity === 1 ? `Remove ${item.product.name}` : `One less ${item.product.name}`
+                      }
                     >
                       <AppIcon
                         icon={item.quantity === 1 ? Delete02Icon : MinusSignIcon}
@@ -279,18 +279,16 @@ export default function CartScreen() {
                 activeOpacity={0.8}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={isDelivery ? `${slot.title}, ${slot.time}, ${slot.fee}` : `${slot.title}, ${slot.time}`}
+                accessibilityLabel={
+                  isDelivery ? `${slot.title}, ${slot.time}, ${slot.fee}` : `${slot.title}, ${slot.time}`
+                }
               >
                 <AppIcon icon={slot.icon} size={16} color={active ? '#FFFFFF' : C.text} strokeWidth={2} />
                 <Text style={[styles.slotTitle, active && styles.slotTextActive]}>{slot.title}</Text>
                 <Text style={[styles.slotTime, active && styles.slotTimeActive]}>{slot.time}</Text>
                 {isDelivery && (
                   <Text
-                    style={[
-                      styles.slotFee,
-                      slot.fee === 'Free' && styles.slotFeeFree,
-                      active && styles.slotTextActive,
-                    ]}
+                    style={[styles.slotFee, slot.fee === 'Free' && styles.slotFeeFree, active && styles.slotTextActive]}
                   >
                     {slot.fee}
                   </Text>
@@ -299,6 +297,24 @@ export default function CartScreen() {
             );
           })}
         </View>
+
+        {/* Coupon */}
+        <TouchableOpacity
+          style={[styles.card, styles.couponRow]}
+          onPress={() => setCouponOpen(true)}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+        >
+          <AppIcon icon={DiscountTag01Icon} size={18} color={C.red} strokeWidth={2} />
+          <Text style={styles.couponText} numberOfLines={1}>
+            {coupon && couponOff > 0
+              ? `${coupon.code} applied · you save ₹${couponOff}`
+              : coupon && couponShort > 0
+                ? `Add ₹${couponShort} more to use ${coupon.code}`
+                : 'Apply coupon'}
+          </Text>
+          <AppIcon icon={ArrowRight01Icon} size={16} color="#C7C7CC" strokeWidth={2.2} />
+        </TouchableOpacity>
 
         {/* Bill */}
         <Text style={styles.sectionLabel}>BILL DETAILS</Text>
@@ -321,6 +337,12 @@ export default function CartScreen() {
               ) : (
                 <Text style={styles.billValue}>₹{deliveryFee}</Text>
               )}
+            </View>
+          )}
+          {couponOff > 0 && coupon && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Coupon ({coupon.code})</Text>
+              <Text style={[styles.billValue, { color: C.green }]}>−₹{couponOff}</Text>
             </View>
           )}
           <View style={styles.divider} />
@@ -366,6 +388,7 @@ export default function CartScreen() {
           </View>
         </TouchableOpacity>
       </View>
+      <CouponSheet visible={couponOpen} onClose={() => setCouponOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -566,6 +589,20 @@ const styles = StyleSheet.create({
   },
   slotFeeFree: {
     color: C.green,
+  },
+
+  couponRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 14,
+    marginBottom: 12,
+  },
+  couponText: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
   },
 
   /* bill */

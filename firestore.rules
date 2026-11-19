@@ -10,6 +10,8 @@ rules_version = '2';
 //                         read their own orders and may cancel one that is still
 //                         "placed". Admins read all and move the status along.
 //   users/{uid}           each signed-in user owns their profile.
+//   coupons/{CODE}        public read; admins create, edit and delete. An
+//                         order's discount is checked here against its coupon.
 //   admins/{uid}          presence marks an admin. Written only with the Admin
 //                         SDK (scripts/make-admin.mjs), never from the app.
 service cloud.firestore {
@@ -32,6 +34,27 @@ service cloud.firestore {
     match /products/{productId} {
       allow read: if true;
       allow write: if isAdmin();
+    }
+
+    // ---------- coupons ----------
+    function validCoupon(code) {
+      let c = request.resource.data;
+      return c.keys().hasOnly(['code', 'title', 'description', 'type', 'value', 'minOrder', 'maxDiscount', 'active', 'updatedAt'])
+        && c.code == code
+        && code.matches('^[A-Z0-9]{3,16}$')
+        && c.type in ['flat', 'percent']
+        && c.value is int && c.value > 0 && (c.type == 'flat' || c.value <= 90)
+        && c.minOrder is int && c.minOrder >= 0
+        && c.maxDiscount is int && c.maxDiscount >= 0
+        && c.active is bool
+        && isShortString(c.title, 1, 60)
+        && (!('description' in c) || isShortString(c.description, 0, 200));
+    }
+
+    match /coupons/{code} {
+      allow read: if true;
+      allow create, update: if isAdmin() && validCoupon(code);
+      allow delete: if isAdmin();
     }
 
     // ---------- admins ----------
@@ -93,9 +116,24 @@ service cloud.firestore {
         && o.deliveryFee == (o.fulfillment != 'delivery' ? 0
              : (o.deliveryMode == 'instant' ? 49 : (o.subtotal < 499 ? 35 : 0)))
         && o.coldPackagingFee == 0
-        && o.discount == 0
-        && o.total == o.subtotal + o.deliveryFee + o.coldPackagingFee
+        && o.discount == discountFor(o)
+        && o.total == o.subtotal + o.deliveryFee + o.coldPackagingFee - o.discount
         && o.subtotal == subtotalOf(request.resource.data.items);
+    }
+
+    // Coupon discount, the same maths as couponDiscount() in the app:
+    // flat ₹value (never above the subtotal) or value% capped at maxDiscount
+    // (0 = no cap). Inactive or below minimum order → -1, which never matches.
+    function couponDiscount(c, subtotal) {
+      return (c.active != true || subtotal < c.minOrder) ? -1
+        : c.type == 'flat' ? (c.value < subtotal ? c.value : subtotal)
+        : ((c.maxDiscount == 0 || math.floor(subtotal * c.value / 100) < c.maxDiscount)
+            ? math.floor(subtotal * c.value / 100) : c.maxDiscount);
+    }
+
+    function discountFor(o) {
+      return !('couponCode' in o) ? 0
+        : couponDiscount(get(/databases/$(database)/documents/coupons/$(o.couponCode)).data, o.subtotal);
     }
 
     function itemsOk(items) {
@@ -112,7 +150,7 @@ service cloud.firestore {
           'id', 'customerUid', 'items', 'subtotal', 'deliveryFee', 'coldPackagingFee',
           'discount', 'total', 'status', 'paymentMethod', 'fulfillment', 'deliveryMode',
           'slotLabel', 'eta', 'address', 'deliveryNote', 'customerName', 'customerPhone',
-          'lat', 'lng', 'createdAt', 'updatedAt'])
+          'lat', 'lng', 'couponCode', 'createdAt', 'updatedAt'])
         && o.id == orderId
         && orderId.matches('^MM-[A-Z0-9]{6,20}$')
         && o.customerUid == request.auth.uid
@@ -127,6 +165,7 @@ service cloud.firestore {
         && (!('customerName' in o) || isShortString(o.customerName, 0, 80))
         && (!('customerPhone' in o) || isShortString(o.customerPhone, 0, 20))
         // Optional delivery point for rider directions: both or neither.
+        && (!('couponCode' in o) || (o.couponCode is string && o.couponCode.matches('^[A-Z0-9]{3,16}$')))
         && (('lat' in o) == ('lng' in o))
         && (!('lat' in o) || (o.lat is number && o.lat >= -90 && o.lat <= 90))
         && (!('lng' in o) || (o.lng is number && o.lng >= -180 && o.lng <= 180))

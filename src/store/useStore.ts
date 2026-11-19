@@ -2,18 +2,22 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import { Product, CutOption, CartItem, Order, DeliveryMode, MeatCategory, InventoryItem, OrderStatus } from '../types';
+import {
+  Product,
+  CutOption,
+  CartItem,
+  Order,
+  DeliveryMode,
+  MeatCategory,
+  InventoryItem,
+  OrderStatus,
+  Coupon,
+} from '../types';
 import { LocationData } from '../types/location';
-import { feesFor, unitPriceFor } from '../data/pricing';
+import { couponDiscount, feesFor, unitPriceFor } from '../data/pricing';
 import { slotInfo } from '../data/slots';
 import { notify } from '../utils/dialogs';
-import {
-  adminUpdateOrder,
-  adminUpdateProduct,
-  cancelMyOrder,
-  createOrder,
-  newOrderId,
-} from '../services/backend';
+import { adminUpdateOrder, adminUpdateProduct, cancelMyOrder, createOrder, newOrderId } from '../services/backend';
 
 interface StoreState {
   cart: CartItem[];
@@ -41,6 +45,14 @@ interface StoreState {
   /** Small JPEG data URI kept on this device only ('' when none). */
   profilePhoto: string;
   setProfilePhoto: (photo: string) => void;
+  /** Live coupons from Firestore (admins manage them). */
+  coupons: Coupon[];
+  /** Code the customer picked; applied at checkout while it qualifies. */
+  appliedCouponCode: string | null;
+  setAppliedCoupon: (code: string | null) => void;
+  /** The applied coupon and its discount on the current basket (0 if it
+   *  doesn't qualify yet), plus how much more to add to unlock it. */
+  getCouponState: () => { coupon: Coupon | null; discount: number; short: number };
   addToCart: (product: Product, cut: CutOption, isSkinless: boolean, quantity?: number) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
@@ -92,8 +104,7 @@ export function defaultCutFor(product: Product): CutOption {
 const INITIAL_SAVED_ADDRESSES: LocationData[] = [
   {
     shortAddress: 'Khandel Road',
-    fullAddress:
-      'Roop Vihar, 4523+VFV, Khandel Rd, Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh 495006, India',
+    fullAddress: 'Roop Vihar, 4523+VFV, Khandel Rd, Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh 495006, India',
     city: 'Bilaspur',
     state: 'Chhattisgarh',
     postalCode: '495006',
@@ -120,8 +131,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
   },
   {
     shortAddress: 'Other (Varanasi)',
-    fullAddress:
-      'House 1, Mohanpuri Colony, Karaundi, Varanasi, Uttar Pradesh 221005, India',
+    fullAddress: 'House 1, Mohanpuri Colony, Karaundi, Varanasi, Uttar Pradesh 221005, India',
     city: 'Varanasi',
     state: 'Uttar Pradesh',
     postalCode: '221005',
@@ -209,7 +219,12 @@ const getInitialStoredState = () => {
 };
 
 export const INITIAL_INVENTORY: Record<string, InventoryItem> = {
-  c1: { productId: 'c1', inStock: true, stockKg: 45, availableCutIds: ['curry-medium', 'biryani-large', 'boneless-cubes', 'fine-keema'] },
+  c1: {
+    productId: 'c1',
+    inStock: true,
+    stockKg: 45,
+    availableCutIds: ['curry-medium', 'biryani-large', 'boneless-cubes', 'fine-keema'],
+  },
   c2: { productId: 'c2', inStock: true, stockKg: 25, availableCutIds: ['boneless-cubes'] },
   c3: { productId: 'c3', inStock: true, stockKg: 20, availableCutIds: ['curry-medium'] },
   c4: { productId: 'c4', inStock: true, stockKg: 30, availableCutIds: ['curry-medium', 'biryani-large'] },
@@ -250,7 +265,7 @@ function adminSaveFailed(action: string) {
       'Not saved',
       e?.code === 'permission-denied'
         ? 'This change was refused. Sign in again as a store admin.'
-        : 'Could not reach the server. Check your connection and try again.'
+        : 'Could not reach the server. Check your connection and try again.',
     );
   };
 }
@@ -284,6 +299,9 @@ export const useStore = create<StoreState>()(
       profile: preloadedState?.profile || { name: '', phone: '', email: '' },
       setProfile: (profile) => set({ profile }),
       profilePhoto: preloadedState?.profilePhoto || '',
+      coupons: [],
+      appliedCouponCode: preloadedState?.appliedCouponCode || null,
+      setAppliedCoupon: (appliedCouponCode) => set({ appliedCouponCode }),
       setProfilePhoto: (profilePhoto) => set({ profilePhoto }),
       uid: null,
       authState: 'loading',
@@ -296,9 +314,7 @@ export const useStore = create<StoreState>()(
         // Customers see an item with 0 kg as out of stock, so restocking an
         // empty item also gives it one stepper step of stock.
         const patch =
-          restocking && (current?.stockKg ?? 0) <= 0
-            ? { inStock: true, stockKg: RESTOCK_KG }
-            : { inStock: restocking };
+          restocking && (current?.stockKg ?? 0) <= 0 ? { inStock: true, stockKg: RESTOCK_KG } : { inStock: restocking };
         adminUpdateProduct(productId, patch).catch(adminSaveFailed('toggleStock'));
       },
 
@@ -324,13 +340,15 @@ export const useStore = create<StoreState>()(
             'Could not cancel',
             e?.code === 'permission-denied'
               ? 'The store has already started preparing this order. Please contact support.'
-              : 'Could not reach the server. Check your connection and try again.'
+              : 'Could not reach the server. Check your connection and try again.',
           );
         });
       },
 
       assignRider: (orderId: string, riderName: string, riderPhone: string) => {
-        adminUpdateOrder(orderId, { riderName, riderPhone, status: 'out_for_delivery' }).catch(adminSaveFailed('assignRider'));
+        adminUpdateOrder(orderId, { riderName, riderPhone, status: 'out_for_delivery' }).catch(
+          adminSaveFailed('assignRider'),
+        );
       },
 
       toggleWishlist: (productId: string) =>
@@ -363,182 +381,199 @@ export const useStore = create<StoreState>()(
         });
       },
 
-  setLocationModalOpen: (open: boolean) => set({ isLocationModalOpen: open }),
+      setLocationModalOpen: (open: boolean) => set({ isLocationModalOpen: open }),
 
-  addSavedAddress: (address: LocationData) =>
-    set((state) => ({
-      savedAddresses: [
-        address,
-        ...state.savedAddresses.filter(
-          (a) => a.shortAddress !== address.shortAddress && a.fullAddress !== address.fullAddress
-        ),
-      ],
-    })),
+      addSavedAddress: (address: LocationData) =>
+        set((state) => ({
+          savedAddresses: [
+            address,
+            ...state.savedAddresses.filter(
+              (a) => a.shortAddress !== address.shortAddress && a.fullAddress !== address.fullAddress,
+            ),
+          ],
+        })),
 
-  removeSavedAddress: (shortOrFullAddress: string) =>
-    set((state) => ({
-      savedAddresses: state.savedAddresses.filter(
-        (a) =>
-          a.shortAddress !== shortOrFullAddress &&
-          a.fullAddress !== shortOrFullAddress
-      ),
-    })),
+      removeSavedAddress: (shortOrFullAddress: string) =>
+        set((state) => ({
+          savedAddresses: state.savedAddresses.filter(
+            (a) => a.shortAddress !== shortOrFullAddress && a.fullAddress !== shortOrFullAddress,
+          ),
+        })),
 
-  addToCart: (product, cut, isSkinless, quantity = 1) => {
-    const cartItemId = `${product.id}-${cut.id}-${isSkinless ? 'skinless' : 'withskin'}`;
-    const unitPrice = get().inventory[product.id]?.prices?.[cut.id] ?? unitPriceFor(product, cut);
+      addToCart: (product, cut, isSkinless, quantity = 1) => {
+        const cartItemId = `${product.id}-${cut.id}-${isSkinless ? 'skinless' : 'withskin'}`;
+        const unitPrice = get().inventory[product.id]?.prices?.[cut.id] ?? unitPriceFor(product, cut);
 
-    set((state) => {
-      const existingIndex = state.cart.findIndex((item) => item.cartItemId === cartItemId);
-      if (existingIndex > -1) {
-        const updated = state.cart.map((item, i) =>
-          i === existingIndex ? { ...item, quantity: Math.min(MAX_LINE_QTY, item.quantity + quantity) } : item
-        );
-        return { cart: updated };
-      }
-      return {
-        cart: [
-          ...state.cart,
-          {
-            cartItemId,
-            product,
-            selectedCut: cut,
-            isSkinless,
-            quantity,
-            unitPrice,
-          },
-        ],
-      };
-    });
-  },
-
-  removeFromCart: (cartItemId) => {
-    set((state) => ({
-      cart: state.cart.filter((item) => item.cartItemId !== cartItemId),
-    }));
-  },
-
-  updateQuantity: (cartItemId, delta) => {
-    set((state) => {
-      const updated = state.cart
-        .map((item) => {
-          if (item.cartItemId === cartItemId) {
-            const newQty = Math.min(MAX_LINE_QTY, item.quantity + delta);
-            return newQty > 0 ? { ...item, quantity: newQty } : null;
+        set((state) => {
+          const existingIndex = state.cart.findIndex((item) => item.cartItemId === cartItemId);
+          if (existingIndex > -1) {
+            const updated = state.cart.map((item, i) =>
+              i === existingIndex ? { ...item, quantity: Math.min(MAX_LINE_QTY, item.quantity + quantity) } : item,
+            );
+            return { cart: updated };
           }
-          return item;
-        })
-        .filter(Boolean) as CartItem[];
-      return { cart: updated };
-    });
-  },
+          return {
+            cart: [
+              ...state.cart,
+              {
+                cartItemId,
+                product,
+                selectedCut: cut,
+                isSkinless,
+                quantity,
+                unitPrice,
+              },
+            ],
+          };
+        });
+      },
 
-  clearCart: () => set({ cart: [] }),
-  setDeliveryMode: (mode) => set({ deliveryMode: mode }),
-  setSelectedAddress: (selectedAddress) => set({ selectedAddress }),
-  setSearchQuery: (searchQuery) => set({ searchQuery }),
-  setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
-  setCustomizerProduct: (customizerProduct) => set({ customizerProduct }),
+      removeFromCart: (cartItemId) => {
+        set((state) => ({
+          cart: state.cart.filter((item) => item.cartItemId !== cartItemId),
+        }));
+      },
 
-  getCartSubtotal: () => {
-    const { cart } = get();
-    return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
-  },
+      updateQuantity: (cartItemId, delta) => {
+        set((state) => {
+          const updated = state.cart
+            .map((item) => {
+              if (item.cartItemId === cartItemId) {
+                const newQty = Math.min(MAX_LINE_QTY, item.quantity + delta);
+                return newQty > 0 ? { ...item, quantity: newQty } : null;
+              }
+              return item;
+            })
+            .filter(Boolean) as CartItem[];
+          return { cart: updated };
+        });
+      },
 
-  getCartTotal: () => {
-    const state = get();
-    const subtotal = state.getCartSubtotal();
-    if (subtotal === 0) return 0;
-    return feesFor(subtotal, state.orderFulfillment, state.deliveryMode).total;
-  },
+      clearCart: () => set({ cart: [] }),
+      setDeliveryMode: (mode) => set({ deliveryMode: mode }),
+      setSelectedAddress: (selectedAddress) => set({ selectedAddress }),
+      setSearchQuery: (searchQuery) => set({ searchQuery }),
+      setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
+      setCustomizerProduct: (customizerProduct) => set({ customizerProduct }),
 
-  getCartItemsCount: () => {
-    const { cart } = get();
-    return cart.reduce((count, item) => count + item.quantity, 0);
-  },
+      getCartSubtotal: () => {
+        const { cart } = get();
+        return cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
+      },
 
-  getCartNetWeightGrams: () => {
-    const { cart } = get();
-    return cart.reduce((sum, item) => {
-      const match = item.selectedCut.netWeight.match(/(\d+)g/);
-      const grams = match ? parseInt(match[1], 10) : 0; // packs/pieces have no gram weight
-      return sum + grams * item.quantity;
-    }, 0);
-  },
+      getCouponState: () => {
+        const state = get();
+        const coupon = state.appliedCouponCode
+          ? state.coupons.find((c) => c.code === state.appliedCouponCode) || null
+          : null;
+        if (!coupon) return { coupon: null, discount: 0, short: 0 };
+        const subtotal = state.getCartSubtotal();
+        const d = couponDiscount(coupon, subtotal);
+        return {
+          coupon,
+          discount: Math.max(0, d),
+          short: d < 0 && coupon.active ? Math.max(0, coupon.minOrder - subtotal) : 0,
+        };
+      },
 
-  getCartGrossWeightGrams: () => {
-    const { cart } = get();
-    return cart.reduce((sum, item) => {
-      const match = item.selectedCut.grossWeight.match(/(\d+)g/);
-      const grams = match ? parseInt(match[1], 10) : 0;
-      return sum + grams * item.quantity;
-    }, 0);
-  },
+      getCartTotal: () => {
+        const state = get();
+        const subtotal = state.getCartSubtotal();
+        if (subtotal === 0) return 0;
+        return feesFor(subtotal, state.orderFulfillment, state.deliveryMode).total - state.getCouponState().discount;
+      },
 
-  placeOrder: async (paymentMethod, deliveryNote) => {
-    const state = get();
-    const subtotal = state.getCartSubtotal();
-    const { deliveryFee, total } = feesFor(
-      subtotal,
-      state.orderFulfillment,
-      state.deliveryMode
-    );
-    const { label: slotLabel, eta } = slotInfo(state.deliveryMode);
-    const id = newOrderId();
+      getCartItemsCount: () => {
+        const { cart } = get();
+        return cart.reduce((count, item) => count + item.quantity, 0);
+      },
 
-    // Throws if the network is down or the rules reject the order (price
-    // changed, item out of stock); checkout shows the error and keeps the cart.
-    await createOrder({
-      id,
-      items: state.cart,
-      subtotal,
-      deliveryFee,
-      coldPackagingFee: 0,
-      total,
-      fulfillment: state.orderFulfillment,
-      deliveryMode: state.deliveryMode,
-      slotLabel,
-      eta,
-      address: state.selectedAddress,
-      deliveryNote: deliveryNote?.trim() || undefined,
-      customerName: state.profile.name || undefined,
-      customerPhone: state.profile.phone || undefined,
-      lat: state.currentLocation?.coords?.latitude,
-      lng: state.currentLocation?.coords?.longitude,
-    });
+      getCartNetWeightGrams: () => {
+        const { cart } = get();
+        return cart.reduce((sum, item) => {
+          const match = item.selectedCut.netWeight.match(/(\d+)g/);
+          const grams = match ? parseInt(match[1], 10) : 0; // packs/pieces have no gram weight
+          return sum + grams * item.quantity;
+        }, 0);
+      },
 
-    const newOrder: Order = {
-      id,
-      items: [...state.cart],
-      deliveryMode: state.deliveryMode,
-      slotLabel,
-      subtotal,
-      deliveryFee,
-      coldPackagingFee: 0,
-      discount: 0,
-      total,
-      status: 'placed',
-      placedAt: 'Just now',
-      createdAtMs: Date.now(),
-      eta,
-      address: state.selectedAddress,
-      deliveryNote: deliveryNote?.trim() || undefined,
-      paymentMethod,
-    };
+      getCartGrossWeightGrams: () => {
+        const { cart } = get();
+        return cart.reduce((sum, item) => {
+          const match = item.selectedCut.grossWeight.match(/(\d+)g/);
+          const grams = match ? parseInt(match[1], 10) : 0;
+          return sum + grams * item.quantity;
+        }, 0);
+      },
 
-    set((s) => ({
-      cart: [],
-      activeOrder: newOrder,
-      orders: s.orders.some((o) => o.id === id) ? s.orders : [newOrder, ...s.orders],
-    }));
+      placeOrder: async (paymentMethod, deliveryNote) => {
+        const state = get();
+        const subtotal = state.getCartSubtotal();
+        const fees = feesFor(subtotal, state.orderFulfillment, state.deliveryMode);
+        const { deliveryFee } = fees;
+        const { coupon, discount } = state.getCouponState();
+        const couponCode = coupon && discount > 0 ? coupon.code : undefined;
+        const total = fees.total - (couponCode ? discount : 0);
+        const { label: slotLabel, eta } = slotInfo(state.deliveryMode);
+        const id = newOrderId();
 
-    return newOrder;
-  },
+        // Throws if the network is down or the rules reject the order (price
+        // changed, item out of stock); checkout shows the error and keeps the cart.
+        await createOrder({
+          id,
+          items: state.cart,
+          subtotal,
+          deliveryFee,
+          coldPackagingFee: 0,
+          total,
+          fulfillment: state.orderFulfillment,
+          deliveryMode: state.deliveryMode,
+          slotLabel,
+          eta,
+          address: state.selectedAddress,
+          deliveryNote: deliveryNote?.trim() || undefined,
+          customerName: state.profile.name || undefined,
+          customerPhone: state.profile.phone || undefined,
+          lat: state.currentLocation?.coords?.latitude,
+          lng: state.currentLocation?.coords?.longitude,
+          couponCode,
+          discount: couponCode ? discount : 0,
+        });
 
-  updateOrderStatus: (orderId, status, temp) => {
-    adminUpdateOrder(orderId, { status, currentTempCelsius: temp }).catch(adminSaveFailed('updateOrderStatus'));
-  },
-}),
+        const newOrder: Order = {
+          id,
+          items: [...state.cart],
+          deliveryMode: state.deliveryMode,
+          slotLabel,
+          subtotal,
+          deliveryFee,
+          coldPackagingFee: 0,
+          discount: couponCode ? discount : 0,
+          couponCode,
+          total,
+          status: 'placed',
+          placedAt: 'Just now',
+          createdAtMs: Date.now(),
+          eta,
+          address: state.selectedAddress,
+          deliveryNote: deliveryNote?.trim() || undefined,
+          paymentMethod,
+        };
+
+        set((s) => ({
+          cart: [],
+          appliedCouponCode: null,
+          activeOrder: newOrder,
+          orders: s.orders.some((o) => o.id === id) ? s.orders : [newOrder, ...s.orders],
+        }));
+
+        return newOrder;
+      },
+
+      updateOrderStatus: (orderId, status, temp) => {
+        adminUpdateOrder(orderId, { status, currentTempCelsius: temp }).catch(adminSaveFailed('updateOrderStatus'));
+      },
+    }),
     {
       name: 'magicmeat-store-persist',
       version: 3,
@@ -563,7 +598,8 @@ export const useStore = create<StoreState>()(
         wishlist: state.wishlist,
         profile: state.profile,
         profilePhoto: state.profilePhoto,
+        appliedCouponCode: state.appliedCouponCode,
       }),
-    }
-  )
+    },
+  ),
 );

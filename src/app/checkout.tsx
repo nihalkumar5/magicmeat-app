@@ -18,6 +18,7 @@ import { DELIVERY_FEE, EXPRESS_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from 
 import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
 import { haptic } from '../utils/haptics';
+import { CouponSheet } from '../components/CouponSheet';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { saveProfile } from '../services/backend';
 import { router } from 'expo-router';
@@ -36,6 +37,7 @@ import {
   UserIcon,
   Note01Icon,
   Tick02Icon,
+  DiscountTag01Icon,
 } from '../components/HugeIcon';
 
 // Firestore rules accept at most 6 lines per order (see firestore.rules).
@@ -89,6 +91,9 @@ export default function CheckoutScreen() {
   } | null>(null);
 
   const grandTotal = getCartTotal();
+  const { coupon, discount: couponOff, short: couponShort } = useStore((s) => s.getCouponState)();
+  const setAppliedCoupon = useStore((s) => s.setAppliedCoupon);
+  const [couponOpen, setCouponOpen] = useState(false);
   const subtotal = getCartSubtotal();
   const { deliveryFee } = feesFor(subtotal, orderFulfillment, deliveryMode);
   const netGrams = getCartNetWeightGrams();
@@ -97,7 +102,7 @@ export default function CheckoutScreen() {
   const isExpress = deliveryMode === 'instant';
   // Only Normal delivery is free above the threshold; Express is always paid.
   const deliverySaved = isDelivery && !isExpress && deliveryFee === 0 ? DELIVERY_FEE : 0;
-  const totalSavings = Math.max(0, mrpTotal - subtotal) + deliverySaved;
+  const totalSavings = Math.max(0, mrpTotal - subtotal) + deliverySaved + couponOff;
 
   const handlePlaceOrder = async () => {
     if (isSubmitting) return;
@@ -386,6 +391,51 @@ export default function CheckoutScreen() {
 
           <View style={styles.divider} />
 
+          {/* Coupon */}
+          <Text style={styles.sectionTitle}>Offers</Text>
+          <TouchableOpacity
+            style={[styles.option, couponOff > 0 && styles.couponOn]}
+            onPress={() => setCouponOpen(true)}
+            activeOpacity={0.8}
+            accessibilityRole="button"
+          >
+            <AppIcon icon={DiscountTag01Icon} size={20} color={C.red} strokeWidth={1.9} />
+            <View style={{ flex: 1 }}>
+              {coupon && couponOff > 0 ? (
+                <>
+                  <Text style={styles.optionTitle}>{coupon.code} applied</Text>
+                  <Text style={[styles.optionSub, { color: C.green, fontWeight: '600' }]}>You save ₹{couponOff}</Text>
+                </>
+              ) : coupon && couponShort > 0 ? (
+                <>
+                  <Text style={styles.optionTitle}>{coupon.code} selected</Text>
+                  <Text style={styles.optionSub}>Add ₹{couponShort} more to use it</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.optionTitle}>Apply coupon</Text>
+                  <Text style={styles.optionSub}>See offers or enter a code</Text>
+                </>
+              )}
+            </View>
+            {coupon ? (
+              <TouchableOpacity
+                onPress={() => {
+                  haptic.select();
+                  setAppliedCoupon(null);
+                }}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                accessibilityLabel="Remove coupon"
+              >
+                <Text style={styles.removeText}>Remove</Text>
+              </TouchableOpacity>
+            ) : (
+              <AppIcon icon={ArrowRight01Icon} size={18} color="#C7C7CC" strokeWidth={2.2} />
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
           {/* Summary */}
           <Text style={styles.sectionTitle}>Summary</Text>
           <View style={styles.sumRow}>
@@ -409,6 +459,12 @@ export default function CheckoutScreen() {
               ) : (
                 <Text style={styles.sumValue}>₹{deliveryFee}</Text>
               )}
+            </View>
+          )}
+          {couponOff > 0 && coupon && (
+            <View style={styles.sumRow}>
+              <Text style={styles.sumLabel}>Coupon ({coupon.code})</Text>
+              <Text style={[styles.sumValue, { color: C.green }]}>−₹{couponOff}</Text>
             </View>
           )}
           <View style={[styles.sumRow, styles.totalRow]}>
@@ -457,6 +513,7 @@ export default function CheckoutScreen() {
           )}
         </TouchableOpacity>
       </View>
+      <CouponSheet visible={couponOpen} onClose={() => setCouponOpen(false)} />
     </SafeAreaView>
   );
 }
@@ -581,6 +638,15 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: C.secondary,
     marginTop: 1,
+  },
+  couponOn: {
+    borderColor: '#BBF7D0',
+    backgroundColor: '#F0FDF4',
+  },
+  removeText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.red,
   },
   optionFee: {
     fontSize: 14,

@@ -1,4 +1,4 @@
-import type { CutOption, DeliveryMode, Product } from '../types';
+import type { Coupon, CutOption, DeliveryMode, Product } from '../types';
 
 // One place that decides what every sellable variant of a product costs.
 // The app uses it to price the cart, and scripts/seed-products.mjs uses it to
@@ -34,9 +34,33 @@ export function packVariantsFor(product: Product): PackVariant[] {
     ];
   }
   return [
-    { id: 'pack-500g', label: '500 g', netWeight: '500g', pieces: '12-14 pieces', serves: '2–3 people', price: baseP, originalPrice: origP },
-    { id: 'pack-1kg', label: '1 kg', netWeight: '1000g', pieces: '24-28 pieces', serves: '4–6 people', price: Math.round(baseP * 1.9), originalPrice: Math.round(origP * 1.95) },
-    { id: 'pack-1500g', label: '1.5 kg', netWeight: '1500g', pieces: '36-40 pieces', serves: '6–8 people', price: Math.round(baseP * 2.8), originalPrice: Math.round(origP * 2.85) },
+    {
+      id: 'pack-500g',
+      label: '500 g',
+      netWeight: '500g',
+      pieces: '12-14 pieces',
+      serves: '2–3 people',
+      price: baseP,
+      originalPrice: origP,
+    },
+    {
+      id: 'pack-1kg',
+      label: '1 kg',
+      netWeight: '1000g',
+      pieces: '24-28 pieces',
+      serves: '4–6 people',
+      price: Math.round(baseP * 1.9),
+      originalPrice: Math.round(origP * 1.95),
+    },
+    {
+      id: 'pack-1500g',
+      label: '1.5 kg',
+      netWeight: '1500g',
+      pieces: '36-40 pieces',
+      serves: '6–8 people',
+      price: Math.round(baseP * 2.8),
+      originalPrice: Math.round(origP * 2.85),
+    },
   ];
 }
 
@@ -94,11 +118,7 @@ export const FREE_DELIVERY_ABOVE = 499;
 export const DELIVERY_FEE = 35;
 export const EXPRESS_FEE = 49;
 
-export function feesFor(
-  subtotal: number,
-  fulfillment: 'delivery' | 'takeaway',
-  deliveryMode: DeliveryMode = 'slot'
-) {
+export function feesFor(subtotal: number, fulfillment: 'delivery' | 'takeaway', deliveryMode: DeliveryMode = 'slot') {
   const deliveryFee = deliveryFeeFor(subtotal, fulfillment, deliveryMode);
   return { deliveryFee, total: subtotal + deliveryFee };
 }
@@ -109,4 +129,27 @@ export function deliveryFeeFor(subtotal: number, fulfillment: 'delivery' | 'take
   if (fulfillment !== 'delivery' || subtotal <= 0) return 0;
   if (deliveryMode === 'instant') return EXPRESS_FEE;
   return subtotal < FREE_DELIVERY_ABOVE ? DELIVERY_FEE : 0;
+}
+
+/**
+ * Discount for a coupon on an item total, or -1 if it can't be used (inactive
+ * or below the minimum order). Mirrors couponDiscount() in firestore.rules.
+ */
+export function couponDiscount(c: Coupon, subtotal: number): number {
+  if (!c.active || subtotal < c.minOrder) return -1;
+  if (c.type === 'flat') return Math.min(c.value, subtotal);
+  const pct = Math.floor((subtotal * c.value) / 100);
+  return c.maxDiscount === 0 ? pct : Math.min(pct, c.maxDiscount);
+}
+
+/** Short headline for a coupon, e.g. "₹100 OFF" or "20% OFF". */
+export function couponHeadline(c: Coupon): string {
+  return c.type === 'flat' ? `₹${c.value} OFF` : `${c.value}% OFF`;
+}
+
+/** Fine print, e.g. "Above ₹499 · up to ₹150". */
+export function couponTerms(c: Coupon): string {
+  const parts = [c.minOrder > 0 ? `Above ₹${c.minOrder}` : 'No minimum'];
+  if (c.type === 'percent' && c.maxDiscount > 0) parts.push(`up to ₹${c.maxDiscount}`);
+  return parts.join(' · ');
 }
