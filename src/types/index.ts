@@ -36,7 +36,7 @@ export interface Product {
   serves: string;
   temperature: string;
   farmOrigin: string;
-  halalCertified: boolean;
+  jhatka: boolean;
   antibioticFree: boolean;
   availableCuts: CutOption[];
   rating: number;

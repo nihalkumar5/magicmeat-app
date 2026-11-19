@@ -354,7 +354,7 @@ export default function ProfileMenuScreen() {
           <Text style={styles.brand}>
             MAGIC<Text style={{ color: C.red }}>MEAT</Text>
           </Text>
-          <Text style={styles.version}>100% Halal · Version {version}</Text>
+          <Text style={styles.version}>100% Jhatka · Version {version}</Text>
         </View>
       </ScrollView>
 

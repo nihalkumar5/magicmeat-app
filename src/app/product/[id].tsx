@@ -292,7 +292,7 @@ export default function ProductDetailScreen() {
             {/* Promises */}
             <View style={styles.promiseList}>
               {[
-                { icon: ShieldCheckIcon, text: '100% halal, zabiha cut' },
+                { icon: ShieldCheckIcon, text: '100% jhatka meat' },
                 { icon: SnowflakeIcon, text: 'Cut fresh and packed cold' },
                 { icon: Cash01Icon, text: 'Pay cash or UPI on delivery' },
               ].map((item) => (

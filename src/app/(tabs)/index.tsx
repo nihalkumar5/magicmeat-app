@@ -59,7 +59,8 @@ const VIDEO_RECIPES = [
     id: 'vr2',
     title: 'Tandoori Chicken',
     subtitle: 'Oven roasted tangdi kebab',
-    image: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?auto=format&fit=crop&w=600&q=80',
+    // Our own chicken leg & thigh photo (the old stock photo showed fish).
+    image: 'https://cdn.shopify.com/s/files/1/0729/4897/3645/files/IMG-20260429-WA0002.jpg?v=1789242743',
   },
   {
     id: 'vr3',
@@ -766,9 +767,9 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#F0FDF4' }]}>
                   <AppIcon icon={ShieldCheckIcon} size={22} color="#16A34A" />
                 </View>
-                <Text style={styles.promiseCardTitle}>100% Halal</Text>
+                <Text style={styles.promiseCardTitle}>100% Jhatka</Text>
                 <Text style={styles.promiseCardText}>
-                  Hand-slaughtered the traditional zabiha way, with Bismillah.
+                  Prepared the traditional jhatka way, with a single swift cut.
                 </Text>
               </View>
 
@@ -801,7 +802,7 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <Text style={styles.desktopFooterAbout}>
-                  Fresh, halal chicken, mutton and fish, cleaned and cut to order and delivered chilled in about 30 minutes.
+                  Fresh jhatka chicken and mutton, plus fish, cleaned and cut to order and delivered chilled in about 30 minutes.
                 </Text>
               </View>
 
@@ -1042,22 +1043,22 @@ export default function HomeScreen() {
           overScrollMode="never"
         />
 
-        {/* Halal story */}
-        <View style={styles.zabihaBannerContainer}>
-          <View style={styles.zabihaBanner}>
-            <View style={styles.zabihaInnerFrame}>
-              <View style={styles.zabihaLeftCol}>
-                <View style={styles.zabihaHalalTag}>
-                  <Text style={styles.zabihaHalalText}>100% ZABIHA HALAL</Text>
+        {/* Jhatka story */}
+        <View style={styles.jhatkaBannerContainer}>
+          <View style={styles.jhatkaBanner}>
+            <View style={styles.jhatkaInnerFrame}>
+              <View style={styles.jhatkaLeftCol}>
+                <View style={styles.jhatkaTag}>
+                  <Text style={styles.jhatkaTagText}>100% JHATKA</Text>
                 </View>
-                <Text style={styles.zabihaTitle}>Zabiha, the traditional way</Text>
-                <Text style={styles.zabihaSubtitle}>
-                  Hand-slaughtered the traditional way, with Bismillah.
+                <Text style={styles.jhatkaTitle}>Jhatka, the traditional way</Text>
+                <Text style={styles.jhatkaSubtitle}>
+                  Prepared with a single swift cut, then cleaned and packed fresh for your kitchen.
                 </Text>
               </View>
               <Image
                 source={require('../../../assets/illustrations/master_chef.png')}
-                style={styles.zabihaChefIllustration}
+                style={styles.jhatkaChefIllustration}
                 resizeMode="contain"
               />
             </View>
@@ -1099,16 +1100,37 @@ export default function HomeScreen() {
         </TouchableOpacity>
 
         {/* Brand sign-off */}
-        <View style={styles.brandPoeticFooter}>
-          <Text style={styles.poeticQuoteLine}>Har bite mein,</Text>
-          <Text style={styles.poeticQuoteLine}>mohabbat,</Text>
-          <Text style={styles.poeticQuoteLine}>zaban pe lazzat.</Text>
+        <View style={styles.signoff}>
+          <Text style={styles.signoffLine}>Har bite mein</Text>
+          <Text style={styles.signoffLine}>mohabbat,</Text>
+          <Text style={styles.signoffLine}>
+            zaban pe <Text style={styles.signoffAccent}>lazzat.</Text>
+          </Text>
+          <Text style={styles.signoffSub}>
+            Fresh jhatka meat, cut to order and at your door in about 30 minutes.
+          </Text>
 
-          <View style={styles.footerBrandRow}>
-            <Text style={styles.footerBrandName}>MAGICMEAT</Text>
-            <View style={styles.halalBadgeContainer}>
-              <Text style={styles.halalArabicText}>حلال</Text>
-              <Text style={styles.halalEnglishText}>HALAL</Text>
+          <View style={styles.signoffChips}>
+            {[
+              { icon: ShieldCheckIcon, text: '100% Jhatka' },
+              { icon: ChefHatIcon, text: 'Cut to order' },
+              { icon: CheckmarkBadge01Icon, text: 'Pay on delivery' },
+            ].map((chip) => (
+              <View key={chip.text} style={styles.signoffChip}>
+                <AppIcon icon={chip.icon} size={13} color="#B91C1C" strokeWidth={2} />
+                <Text style={styles.signoffChipText}>{chip.text}</Text>
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.signoffBottom}>
+            <Text style={styles.signoffBrand}>
+              MAGIC<Text style={{ color: '#DC2626' }}>MEAT</Text>
+            </Text>
+            <View style={styles.jhatkaSeal}>
+              <Text style={styles.jhatkaSealHindi}>झटका</Text>
+              <View style={styles.jhatkaSealDivider} />
+              <Text style={styles.jhatkaSealEnglish}>JHATKA</Text>
             </View>
           </View>
         </View>
@@ -1148,7 +1170,7 @@ const LIVE_STATUS_TEXT: Record<string, string> = {
 
 const TRUST_POINTS = [
   { title: '30 mins', sub: 'Fast delivery', icon: FlashIcon },
-  { title: '100% Halal', sub: 'Zabiha cut', icon: ShieldCheckIcon },
+  { title: '100% Jhatka', sub: 'Traditional cut', icon: ShieldCheckIcon },
   { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
 ];
 
@@ -2596,8 +2618,8 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: 2,
   },
-  /* Traditional Zabiha Banner */
-  zabihaBannerContainer: {
+  /* Traditional Jhatka Banner */
+  jhatkaBannerContainer: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: '#FFFFFF',
@@ -2605,14 +2627,14 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     overflow: 'hidden',
   },
-  zabihaBanner: {
+  jhatkaBanner: {
     backgroundColor: '#C52227',
     borderRadius: 14,
     padding: 14,
     borderWidth: 1.5,
     borderColor: '#9E1317',
   },
-  zabihaInnerFrame: {
+  jhatkaInnerFrame: {
     borderWidth: 1,
     borderColor: 'rgba(255, 255, 255, 0.4)',
     borderRadius: 10,
@@ -2622,11 +2644,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  zabihaLeftCol: {
+  jhatkaLeftCol: {
     flex: 1,
     paddingRight: 10,
   },
-  zabihaHalalTag: {
+  jhatkaTag: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -2634,80 +2656,113 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginBottom: 6,
   },
-  zabihaHalalText: {
+  jhatkaTagText: {
     color: '#FFFFFF',
     fontSize: 9.5,
     fontWeight: '800',
     letterSpacing: 0.8,
   },
-  zabihaTitle: {
+  jhatkaTitle: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '900',
     letterSpacing: -0.3,
     marginBottom: 4,
   },
-  zabihaSubtitle: {
+  jhatkaSubtitle: {
     color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 11.5,
     fontWeight: '500',
     lineHeight: 16,
   },
-  zabihaChefIllustration: {
+  jhatkaChefIllustration: {
     width: 78,
     height: 78,
   },
   /* Poetic Brand Footer */
-  brandPoeticFooter: {
-    paddingHorizontal: 24,
-    paddingTop: 40,
-    paddingBottom: 24,
-    backgroundColor: '#FFFFFF',
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
+  signoff: {
+    marginHorizontal: 16,
+    marginTop: 28,
+    padding: 24,
+    borderRadius: 24,
+    backgroundColor: '#FFF6F1',
   },
-  poeticQuoteLine: {
-    fontSize: 26,
-    fontWeight: '700',
-    color: '#D1D5DB',
-    lineHeight: 36,
-    letterSpacing: -0.4,
+  signoffLine: {
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '900',
+    color: '#1F1A17',
+    letterSpacing: -1,
   },
-  footerBrandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 48,
-    paddingTop: 18,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
+  signoffAccent: {
+    color: '#DC2626',
   },
-  footerBrandName: {
-    color: '#9CA3AF',
+  signoffSub: {
+    marginTop: 12,
     fontSize: 14,
-    fontWeight: '700',
-    letterSpacing: 2,
+    lineHeight: 20,
+    color: '#6B5E57',
   },
-  halalBadgeContainer: {
+  signoffChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 18,
+  },
+  signoffChip: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
   },
-  halalArabicText: {
-    color: '#6B7280',
-    fontSize: 14,
+  signoffChipText: {
+    fontSize: 12,
     fontWeight: '700',
+    color: '#3F3A37',
   },
-  halalEnglishText: {
-    color: '#6B7280',
-    fontSize: 11,
+  signoffBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 24,
+    paddingTop: 18,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(0,0,0,0.12)',
+  },
+  signoffBrand: {
+    fontSize: 16,
+    fontWeight: '900',
+    letterSpacing: 3,
+    color: '#1F1A17',
+  },
+  jhatkaSeal: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    backgroundColor: '#FFFFFF',
+  },
+  jhatkaSealHindi: {
+    fontSize: 14,
     fontWeight: '800',
-    letterSpacing: 0.5,
+    color: '#DC2626',
+  },
+  jhatkaSealDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: 'rgba(220,38,38,0.35)',
+  },
+  jhatkaSealEnglish: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 1,
+    color: '#DC2626',
   },
 });
