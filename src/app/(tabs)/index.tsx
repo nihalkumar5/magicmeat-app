@@ -31,6 +31,7 @@ import { StatusBar } from 'expo-status-bar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { FadeInUp, PressableScale } from '../../components/motion';
 import { OffersStrip } from '../../components/OffersStrip';
+import { CutsShowcase } from '../../components/CutsShowcase';
 import { CATEGORY_IMAGES, CATEGORY_IMG_3D, categoryTint } from '../../data/categoryImages';
 import {
   AppIcon,
@@ -1048,6 +1049,9 @@ export default function HomeScreen() {
             fadeDuration={0}
           />
         </TouchableOpacity>
+
+        {/* The butcher's cuts (editorial image carousel) */}
+        <CutsShowcase />
 
         {/* Fish */}
         <SectionHeader
