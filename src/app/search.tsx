@@ -50,6 +50,8 @@ const SEARCH_CATEGORIES: { id: MeatCategory; name: string; image: string }[] = (
   ] as { id: MeatCategory; name: string }[]
 ).map((c) => ({ ...c, image: PRODUCTS.find((p) => p.category === c.id)?.image || '' }));
 
+const RED_ICON = '#DC2626';
+
 const C = {
   bg: '#F2F2F7',
   card: '#FFFFFF',
@@ -101,6 +103,7 @@ export default function SearchScreen() {
 
   const { cart, addToCart, updateQuantity, setCustomizerProduct, setSelectedCategory } = useStore();
   const inputRef = useRef<any>(null);
+  const [focused, setFocused] = useState(false);
 
 
   // Auto focus input on mount
@@ -200,12 +203,14 @@ export default function SearchScreen() {
 
       {/* Search bar */}
       <View style={styles.header}>
-        <View style={styles.field}>
-          <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+        <View style={[styles.field, focused && styles.fieldFocused]}>
+          <AppIcon icon={Search01Icon} size={19} color={RED_ICON} strokeWidth={2.2} />
           <TextInput
             ref={inputRef}
             style={styles.input}
-            placeholder="Chicken, mutton, fish, eggs…"
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            placeholder="Chicken, mutton, fish…"
             placeholderTextColor={C.placeholder}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -469,11 +474,22 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    height: 40,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    backgroundColor: C.fill,
+    gap: 10,
+    height: 48,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E8E8ED',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
+  },
+  fieldFocused: {
+    borderColor: '#111111',
+    borderWidth: 1.5,
   },
   input: {
     flex: 1,

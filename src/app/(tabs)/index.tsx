@@ -169,15 +169,16 @@ const AnimatedSearchCapsule = React.memo(function AnimatedSearchCapsule() {
   }, [searchFadeAnim, searchSlideAnim]);
 
   return (
-    <TouchableOpacity
+    <PressableScale
       style={styles.searchCapsule}
-      activeOpacity={0.9}
+      scaleTo={0.98}
       onPress={() => router.push('/search')}
-      accessibilityRole="button"
+      accessibilityRole="search"
+      accessibilityLabel="Search chicken, mutton, fish and more"
     >
-      <AppIcon icon={Search01Icon} size={18} color="#8E8E93" strokeWidth={2.2} />
+      <AppIcon icon={Search01Icon} size={20} color="#DC2626" strokeWidth={2.2} />
       <View style={styles.searchPlaceholderRow}>
-        <Text style={styles.searchStaticPrefix}>Search for </Text>
+        <Text style={styles.searchStaticPrefix}>Search </Text>
         <Animated.View
           style={{
             opacity: searchFadeAnim,
@@ -186,11 +187,11 @@ const AnimatedSearchCapsule = React.memo(function AnimatedSearchCapsule() {
           }}
         >
           <Text style={styles.searchDynamicWord} numberOfLines={1}>
-            {SEARCH_KEYWORDS[keywordIndex]}
+            “{SEARCH_KEYWORDS[keywordIndex].toLowerCase()}”
           </Text>
         </Animated.View>
       </View>
-    </TouchableOpacity>
+    </PressableScale>
   );
 });
 AnimatedSearchCapsule.displayName = 'AnimatedSearchCapsule';
@@ -2395,16 +2396,24 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     overflow: 'hidden',
   },
+  // Zomato / Swiggy / Blinkit style: white bar, hairline border, soft
+  // shadow, brand-coloured icon, rotating "quoted" suggestion.
   searchCapsule: {
     minWidth: 0,
-    height: 46,
-    backgroundColor: '#F2F2F7',
-    borderRadius: 12,
+    height: 50,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E8E8ED',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
-    overflow: 'hidden',
+    paddingHorizontal: 14,
+    gap: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
   searchPlaceholderRow: {
     flexDirection: 'row',
@@ -2414,14 +2423,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   searchStaticPrefix: {
-    color: '#8E8E93',
-    fontSize: 16,
-    fontWeight: '400',
+    color: '#6B7280',
+    fontSize: 15,
+    fontWeight: '500',
     flexShrink: 0,
   },
   searchDynamicWord: {
-    color: '#3C3C43',
-    fontSize: 16,
+    color: '#111111',
+    fontSize: 15,
     fontWeight: '600',
   },
   offlineStoreCard: {
