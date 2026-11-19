@@ -195,6 +195,8 @@ interface OrderDoc {
   slotLabel: string;
   eta: string;
   address: string;
+  lat?: number;
+  lng?: number;
   deliveryNote?: string;
   customerName?: string;
   customerPhone?: string;
@@ -272,6 +274,8 @@ function fromOrderDoc(d: OrderDoc): Order {
     createdAtMs: created ? created.getTime() : Date.now(),
     eta: d.eta,
     address: d.address,
+    lat: typeof d.lat === 'number' ? d.lat : undefined,
+    lng: typeof d.lng === 'number' ? d.lng : undefined,
     deliveryNote: d.deliveryNote,
     paymentMethod: d.paymentMethod,
     customerName: d.customerName,
@@ -300,6 +304,19 @@ export function subscribeAllOrders(cb: (orders: Order[]) => void): Unsubscribe {
   return subscribeOrderQuery(query(collection(db, 'orders'), orderBy('createdAt', 'desc')), cb);
 }
 
+// Real coordinates only (the app's placeholder location is 0,0).
+export function validCoords(lat?: number, lng?: number): lat is number {
+  return (
+    typeof lat === 'number' &&
+    typeof lng === 'number' &&
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    Math.abs(lat) <= 90 &&
+    Math.abs(lng) <= 180 &&
+    !(lat === 0 && lng === 0)
+  );
+}
+
 export function newOrderId(): string {
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase().padEnd(4, '0');
   return `MM-${Date.now().toString(36).toUpperCase()}${rand}`;
@@ -320,6 +337,8 @@ export interface NewOrderInput {
   deliveryNote?: string;
   customerName?: string;
   customerPhone?: string;
+  lat?: number;
+  lng?: number;
 }
 
 // Firestore rules re-check every price, fee and total in this document.
@@ -349,6 +368,10 @@ export async function createOrder(input: NewOrderInput): Promise<void> {
   if (input.deliveryNote) data.deliveryNote = input.deliveryNote.slice(0, 300);
   if (input.customerName) data.customerName = input.customerName.slice(0, 80);
   if (input.customerPhone) data.customerPhone = input.customerPhone.slice(0, 20);
+  if (validCoords(input.lat, input.lng)) {
+    data.lat = input.lat;
+    data.lng = input.lng;
+  }
   await setDoc(doc(db, 'orders', input.id), data);
 }
 

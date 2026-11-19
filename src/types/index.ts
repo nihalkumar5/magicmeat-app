@@ -112,6 +112,9 @@ export interface Order {
   createdAtMs?: number;
   eta: string;
   address: string;
+  /** Delivery point picked by the customer (for rider directions). */
+  lat?: number;
+  lng?: number;
   deliveryNote?: string;
   paymentMethod: 'UPI' | 'Cash on Delivery' | 'Card';
   customerName?: string;

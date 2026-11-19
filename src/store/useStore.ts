@@ -503,6 +503,8 @@ export const useStore = create<StoreState>()(
       deliveryNote: deliveryNote?.trim() || undefined,
       customerName: state.profile.name || undefined,
       customerPhone: state.profile.phone || undefined,
+      lat: state.currentLocation?.coords?.latitude,
+      lng: state.currentLocation?.coords?.longitude,
     });
 
     const newOrder: Order = {

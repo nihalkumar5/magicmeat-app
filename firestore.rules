@@ -112,7 +112,7 @@ service cloud.firestore {
           'id', 'customerUid', 'items', 'subtotal', 'deliveryFee', 'coldPackagingFee',
           'discount', 'total', 'status', 'paymentMethod', 'fulfillment', 'deliveryMode',
           'slotLabel', 'eta', 'address', 'deliveryNote', 'customerName', 'customerPhone',
-          'createdAt', 'updatedAt'])
+          'lat', 'lng', 'createdAt', 'updatedAt'])
         && o.id == orderId
         && orderId.matches('^MM-[A-Z0-9]{6,20}$')
         && o.customerUid == request.auth.uid
@@ -126,6 +126,10 @@ service cloud.firestore {
         && (!('deliveryNote' in o) || isShortString(o.deliveryNote, 0, 300))
         && (!('customerName' in o) || isShortString(o.customerName, 0, 80))
         && (!('customerPhone' in o) || isShortString(o.customerPhone, 0, 20))
+        // Optional delivery point for rider directions: both or neither.
+        && (('lat' in o) == ('lng' in o))
+        && (!('lat' in o) || (o.lat is number && o.lat >= -90 && o.lat <= 90))
+        && (!('lng' in o) || (o.lng is number && o.lng >= -180 && o.lng <= 180))
         && o.createdAt == request.time
         && o.updatedAt == request.time
         && itemsOk(request.resource.data.items)

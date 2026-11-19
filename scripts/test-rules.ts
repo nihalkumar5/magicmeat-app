@@ -148,6 +148,12 @@ async function main() {
     const o = order('alice', 'MM-AAA11C');
     return assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11C'), { ...o, coldPackagingFee: 15, total: (o.total as number) + 15 }));
   });
+  await test('order with a delivery pin is accepted', () =>
+    assertSucceeds(setDoc(doc(alice, 'orders', 'MM-AAA11D'), order('alice', 'MM-AAA11D', undefined, { lat: 22.08, lng: 82.14 }))));
+  await test('pin with only lat is rejected', () =>
+    assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11E'), order('alice', 'MM-AAA11E', undefined, { lat: 22.08 }))));
+  await test('pin out of range is rejected', () =>
+    assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11F'), order('alice', 'MM-AAA11F', undefined, { lat: 200, lng: 82.14 }))));
   await test('unknown cut id is rejected', () =>
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA116'), order('alice', 'MM-AAA116', [line('free-cut', 1, 0)]))));
   await test('out-of-stock product is rejected', () =>

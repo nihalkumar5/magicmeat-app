@@ -23,7 +23,7 @@ import { goBack } from '../utils/navigation';
 import { notify, confirmAction } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
-import { adminSignIn, adminSignOut } from '../services/backend';
+import { adminSignIn, adminSignOut, validCoords } from '../services/backend';
 import { orderLabel } from '../utils/orderId';
 import { PRODUCTS } from '../data/mockData';
 import type { Order, Product } from '../types';
@@ -254,12 +254,14 @@ function OrderCard({
   onOpen,
   onAdvance,
   onReject,
+  busy,
 }: {
   order: Order;
   now: number;
   onOpen: () => void;
   onAdvance: () => void;
   onReject: () => void;
+  busy: boolean;
 }) {
   const stage = stageOf(order);
   const waited = minutesSince(order.createdAtMs, now);
@@ -270,8 +272,8 @@ function OrderCard({
 
   const primary: Record<string, { label: string; style: object }> = {
     new: { label: 'Accept', style: styles.btnRed },
-    preparing: { label: 'Mark as packed', style: styles.btnDark },
-    packed: { label: 'Assign rider', style: styles.btnDark },
+    preparing: { label: 'Packed · Send with rider', style: styles.btnDark },
+    packed: { label: 'Send with rider', style: styles.btnDark },
     on_way: { label: 'Mark as delivered', style: styles.btnGreen },
   };
   const action = primary[stage];
@@ -363,12 +365,14 @@ function OrderCard({
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.btn, action.style, { flex: 1 }]}
+            style={[styles.btn, action.style, { flex: 1 }, busy && { opacity: 0.6 }]}
             onPress={onAdvance}
+            disabled={busy}
             activeOpacity={0.85}
             accessibilityRole="button"
+            accessibilityState={{ busy, disabled: busy }}
           >
-            <Text style={styles.btnText}>{action.label}</Text>
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.btnText}>{action.label}</Text>}
           </TouchableOpacity>
         </View>
       )}
@@ -387,6 +391,12 @@ export default function AdminScreen() {
   const [assignId, setAssignId] = useState<string | null>(null);
   const [rider, setRider] = useState({ name: '', phone: '' });
   const [showDone, setShowDone] = useState(false);
+  // Order id → status it had when a button was tapped. The button shows a
+  // spinner until the live update arrives with a different status, so one
+  // tap is enough and double taps can't skip a step.
+  const [pending, setPending] = useState<Record<string, string>>({});
+  const isBusy = (o: Order) => pending[o.id] === o.status;
+  const markPending = (o: Order) => setPending((p) => ({ ...p, [o.id]: o.status }));
   const [search, setSearch] = useState('');
   const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
   const [now, setNow] = useState(() => Date.now());
@@ -442,10 +452,17 @@ export default function AdminScreen() {
 
   const advance = (order: Order) => {
     const stage = stageOf(order);
-    if (stage === 'new') updateOrderStatus(order.id, 'butcher_prepping');
-    else if (stage === 'preparing') updateOrderStatus(order.id, 'cold_packed');
-    else if (stage === 'packed') openAssign(order);
-    else if (stage === 'on_way') updateOrderStatus(order.id, 'delivered');
+    // Three steps for staff: Accept → Send with rider (packing is part of
+    // it) → Delivered.
+    if (isBusy(order)) return;
+    if (stage === 'new') {
+      markPending(order);
+      updateOrderStatus(order.id, 'butcher_prepping');
+    } else if (stage === 'preparing' || stage === 'packed') openAssign(order);
+    else if (stage === 'on_way') {
+      markPending(order);
+      updateOrderStatus(order.id, 'delivered');
+    }
   };
 
   const reject = (order: Order) =>
@@ -464,6 +481,7 @@ export default function AdminScreen() {
     if (!assigning) return;
     if (!rider.name.trim()) return notify('Rider needed', 'Enter the rider’s name.');
     if (!isValidPhone(rider.phone)) return notify('Rider needed', 'Enter the rider’s 10-digit mobile number.');
+    markPending(assigning);
     assignRider(assigning.id, rider.name.trim(), cleanPhone(rider.phone));
     setAssignId(null);
   };
@@ -473,8 +491,15 @@ export default function AdminScreen() {
       adminSignOut().finally(() => router.replace('/login'));
     });
 
-  const openMaps = (address: string) =>
-    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
+  // Turn-by-turn from wherever this phone is now (Google Maps uses the
+  // device's current location as the start) to the pin the customer chose;
+  // older orders without a pin fall back to the address text.
+  const openDirections = (order: Order) => {
+    const destination = validCoords(order.lat, order.lng)
+      ? `${order.lat},${order.lng}`
+      : encodeURIComponent(order.address);
+    Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${destination}&travelmode=two-wheeler`);
+  };
 
   /* ------------------------------------------------------------- stock */
   const q = search.trim().toLowerCase();
@@ -637,6 +662,7 @@ export default function AdminScreen() {
                         onOpen={() => setDetailId(o.id)}
                         onAdvance={() => advance(o)}
                         onReject={() => reject(o)}
+                        busy={isBusy(o)}
                       />
                     ))}
                   </View>
@@ -966,7 +992,7 @@ export default function AdminScreen() {
                   )}
                   <TouchableOpacity
                     style={styles.contactBtn}
-                    onPress={() => openMaps(detail.address)}
+                    onPress={() => openDirections(detail)}
                     activeOpacity={0.7}
                   >
                     <AppIcon icon={MapsIcon} size={16} color={C.blue} strokeWidth={2.2} />
@@ -1039,11 +1065,13 @@ export default function AdminScreen() {
                     styles.bigBtn,
                     stageOf(detail) === 'new' && { backgroundColor: C.red },
                     stageOf(detail) === 'on_way' && { backgroundColor: C.green },
+                    isBusy(detail) && { opacity: 0.6 },
                   ]}
+                  disabled={isBusy(detail)}
                   onPress={() => {
                     const s = stageOf(detail);
                     advance(detail);
-                    if (s !== 'packed') setDetailId(null);
+                    if (s !== 'packed' && s !== 'preparing') setDetailId(null);
                   }}
                   activeOpacity={0.85}
                 >
@@ -1051,8 +1079,8 @@ export default function AdminScreen() {
                     {
                       {
                         new: 'Accept order',
-                        preparing: 'Mark as packed',
-                        packed: 'Assign rider',
+                        preparing: 'Packed · Send with rider',
+                        packed: 'Send with rider',
                         on_way: 'Mark as delivered',
                       }[stageOf(detail) as 'new' | 'preparing' | 'packed' | 'on_way']
                     }
