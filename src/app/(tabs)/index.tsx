@@ -281,6 +281,7 @@ export default function HomeScreen() {
   const currentLocation = useStore((state) => state.currentLocation);
   const setLocationModalOpen = useStore((state) => state.setLocationModalOpen);
   const orderFulfillment = useStore((state) => state.orderFulfillment);
+  const profilePhoto = useStore((state) => state.profilePhoto);
   const activeOrder = useStore((state) => state.activeOrder);
   const orders = useStore((state) => state.orders);
   const cartCount = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
@@ -890,7 +891,11 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel="Profile"
           >
-            <AppIcon icon={UserIcon} size={20} color="#111111" strokeWidth={2} />
+            {profilePhoto ? (
+              <Image source={{ uri: profilePhoto }} style={styles.mProfileImg} />
+            ) : (
+              <AppIcon icon={UserIcon} size={20} color="#111111" strokeWidth={2} />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -1361,6 +1366,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     marginTop: 1,
+  },
+  mProfileImg: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 999,
   },
   mProfileBtn: {
     width: 44,

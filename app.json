@@ -27,7 +27,15 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "./plugins/withAndroidBuildOptions"
+      "./plugins/withAndroidBuildOptions",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "MagicMeat uses your photos so you can set a profile picture.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ]
     ]
   }
 }

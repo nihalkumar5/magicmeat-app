@@ -36,6 +36,9 @@ interface StoreState {
 
   // Actions
   setProfile: (profile: { name: string; phone: string; email: string }) => void;
+  /** Small JPEG data URI kept on this device only ('' when none). */
+  profilePhoto: string;
+  setProfilePhoto: (photo: string) => void;
   addToCart: (product: Product, cut: CutOption, isSkinless: boolean, quantity?: number) => void;
   removeFromCart: (cartItemId: string) => void;
   updateQuantity: (cartItemId: string, delta: number) => void;
@@ -278,6 +281,8 @@ export const useStore = create<StoreState>()(
       inventory: INITIAL_INVENTORY,
       profile: preloadedState?.profile || { name: '', phone: '', email: '' },
       setProfile: (profile) => set({ profile }),
+      profilePhoto: preloadedState?.profilePhoto || '',
+      setProfilePhoto: (profilePhoto) => set({ profilePhoto }),
       uid: null,
       isAdmin: false,
       // Admin actions write to Firestore; the products/orders listeners in
@@ -552,6 +557,7 @@ export const useStore = create<StoreState>()(
         cart: state.cart,
         wishlist: state.wishlist,
         profile: state.profile,
+        profilePhoto: state.profilePhoto,
       }),
     }
   )
