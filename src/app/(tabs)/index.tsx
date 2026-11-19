@@ -15,8 +15,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DominosCard } from '../../components/DominosCard';
-import { ProductCard } from '../../components/ProductCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
+import { ShopCard } from '../../components/ShopCard';
+import { FREE_DELIVERY_ABOVE } from '../../data/pricing';
 import { PRODUCTS } from '../../data/mockData';
 import { useStore } from '../../store/useStore';
 import { MeatCategory, Product } from '../../types';
@@ -292,6 +293,7 @@ export default function HomeScreen() {
   const setLocationModalOpen = useStore((state) => state.setLocationModalOpen);
   const orderFulfillment = useStore((state) => state.orderFulfillment);
   const activeOrder = useStore((state) => state.activeOrder);
+  const orders = useStore((state) => state.orders);
   const cartCount = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
   const cartTotal = useStore((state) => state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
 
@@ -839,7 +841,22 @@ export default function HomeScreen() {
   /* MOBILE VIEW                                                        */
   /* ================================================================= */
   const isPickup = orderFulfillment === 'takeaway';
-  const etaLabel = isPickup ? 'Ready in 10 mins' : 'Delivery in 30 mins';
+  // Products from the customer's past orders, newest first, for "Buy again".
+  const buyAgain = (() => {
+    const seen = new Set<string>();
+    const list: Product[] = [];
+    for (const o of orders) {
+      if (o.status === 'cancelled') continue;
+      for (const item of o.items) {
+        const product = PRODUCTS.find((p) => p.id === item.product.id);
+        if (product && !seen.has(product.id)) {
+          seen.add(product.id);
+          list.push(product);
+        }
+      }
+    }
+    return list.slice(0, 8);
+  })();
 
   return (
     <SafeAreaView style={styles.mSafeArea} edges={['top']}>
@@ -862,19 +879,18 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={`${isPickup ? 'Pickup from' : 'Deliver to'} ${currentLocation.shortAddress}. Change address`}
           >
-            <View style={styles.mEyebrowRow}>
-              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={13} color="#DC2626" strokeWidth={2.4} />
-              <Text style={styles.mEyebrow}>{etaLabel}</Text>
-            </View>
+            <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Delivery in'}</Text>
             <View style={styles.mLocationRow}>
-              <Text style={styles.mLocationTitle} numberOfLines={1}>
-                {currentLocation.shortAddress || 'Choose address'}
-              </Text>
-              <AppIcon icon={ChevronDownIcon} size={18} color="#111111" strokeWidth={2.4} />
+              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color="#DC2626" strokeWidth={2.4} />
+              <Text style={styles.mEta}>{isPickup ? '10 minutes' : '30 minutes'}</Text>
             </View>
-            <Text style={styles.mLocationSub} numberOfLines={1}>
-              {currentLocation.fullAddress}
-            </Text>
+            <View style={styles.mAddressRow}>
+              <Text style={styles.mLocationSub} numberOfLines={1}>
+                <Text style={styles.mAddressStrong}>{isPickup ? 'From' : 'To'} {currentLocation.shortAddress || 'choose address'}</Text>
+                {currentLocation.fullAddress ? ` · ${currentLocation.fullAddress}` : ''}
+              </Text>
+              <AppIcon icon={ChevronDownIcon} size={14} color="#6B7280" strokeWidth={2.4} />
+            </View>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -912,6 +928,44 @@ export default function HomeScreen() {
           </TouchableOpacity>
         )}
 
+        {/* Offer */}
+        {!isPickup && (
+          <View style={styles.mOffer}>
+            <AppIcon icon={DeliveryTruck01Icon} size={16} color="#166534" strokeWidth={2} />
+            <Text style={styles.mOfferText}>
+              <Text style={{ fontWeight: '800' }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
+            </Text>
+          </View>
+        )}
+
+        {/* Categories */}
+        <View style={styles.mCategoryGrid}>
+          {HOME_CATEGORIES.map((cat) => (
+            <TouchableOpacity
+              key={`cat-${cat.id}`}
+              style={styles.mCategoryItem}
+              onPress={() => openCategory(cat.id)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={cat.label}
+            >
+              <View style={styles.mCategoryTile}>
+                {!!cat.image && (
+                  <Image
+                    source={{ uri: optimizeImageUrl(cat.image, 200) }}
+                    style={styles.mCategoryImg}
+                    resizeMode="cover"
+                    fadeDuration={0}
+                  />
+                )}
+              </View>
+              <Text style={styles.mCategoryLabel} numberOfLines={2}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
         {/* Hero */}
         <HeroBannerCarousel width={width} onSelectSlide={handleSlideSelect} />
 
@@ -928,27 +982,13 @@ export default function HomeScreen() {
           ))}
         </View>
 
-        {/* Categories */}
-        <SectionHeader title="Shop by category" />
-        <View style={styles.mCategoryGrid}>
-          {CRAVING_CATEGORIES.map((cat) => (
-            <TouchableOpacity
-              key={`cat-${cat.name}`}
-              style={styles.mCategoryItem}
-              onPress={() => openCategory(cat.id)}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel={cat.name}
-            >
-              <View style={styles.mCategoryTile}>
-                <Image source={{ uri: cat.image }} style={styles.mCategoryImg} resizeMode="cover" fadeDuration={0} />
-              </View>
-              <Text style={styles.mCategoryLabel} numberOfLines={1}>
-                {cat.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
+        {/* Buy again */}
+        {buyAgain.length > 0 && (
+          <>
+            <SectionHeader title="Buy again" subtitle="From your past orders" onSeeAll={() => router.push('/(tabs)/orders')} />
+            <ProductShelf data={buyAgain} keyPrefix="again" />
+          </>
+        )}
 
         {/* Bestsellers */}
         <SectionHeader
@@ -1039,10 +1079,10 @@ export default function HomeScreen() {
         <ProductShelf data={muttonProducts} keyPrefix="mutton" />
 
         {/* Picks */}
-        <SectionHeader title="Picked for you" subtitle={`Popular in ${currentLocation.city || 'your area'}`} />
-        <View style={styles.productList}>
-          {nearYouProducts.slice(0, 4).map((product) => (
-            <ProductCard key={`near-you-${product.id}`} product={product} />
+        <SectionHeader title="Popular near you" subtitle={`What ${currentLocation.city || 'your area'} is ordering`} />
+        <View style={styles.mPopularGrid}>
+          {nearYouProducts.slice(0, 6).map((product) => (
+            <ShopCard key={`near-you-${product.id}`} product={product} width={Math.floor((width - 32 - 12) / 2)} />
           ))}
         </View>
 
@@ -1078,6 +1118,23 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+// 4 x 2 category grid, each tile showing a photo of one of its products.
+const HOME_CATEGORIES: { id: MeatCategory; label: string; image: string }[] = (
+  [
+    { id: 'chicken', label: 'Chicken' },
+    { id: 'mutton', label: 'Mutton' },
+    { id: 'fish', label: 'Fish' },
+    { id: 'curry-cuts', label: 'Curry cuts', from: 'm1' },
+    { id: 'ready-to-cook', label: 'Ready to cook' },
+    { id: 'eggs', label: 'Eggs' },
+    { id: 'fresh-produce', label: 'Veggies & fruits' },
+    { id: 'all', label: 'See all', from: 'c4' },
+  ] as { id: MeatCategory; label: string; from?: string }[]
+).map((c) => ({
+  ...c,
+  image: (c.from ? PRODUCTS.find((p) => p.id === c.from) : PRODUCTS.find((p) => p.category === c.id))?.image || '',
+}));
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
   placed: 'Order placed',
@@ -1129,11 +1186,11 @@ function ProductShelf({ data, keyPrefix }: { data: Product[]; keyPrefix: string 
       horizontal
       showsHorizontalScrollIndicator={false}
       style={{ maxWidth: '100%' }}
-      contentContainerStyle={styles.shelfCardsScroll}
+      contentContainerStyle={styles.mShelf}
       data={data}
       keyExtractor={(item) => `${keyPrefix}-${item.id}`}
-      renderItem={({ item }) => <DominosCard product={item} cardWidth={164} />}
-      getItemLayout={(_, index) => ({ length: 176, offset: 176 * index, index })}
+      renderItem={({ item }) => <ShopCard product={item} width={146} />}
+      getItemLayout={(_, index) => ({ length: 158, offset: 158 * index, index })}
       initialNumToRender={3}
       maxToRenderPerBatch={3}
       windowSize={3}
@@ -1175,8 +1232,49 @@ const styles = StyleSheet.create({
   },
   mEyebrow: {
     fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  mEta: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.8,
+  },
+  mAddressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 2,
+  },
+  mAddressStrong: {
+    color: '#111111',
     fontWeight: '700',
-    color: '#DC2626',
+  },
+  mOffer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: '#ECFDF3',
+  },
+  mOfferText: {
+    fontSize: 13,
+    color: '#166534',
+  },
+  mShelf: {
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  mPopularGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
   },
   mLocationRow: {
     flexDirection: 'row',
@@ -1325,30 +1423,33 @@ const styles = StyleSheet.create({
   mCategoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 10,
+    paddingHorizontal: 11,
+    marginBottom: 4,
   },
   mCategoryItem: {
-    width: '33.333%',
-    paddingHorizontal: 6,
-    marginBottom: 14,
+    width: '25%',
+    paddingHorizontal: 5,
+    marginBottom: 12,
     alignItems: 'center',
   },
   mCategoryTile: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: 'hidden',
-    backgroundColor: '#F2F2F7',
+    backgroundColor: '#F4F4F6',
   },
   mCategoryImg: {
     width: '100%',
     height: '100%',
   },
   mCategoryLabel: {
-    marginTop: 7,
-    fontSize: 13,
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 15,
     fontWeight: '600',
     color: '#111111',
+    textAlign: 'center',
   },
   mBrowseAll: {
     marginHorizontal: 16,
