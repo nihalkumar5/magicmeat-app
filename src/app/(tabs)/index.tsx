@@ -12,6 +12,8 @@ import {
   Animated,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DominosCard } from '../../components/DominosCard';
@@ -46,6 +48,8 @@ import {
   FlashIcon,
   PlayIcon,
   ArrowRight01Icon,
+  Knife01Icon,
+  RefreshIcon,
 } from '../../components/HugeIcon';
 
 const VIDEO_RECIPES = [
@@ -301,6 +305,7 @@ export default function HomeScreen() {
   const cartTotal = useStore((state) => state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
 
   const [activeOrderType, setActiveOrderType] = useState<OrderType>('takeaway');
+  const [promiseOpen, setPromiseOpen] = useState(false);
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
@@ -1043,36 +1048,30 @@ export default function HomeScreen() {
           overScrollMode="never"
         />
 
-        {/* Jhatka story */}
+        {/* Jhatka promise (Target-style editorial card; opens a DoorDash-style sheet) */}
         <TouchableOpacity
-          style={styles.jhatkaCard}
-          activeOpacity={0.9}
-          onPress={() => openCategory('mutton')}
+          style={styles.promiseCard}
+          activeOpacity={0.92}
+          onPress={() => setPromiseOpen(true)}
           accessibilityRole="button"
-          accessibilityLabel="100% jhatka meat. Shop mutton"
+          accessibilityLabel="Our jhatka promise. Learn more"
         >
-          <View style={styles.jhatkaText}>
-            <View style={styles.jhatkaTag}>
-              <Text style={styles.jhatkaTagHindi}>झटका</Text>
-              <Text style={styles.jhatkaTagText}>100% JHATKA</Text>
-            </View>
-            <Text style={styles.jhatkaTitle}>Jhatka, the traditional way</Text>
-            <View style={styles.jhatkaPoints}>
-              {['Single swift cut', 'Cleaned & cut to order', 'Packed fresh'].map((point) => (
-                <View key={point} style={styles.jhatkaPoint}>
-                  <AppIcon icon={CheckmarkBadge01Icon} size={14} color="#F87171" strokeWidth={2.2} />
-                  <Text style={styles.jhatkaPointText}>{point}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.jhatkaCta}>
-              <Text style={styles.jhatkaCtaText}>Shop mutton</Text>
-              <AppIcon icon={ArrowRight01Icon} size={14} color="#FFFFFF" strokeWidth={2.4} />
-            </View>
+          <View style={styles.promiseBadge}>
+            <Text style={styles.promiseBadgeHindi}>झटका</Text>
+            <View style={styles.promiseBadgeDot} />
+            <Text style={styles.promiseBadgeText}>100% Jhatka</Text>
+          </View>
+          <Text style={styles.promiseTitle}>Jhatka, the way{'\n'}you trust.</Text>
+          <Text style={styles.promiseSub}>
+            One swift cut, cleaned and cut to order, and packed fresh for your kitchen.
+          </Text>
+          <View style={styles.promiseLink}>
+            <Text style={styles.promiseLinkText}>Our promise</Text>
+            <AppIcon icon={ArrowRight01Icon} size={14} color="#B91C1C" strokeWidth={2.4} />
           </View>
           <Image
-            source={{ uri: optimizeImageUrl(JHATKA_IMAGE, 400) }}
-            style={styles.jhatkaImage}
+            source={{ uri: optimizeImageUrl(JHATKA_IMAGE, 700) }}
+            style={styles.promiseImage}
             resizeMode="cover"
             fadeDuration={0}
           />
@@ -1152,9 +1151,51 @@ export default function HomeScreen() {
       </ScrollView>
 
       <FloatingCartBar />
+
+      <Modal visible={promiseOpen} transparent animationType="slide" onRequestClose={() => setPromiseOpen(false)}>
+        <Pressable style={styles.sheetBackdrop} onPress={() => setPromiseOpen(false)} accessibilityLabel="Close" />
+        <View style={styles.sheet}>
+          <View style={styles.sheetGrabber} />
+          <Text style={styles.sheetTitle}>Our jhatka promise</Text>
+          {PROMISES.map((item) => (
+            <View key={item.title} style={styles.sheetRow}>
+              <View style={styles.sheetIcon}>
+                <AppIcon icon={item.icon} size={22} color="#B91C1C" strokeWidth={1.9} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetRowTitle}>{item.title}</Text>
+                <Text style={styles.sheetRowText}>{item.text}</Text>
+              </View>
+            </View>
+          ))}
+          <TouchableOpacity
+            style={styles.sheetBtn}
+            activeOpacity={0.85}
+            onPress={() => {
+              setPromiseOpen(false);
+              openCategory('mutton');
+            }}
+          >
+            <Text style={styles.sheetBtnText}>Shop jhatka mutton</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setPromiseOpen(false)} style={{ alignSelf: 'center', padding: 10 }}>
+            <Text style={styles.sheetClose}>Close</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
+
+const PROMISES = [
+  { icon: Knife01Icon, title: 'Traditional jhatka', text: 'Prepared the jhatka way, with a single swift cut.' },
+  { icon: ChefHatIcon, title: 'Cut to order', text: 'Cleaned and cut after you order, the way you chose.' },
+  {
+    icon: RefreshIcon,
+    title: 'Fresh, or your money back',
+    text: 'If anything isn’t right, tell us and we’ll replace it or refund you.',
+  },
+];
 
 // Our own mutton curry cut photo for the jhatka story card.
 const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
@@ -2634,83 +2675,144 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: 2,
   },
-  /* Jhatka story card */
-  jhatkaCard: {
-    flexDirection: 'row',
+  /* Jhatka promise card */
+  promiseCard: {
     marginHorizontal: 16,
-    marginTop: 24,
-    borderRadius: 22,
+    marginTop: 26,
+    paddingTop: 22,
+    borderRadius: 24,
     overflow: 'hidden',
-    backgroundColor: '#1C1917',
-    minHeight: 200,
+    backgroundColor: '#F7EFE6',
   },
-  jhatkaText: {
+  promiseBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginHorizontal: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+  },
+  promiseBadgeHindi: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B91C1C',
+  },
+  promiseBadgeDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: '#B91C1C',
+  },
+  promiseBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#3F2A23',
+  },
+  promiseTitle: {
+    marginTop: 14,
+    marginHorizontal: 20,
+    fontSize: 30,
+    lineHeight: 34,
+    fontWeight: '900',
+    color: '#2A1C17',
+    letterSpacing: -1,
+  },
+  promiseSub: {
+    marginTop: 8,
+    marginHorizontal: 20,
+    fontSize: 15,
+    lineHeight: 21,
+    color: '#6B574E',
+  },
+  promiseLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 12,
+    marginHorizontal: 20,
+  },
+  promiseLinkText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  promiseImage: {
+    marginTop: 18,
+    width: '100%',
+    height: 190,
+  },
+  sheetBackdrop: {
     flex: 1,
-    padding: 18,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheet: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+  },
+  sheetGrabber: {
+    alignSelf: 'center',
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#111111',
+    letterSpacing: -0.5,
+    marginBottom: 8,
+  },
+  sheetRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 14,
+    paddingVertical: 12,
+  },
+  sheetIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  jhatkaTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 8,
+  sheetRowTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  sheetRowText: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  sheetBtn: {
+    marginTop: 16,
+    height: 52,
+    borderRadius: 26,
     backgroundColor: '#DC2626',
-  },
-  jhatkaTagHindi: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  jhatkaTagText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.8,
-  },
-  jhatkaTitle: {
-    marginTop: 10,
-    color: '#FFFFFF',
-    fontSize: 21,
-    lineHeight: 25,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  jhatkaPoints: {
-    marginTop: 10,
-    gap: 6,
-  },
-  jhatkaPoint: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    justifyContent: 'center',
   },
-  jhatkaPointText: {
-    color: 'rgba(255,255,255,0.82)',
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  jhatkaCta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 6,
-    marginTop: 14,
-    paddingHorizontal: 14,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: 'rgba(255,255,255,0.12)',
-  },
-  jhatkaCtaText: {
+  sheetBtnText: {
     color: '#FFFFFF',
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '700',
   },
-  jhatkaImage: {
-    width: '38%',
-    minHeight: 200,
+  sheetClose: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
   },
   /* Poetic Brand Footer */
   signoff: {
