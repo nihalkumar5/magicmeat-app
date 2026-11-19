@@ -189,11 +189,20 @@ export default function ProfileMenuScreen() {
             </View>
             <Text style={styles.chevron}>›</Text>
           </TouchableOpacity>
+          <View style={styles.divider} />
+          <TouchableOpacity style={styles.menuRow} onPress={() => router.push('/admin')}>
+            <AppIcon icon={InformationCircleIcon} size={19} color="#111827" />
+            <View style={styles.menuCopy}>
+              <Text style={styles.menuTitle}>Store admin login</Text>
+              <Text style={styles.menuSubtitle}>For MagicMeat staff</Text>
+            </View>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={styles.noteCard}>
           <AppIcon icon={InformationCircleIcon} size={18} color="#0369A1" />
-          <Text style={styles.noteText}>Payments, rewards and admin tools are not enabled in the customer app.</Text>
+          <Text style={styles.noteText}>Payments are Cash on Delivery for now. Online payment and rewards are coming soon.</Text>
         </View>
       </ScrollView>
 
