@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image } from 'react-native';
+import { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -53,8 +54,33 @@ const HEADLINE: Record<string, { title: string; sub: string }> = {
   cancelled: { title: 'Order cancelled', sub: 'You haven’t been charged. Order again any time.' },
 };
 
+// Shown once, right after checkout: a quick check-mark moment before the
+// customer reads the tracking details.
+function PlacedBanner() {
+  const [scale] = useState(() => new Animated.Value(0.6));
+  const [opacity] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(scale, { toValue: 1, friction: 5, tension: 120, useNativeDriver: true }),
+      Animated.timing(opacity, { toValue: 1, duration: 220, useNativeDriver: true }),
+    ]).start();
+  }, [scale, opacity]);
+  return (
+    <Animated.View style={[styles.placedBanner, { opacity }]} accessibilityLiveRegion="polite">
+      <Animated.View style={[styles.placedCheck, { transform: [{ scale }] }]}>
+        <AppIcon icon={Tick02Icon} size={26} color="#FFFFFF" strokeWidth={3} />
+      </Animated.View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.placedTitle}>Order placed!</Text>
+        <Text style={styles.placedSub}>We’ve got it. You’ll pay when it arrives.</Text>
+      </View>
+    </Animated.View>
+  );
+}
+
 export default function OrderTrackingScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, placed } = useLocalSearchParams<{ id: string; placed?: string }>();
+  const justPlaced = placed === '1';
   const { activeOrder, orders, cancelOrder } = useStore();
   const order = orders.find((o) => o.id === id) || (activeOrder && activeOrder.id === id ? activeOrder : null);
 
@@ -119,6 +145,9 @@ export default function OrderTrackingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Just placed */}
+        {justPlaced && order.status === 'placed' && <PlacedBanner />}
+
         {/* Status hero */}
         <View style={[styles.card, styles.hero]}>
           <View style={styles.heroTop}>
@@ -336,6 +365,33 @@ export default function OrderTrackingScreen() {
 }
 
 const styles = StyleSheet.create({
+  placedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    backgroundColor: C.greenBg,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  placedCheck: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: C.green,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  placedTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.greenDark,
+  },
+  placedSub: {
+    fontSize: 13,
+    color: C.greenDark,
+    marginTop: 2,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: C.bg,

@@ -133,7 +133,7 @@ export default function CheckoutScreen() {
       const order = await placeOrder(paymentMethod, deliveryNote);
       router.replace({
         pathname: '/order-tracking/[id]',
-        params: { id: order.id },
+        params: { id: order.id, placed: '1' },
       });
     } catch (e: any) {
       const code = e?.code || '';
@@ -342,10 +342,9 @@ export default function CheckoutScreen() {
       </KeyboardAvoidingView>
 
       <View style={styles.bottomBar}>
-        <View>
-          <Text style={styles.bottomTotal}>₹{grandTotal}</Text>
-          <Text style={styles.bottomSub}>{totalSavings > 0 ? `Saving ₹${totalSavings}` : 'Pay on delivery'}</Text>
-        </View>
+        <Text style={styles.bottomHint}>
+          {totalSavings > 0 ? `You’re saving ₹${totalSavings} · ` : ''}Pay cash or UPI on delivery
+        </Text>
         <TouchableOpacity
           style={[styles.placeBtn, isSubmitting && { opacity: 0.7 }]}
           onPress={handlePlaceOrder}
@@ -356,12 +355,17 @@ export default function CheckoutScreen() {
           accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
         >
           {isSubmitting ? (
-            <>
+            <View style={styles.placing}>
               <ActivityIndicator color="#FFFFFF" size="small" />
               <Text style={styles.placeText}>Placing order…</Text>
-            </>
+            </View>
           ) : (
-            <Text style={styles.placeText}>Place order</Text>
+            <>
+              <Text style={styles.placeText}>Place order</Text>
+              <View style={styles.pricePill}>
+                <Text style={styles.pricePillText}>₹{grandTotal}</Text>
+              </View>
+            </>
           )}
         </TouchableOpacity>
       </View>
@@ -570,34 +574,48 @@ const styles = StyleSheet.create({
     color: C.secondary,
   },
   bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.97)',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: C.hairline,
   },
-  bottomTotal: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: C.text,
-  },
-  bottomSub: {
-    fontSize: 12,
+  bottomHint: {
+    textAlign: 'center',
+    fontSize: 13,
     fontWeight: '600',
     color: C.green,
-    marginTop: 1,
+  },
+  placing: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  pricePill: {
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    height: 38,
+    paddingHorizontal: 16,
+    borderRadius: 19,
+    justifyContent: 'center',
+  },
+  pricePillText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
   },
   placeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     backgroundColor: C.red,
-    height: 52,
-    paddingHorizontal: 32,
-    borderRadius: 26,
+    height: 56,
+    paddingLeft: 22,
+    paddingRight: 8,
+    borderRadius: 28,
   },
   placeText: {
     color: '#FFFFFF',

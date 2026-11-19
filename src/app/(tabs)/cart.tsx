@@ -34,6 +34,8 @@ import {
   DeliveryTruck01Icon,
 } from '../../components/HugeIcon';
 
+const ADD_ON_IDS = ['v2', 'v3', 'v5', 'v4', 'v6', 'v1', 'e1'];
+
 const C = {
   bg: '#F2F2F7',
   card: '#FFFFFF',
@@ -58,6 +60,7 @@ export default function CartScreen() {
     getCartGrossWeightGrams,
     coldPackagingEnabled,
     setColdPackagingEnabled,
+    inventory,
   } = useStore();
 
   const subtotal = getCartSubtotal();
@@ -72,6 +75,17 @@ export default function CartScreen() {
   const deliverySaved = isDelivery && deliveryFee === 0 ? DELIVERY_FEE : 0;
   const totalSavings = itemSavings + deliverySaved;
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_ABOVE - subtotal);
+  const inCart = new Set(cart.map((item) => item.product.id));
+  const hasMeat = cart.some((item) => ['chicken', 'mutton', 'fish'].includes(item.product.category));
+  const isSoldOut = (id: string) => {
+    const inv = inventory[id];
+    return inv ? !inv.inStock || inv.stockKg <= 0 : false;
+  };
+  // Curry basics (onion, tomato, ginger, garlic, coriander, potato) that go
+  // with the meat in the basket, then eggs; never items already added.
+  const addOns = [...ADD_ON_IDS.map((id) => PRODUCTS.find((p) => p.id === id))]
+    .filter((p): p is (typeof PRODUCTS)[number] => !!p && !inCart.has(p.id) && !isSoldOut(p.id))
+    .slice(0, 6);
   const freeDeliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_ABOVE) * 100));
 
   const slots: { mode: DeliveryMode; icon: any; title: string; time: string }[] = [
@@ -238,6 +252,22 @@ export default function CartScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Complete your order */}
+        {addOns.length > 0 && (
+          <>
+            <Text style={styles.sectionLabel}>{hasMeat ? 'ADD FOR YOUR CURRY' : 'YOU MIGHT ALSO NEED'}</Text>
+            <FlatList
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              data={addOns}
+              keyExtractor={(p) => `addon-${p.id}`}
+              renderItem={({ item }) => <DominosCard product={item} cardWidth={132} style={{ borderWidth: 0 }} />}
+              contentContainerStyle={{ paddingBottom: 12 }}
+              style={{ marginHorizontal: -16, paddingLeft: 16 }}
+            />
+          </>
+        )}
+
         {/* Clean meat */}
         {netGrams > 0 && grossGrams > netGrams && (
           <View style={[styles.card, styles.yieldCard]}>
@@ -341,12 +371,13 @@ export default function CartScreen() {
 
       {/* Checkout bar */}
       <View style={styles.checkoutBar}>
-        <View>
-          <Text style={styles.checkoutTotal}>₹{grandTotal}</Text>
-          <Text style={styles.checkoutSub}>
-            {totalSavings > 0 ? `Saving ₹${totalSavings}` : 'Incl. all fees'}
+        {(totalSavings > 0 || (isDelivery && amountToFreeDelivery > 0)) && (
+          <Text style={styles.checkoutHint}>
+            {isDelivery && amountToFreeDelivery > 0
+              ? `Add ₹${amountToFreeDelivery} more for free delivery`
+              : `You’re saving ₹${totalSavings} on this order`}
           </Text>
-        </View>
+        )}
         <TouchableOpacity
           style={styles.checkoutButton}
           onPress={() => router.push('/checkout')}
@@ -355,7 +386,10 @@ export default function CartScreen() {
           accessibilityLabel={`Checkout, ₹${grandTotal}`}
         >
           <Text style={styles.checkoutButtonText}>Checkout</Text>
-          <AppIcon icon={ArrowRight01Icon} size={16} color="#FFFFFF" strokeWidth={2.4} />
+          <View style={styles.pricePill}>
+            <Text style={styles.pricePillText}>₹{grandTotal}</Text>
+            <AppIcon icon={ArrowRight01Icon} size={14} color="#FFFFFF" strokeWidth={2.4} />
+          </View>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -658,34 +692,43 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    gap: 8,
     backgroundColor: 'rgba(255, 255, 255, 0.97)',
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: C.hairline,
   },
-  checkoutTotal: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: C.text,
-  },
-  checkoutSub: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.green,
-    marginTop: 1,
-  },
   checkoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
     backgroundColor: C.red,
-    height: 50,
-    paddingHorizontal: 28,
-    borderRadius: 25,
+    height: 54,
+    paddingLeft: 22,
+    paddingRight: 8,
+    borderRadius: 27,
+  },
+  pricePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.18)',
+    height: 38,
+    paddingHorizontal: 14,
+    borderRadius: 19,
+  },
+  pricePillText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  checkoutHint: {
+    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.green,
   },
   checkoutButtonText: {
     color: '#FFFFFF',
