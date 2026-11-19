@@ -1,784 +1,695 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Linking,
-  Image,
-  Alert,
-  Platform,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { THEME } from '../../constants/theme';
 import { useStore } from '../../store/useStore';
+import { goBack } from '../../utils/navigation';
+import { confirmAction } from '../../utils/dialogs';
+import { optimizeImageUrl } from '../../utils/imageOptimizer';
+import { SUPPORT_EMAIL } from '../../constants/support';
+import type { OrderStatus } from '../../types';
 import {
   AppIcon,
   ArrowLeft01Icon,
   Call02Icon,
   Message01Icon,
   ShieldCheckIcon,
-  CheckmarkCircle01Icon,
-  Clock01Icon,
-  Home01Icon,
-  SnowflakeIcon,
+  Tick02Icon,
+  Location01Icon,
+  Cash01Icon,
+  Mail01Icon,
+  ArrowRight01Icon,
 } from '../../components/HugeIcon';
 
-const STAGES = [
-  {
-    key: 'placed',
-    title: 'Order placed',
-    sub: 'We’ve received your order',
-  },
-  {
-    key: 'butcher_prepping',
-    title: 'Being prepared',
-    sub: 'Cleaned and cut the way you chose',
-  },
-  {
-    key: 'cold_packed',
-    title: 'Packed',
-    sub: 'Sealed and packed cold',
-  },
-  {
-    key: 'out_for_delivery',
-    title: 'On the way',
-    sub: 'Your rider is heading to you',
-  },
-  {
-    key: 'delivered',
-    title: 'Delivered',
-    sub: 'Enjoy your meal',
-  },
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  placeholder: '#9CA3AF',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  green: '#16A34A',
+  greenDark: '#15803D',
+  greenBg: '#F0FDF4',
+  track: '#E5E7EB',
+};
+
+const STAGES: { key: OrderStatus; title: string; sub: string }[] = [
+  { key: 'placed', title: 'Order placed', sub: 'We’ve received your order' },
+  { key: 'butcher_prepping', title: 'Being prepared', sub: 'Cleaned and cut the way you chose' },
+  { key: 'cold_packed', title: 'Packed', sub: 'Sealed and packed cold' },
+  { key: 'out_for_delivery', title: 'On the way', sub: 'Your rider is heading to you' },
+  { key: 'delivered', title: 'Delivered', sub: 'Enjoy your meal' },
 ];
+
+const HEADLINE: Record<string, { title: string; sub: string }> = {
+  placed: { title: 'Order placed', sub: 'The store will start preparing it shortly.' },
+  butcher_prepping: { title: 'Being prepared', sub: 'Your meat is being cleaned and cut fresh.' },
+  cold_packed: { title: 'Packed and ready', sub: 'Waiting for a rider to pick it up.' },
+  rider_assigned: { title: 'Rider assigned', sub: 'Your rider is on the way to the store.' },
+  out_for_delivery: { title: 'On the way', sub: 'Your rider is heading to you.' },
+  delivered: { title: 'Delivered', sub: 'Enjoy your meal. Thank you for ordering!' },
+  cancelled: { title: 'Order cancelled', sub: 'You haven’t been charged. Order again any time.' },
+};
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeOrder, orders, cancelOrder } = useStore();
-
-  // Customers can cancel only before the butcher starts (Firestore rules
-  // enforce the same).
-  const confirmCancel = () => {
-    if (!order) return;
-    const doCancel = () => cancelOrder(order.id);
-    if (Platform.OS === 'web' && typeof window !== 'undefined') {
-      if (window.confirm('Cancel this order?')) doCancel();
-      return;
-    }
-    Alert.alert('Cancel this order?', 'The store has not started preparing it yet.', [
-      { text: 'Keep order', style: 'cancel' },
-      { text: 'Cancel order', style: 'destructive', onPress: doCancel },
-    ]);
-  };
-
   const order = orders.find((o) => o.id === id) || (activeOrder && activeOrder.id === id ? activeOrder : null);
-
-  const currentStageIndex =
-    order?.status === 'rider_assigned'
-      ? 3
-      : Math.max(0, STAGES.findIndex((stage) => stage.key === order?.status));
 
   if (!order) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+      <SafeAreaView style={[styles.safeArea, styles.center]} edges={['top', 'bottom']}>
         <StatusBar style="dark" />
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>Order not found</Text>
-          <TouchableOpacity
-            style={styles.homeBtn}
-            onPress={() => router.replace('/(tabs)')}
-          >
-            <Text style={styles.homeBtnText}>Back to home</Text>
-          </TouchableOpacity>
-        </View>
+        <Text style={styles.emptyTitle}>Order not found</Text>
+        <Text style={styles.emptySub}>It may still be loading, or the link is wrong.</Text>
+        <TouchableOpacity style={styles.primaryBtn} onPress={() => router.replace('/(tabs)/orders')}>
+          <Text style={styles.primaryBtnText}>See your orders</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
+  const isCancelled = order.status === 'cancelled';
+  const isDelivered = order.status === 'delivered';
+  const stageIndex =
+    order.status === 'rider_assigned' ? 3 : Math.max(0, STAGES.findIndex((s) => s.key === order.status));
+  const headline = HEADLINE[order.status] || HEADLINE.placed;
+  const itemCount = order.items.reduce((n, item) => n + item.quantity, 0);
+
+  const confirmCancel = () =>
+    confirmAction(
+      'Cancel this order?',
+      'The store hasn’t started preparing it yet.',
+      'Cancel order',
+      () => cancelOrder(order.id),
+      'Keep order'
+    );
+
+  const emailSupport = () =>
+    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Help with order ${order.id}`)}`);
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      {/* Top Navbar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.navBtn}
-          onPress={() => router.replace('/(tabs)')}
+          onPress={() => goBack('/(tabs)')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back"
         >
-          <AppIcon icon={ArrowLeft01Icon} size={18} color="#000000" strokeWidth={2.5} />
+          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
           <Text style={styles.navTitle}>Order status</Text>
-          <Text style={styles.orderIdSub}>Order #{order.id}</Text>
+          <Text style={styles.navSub}>#{order.id}</Text>
         </View>
         <TouchableOpacity
-          style={styles.navBtn}
-          onPress={() => router.replace('/(tabs)')}
+          style={styles.navHelp}
+          onPress={emailSupport}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Get help with this order"
         >
-          <AppIcon icon={Home01Icon} size={18} color="#000000" strokeWidth={2} />
+          <Text style={styles.link}>Help</Text>
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Top ETA & Live Pulse Card with Senior UI/UX Illustration */}
-        <View style={styles.etaCard}>
-          <View style={styles.etaCardLeft}>
-            <View style={styles.etaHeader}>
-              <View style={styles.liveTag}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveTagText}>
-                  {order.status === 'cancelled'
-                    ? 'CANCELLED'
-                    : order.deliveryMode === 'instant'
-                    ? 'EXPRESS'
-                    : 'SCHEDULED'}
-                </Text>
-              </View>
-              <Text style={styles.slotLabelText}>{order.slotLabel}</Text>
-            </View>
-
-            <Text style={styles.etaTime}>
-              {order.status === 'cancelled' ? (
-                'Order cancelled'
-              ) : order.status === 'delivered' ? (
-                'Delivered'
-              ) : (
-                <>
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {/* Status hero */}
+        <View style={[styles.card, styles.hero]}>
+          <View style={styles.heroTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.heroEyebrow, isCancelled && { color: C.secondary }]}>
+                {isCancelled ? 'CANCELLED' : isDelivered ? 'COMPLETED' : order.deliveryMode === 'instant' ? 'EXPRESS' : 'SCHEDULED'}
+              </Text>
+              <Text style={styles.heroTitle}>{headline.title}</Text>
+              {!isCancelled && !isDelivered ? (
+                <Text style={styles.heroEta}>
                   {order.deliveryMode === 'instant' ? 'Arriving in ' : 'Arriving '}
-                  <Text style={{ color: '#DC2626', fontWeight: '900' }}>{order.eta}</Text>
-                </>
-              )}
-            </Text>
-            <Text style={styles.etaSub}>
-              {order.status === 'cancelled'
-                ? 'You haven’t been charged. Order again any time.'
-                : 'Packed cold in an insulated pouch with gel packs.'}
-            </Text>
-            <View style={styles.coldChainPill}>
-              <AppIcon icon={SnowflakeIcon} size={13} color="#0284C7" strokeWidth={2.5} />
-              <Text style={styles.coldChainPillText}>Kept cold</Text>
+                  <Text style={{ color: C.red, fontWeight: '800' }}>{order.eta}</Text>
+                </Text>
+              ) : null}
+              <Text style={styles.heroSub}>{headline.sub}</Text>
             </View>
-          </View>
-          <Image
-            source={require('../../../assets/illustrations/delivery_courier.png')}
-            style={styles.etaIllustration}
-            resizeMode="contain"
-          />
-        </View>
-
-        {/* Butcher & Delivery Lifecycle Stages */}
-        <View style={styles.stagesCard}>
-          <Text style={styles.stagesTitle}>Progress</Text>
-
-          {STAGES.map((stg, idx) => {
-            const isDelivered = order.status === 'delivered';
-            const isCompleted = idx < currentStageIndex || (isDelivered && idx === currentStageIndex);
-            const isCurrent = !isDelivered && idx === currentStageIndex;
-
-            return (
-              <View key={stg.key} style={styles.stageRow}>
-                <View style={styles.stageTimelineCol}>
-                  <View
-                    style={[
-                      styles.stageCircle,
-                      isCompleted && styles.stageCircleCompleted,
-                      isCurrent && styles.stageCircleCurrent,
-                    ]}
-                  >
-                    {isCompleted ? (
-                      <AppIcon icon={CheckmarkCircle01Icon} size={16} color="#FFFFFF" strokeWidth={2.5} />
-                    ) : (
-                      <AppIcon
-                        icon={Clock01Icon}
-                        size={12}
-                        color={isCurrent ? '#FFFFFF' : '#8E8E93'}
-                        strokeWidth={2}
-                      />
-                    )}
-                  </View>
-                  {idx < STAGES.length - 1 && (
-                    <View
-                      style={[
-                        styles.timelineLine,
-                        isCompleted && styles.timelineLineCompleted,
-                      ]}
-                    />
-                  )}
-                </View>
-
-                <View style={styles.stageDetailsCol}>
-                  <View style={styles.stageTitleRow}>
-                    <Text
-                      style={[
-                        styles.stageHeading,
-                        (isCompleted || isCurrent) && styles.stageHeadingActive,
-                      ]}
-                    >
-                      {stg.title}
-                    </Text>
-                    <Text style={styles.stageTime}>
-                      {order.status === 'cancelled'
-                        ? idx === 0
-                          ? 'Cancelled'
-                          : ''
-                        : idx === 0
-                        ? order.placedAt
-                        : isCompleted
-                        ? 'Done'
-                        : isCurrent
-                        ? 'In progress'
-                        : idx === currentStageIndex + 1
-                        ? 'Next'
-                        : ''}
-                    </Text>
-                  </View>
-                  <Text style={styles.stageSub}>{stg.sub}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
-
-        {/* Delivery Partner Contact Card */}
-        <View style={styles.riderCard}>
-          <View style={styles.riderAvatar}>
             <Image
-              source={require('../../../assets/illustrations/scooter_rider.png')}
-              style={styles.riderAvatarImg}
+              source={require('../../../assets/illustrations/delivery_courier.png')}
+              style={styles.heroArt}
               resizeMode="contain"
             />
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.riderName}>{order.riderName || 'Rider not assigned yet'}</Text>
-            <Text style={styles.riderRole}>
-              {order.riderPhone ? `Delivery partner · ${order.riderPhone}` : 'You’ll see your rider here once your order is on the way.'}
-            </Text>
-          </View>
 
-          {order.riderPhone ? (
-            <View style={styles.riderActions}>
-              <TouchableOpacity style={styles.actionCircle} onPress={() => Linking.openURL(`tel:${order.riderPhone}`)}>
-                <AppIcon icon={Call02Icon} size={15} color="#000000" strokeWidth={2} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.actionCircle} onPress={() => Linking.openURL(`sms:${order.riderPhone}`)}>
-                <AppIcon icon={Message01Icon} size={15} color="#000000" strokeWidth={2} />
-              </TouchableOpacity>
+          {!isCancelled && (
+            <View style={styles.segments} accessibilityLabel={`Step ${stageIndex + 1} of ${STAGES.length}`}>
+              {STAGES.slice(1).map((stage, i) => (
+                <View
+                  key={stage.key}
+                  style={[styles.segment, (i < stageIndex || isDelivered) && styles.segmentDone]}
+                />
+              ))}
             </View>
-          ) : null}
+          )}
         </View>
 
-        {order.status === 'placed' && (
-          <TouchableOpacity style={styles.cancelOrderBtn} onPress={confirmCancel} activeOpacity={0.8}>
-            <Text style={styles.cancelOrderText}>Cancel order</Text>
-          </TouchableOpacity>
+        {/* Rider */}
+        {!!order.riderName && !isCancelled && (
+          <View style={[styles.card, styles.riderCard]}>
+            <View style={styles.riderAvatar}>
+              <Text style={styles.riderInitial}>{order.riderName.trim()[0]?.toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.rowTitle}>{order.riderName}</Text>
+              <Text style={styles.rowSub}>Your delivery partner</Text>
+            </View>
+            {!!order.riderPhone && !isDelivered && (
+              <View style={styles.riderActions}>
+                <TouchableOpacity
+                  style={styles.roundAction}
+                  onPress={() => Linking.openURL(`sms:+91${order.riderPhone}`)}
+                  accessibilityLabel={`Message ${order.riderName}`}
+                >
+                  <AppIcon icon={Message01Icon} size={18} color={C.text} strokeWidth={2} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.roundAction, { backgroundColor: C.green }]}
+                  onPress={() => Linking.openURL(`tel:+91${order.riderPhone}`)}
+                  accessibilityLabel={`Call ${order.riderName}`}
+                >
+                  <AppIcon icon={Call02Icon} size={18} color="#FFFFFF" strokeWidth={2} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
-        {/* Order Details & Cut Specs */}
-        <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>Items</Text>
-          {order.items.map((item, idx) => (
-            <View key={idx} style={styles.itemSummaryRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.itemName}>
-                  {item.quantity}x {item.product.name}
-                </Text>
-                <Text style={styles.itemCutSpecs}>
-                  Cut: {item.selectedCut.name}{item.selectedCut.allowsSkinOption ? ` • ${item.isSkinless ? 'Skinless' : 'With Skin'}` : ''} • Net: {item.selectedCut.netWeight}
-                </Text>
+        {/* Progress */}
+        {!isCancelled && (
+          <>
+            <Text style={styles.sectionLabel}>PROGRESS</Text>
+            <View style={[styles.card, { paddingVertical: 14 }]}>
+              {STAGES.map((stage, idx) => {
+                const done = idx < stageIndex || (isDelivered && idx === stageIndex);
+                const current = !isDelivered && idx === stageIndex;
+                const last = idx === STAGES.length - 1;
+                return (
+                  <View key={stage.key} style={styles.stepRow}>
+                    <View style={styles.stepRail}>
+                      <View style={[styles.stepDot, done && styles.stepDotDone, current && styles.stepDotCurrent]}>
+                        {done && <AppIcon icon={Tick02Icon} size={13} color="#FFFFFF" strokeWidth={3} />}
+                        {current && <View style={styles.stepDotInner} />}
+                      </View>
+                      {!last && <View style={[styles.stepLine, done && styles.stepLineDone]} />}
+                    </View>
+                    <View style={[styles.stepBody, !last && { paddingBottom: 18 }]}>
+                      <View style={styles.stepTitleRow}>
+                        <Text style={[styles.stepTitle, !(done || current) && { color: C.placeholder }]}>
+                          {stage.title}
+                        </Text>
+                        <Text style={[styles.stepTime, current && { color: C.red, fontWeight: '700' }]}>
+                          {idx === 0 ? order.placedAt : current ? 'Now' : ''}
+                        </Text>
+                      </View>
+                      <Text style={[styles.stepSub, !(done || current) && { color: C.placeholder }]}>
+                        {stage.sub}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {/* Details */}
+        <Text style={styles.sectionLabel}>DETAILS</Text>
+        <View style={styles.card}>
+          <View style={styles.detailRow}>
+            <AppIcon icon={Location01Icon} size={18} color={C.secondary} strokeWidth={2} />
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.detailLabel}>Deliver to</Text>
+              <Text style={styles.detailValue} numberOfLines={2}>{order.address}</Text>
+            </View>
+          </View>
+          <View style={[styles.divider, { marginLeft: 30 }]} />
+          <View style={styles.detailRow}>
+            <AppIcon icon={Cash01Icon} size={18} color={C.secondary} strokeWidth={2} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.detailLabel}>Payment</Text>
+              <Text style={styles.detailValue}>
+                {isCancelled ? 'Nothing to pay' : isDelivered ? `Pay on delivery · ₹${order.total}` : `Pay ₹${order.total} on delivery (cash or UPI)`}
+              </Text>
+            </View>
+          </View>
+          {!!order.deliveryNote && (
+            <>
+              <View style={[styles.divider, { marginLeft: 30 }]} />
+              <View style={styles.detailRow}>
+                <AppIcon icon={Message01Icon} size={18} color={C.secondary} strokeWidth={2} />
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.detailLabel}>Your note</Text>
+                  <Text style={styles.detailValue}>{order.deliveryNote}</Text>
+                </View>
               </View>
-              <Text style={styles.itemPrice}>₹{item.unitPrice * item.quantity}</Text>
+            </>
+          )}
+        </View>
+
+        {/* Items */}
+        <Text style={styles.sectionLabel}>
+          {itemCount} ITEM{itemCount > 1 ? 'S' : ''}
+        </Text>
+        <View style={[styles.card, { paddingVertical: 4 }]}>
+          {order.items.map((item, idx) => (
+            <View key={`${item.cartItemId}-${idx}`}>
+              {idx > 0 && <View style={styles.divider} />}
+              <View style={styles.itemRow}>
+                <Image source={{ uri: optimizeImageUrl(item.product.image, 120) }} style={styles.thumb} />
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.itemName} numberOfLines={1}>
+                    {item.product.name}
+                  </Text>
+                  <Text style={styles.itemMeta} numberOfLines={1}>
+                    {item.quantity} × {item.selectedCut.name}
+                    {item.selectedCut.allowsSkinOption ? ` · ${item.isSkinless ? 'Skinless' : 'With skin'}` : ''}
+                  </Text>
+                </View>
+                <Text style={styles.itemPrice}>₹{item.unitPrice * item.quantity}</Text>
+              </View>
             </View>
           ))}
-
-          <View style={styles.summaryBreakdown}>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Payment</Text>
-              <Text style={styles.breakdownVal}>{order.paymentMethod}</Text>
+          <View style={styles.divider} />
+          {order.deliveryFee > 0 && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Delivery fee</Text>
+              <Text style={styles.billValue}>₹{order.deliveryFee}</Text>
             </View>
-            <View style={styles.breakdownRow}>
-              <Text style={styles.breakdownLabel}>Deliver to</Text>
-              <Text style={styles.breakdownVal} numberOfLines={1}>{order.address}</Text>
+          )}
+          {order.coldPackagingFee > 0 && (
+            <View style={styles.billRow}>
+              <Text style={styles.billLabel}>Cold pack</Text>
+              <Text style={styles.billValue}>₹{order.coldPackagingFee}</Text>
             </View>
-            <View style={[styles.breakdownRow, { marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: '#F2F2F7' }]}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalVal}>₹{order.total}</Text>
-            </View>
+          )}
+          <View style={styles.billRow}>
+            <Text style={styles.totalLabel}>Total</Text>
+            <Text style={styles.totalValue}>₹{order.total}</Text>
           </View>
         </View>
 
-        {/* Safety Guarantee */}
-        <View style={styles.safetyGuarantee}>
-          <AppIcon icon={ShieldCheckIcon} size={16} color="#15803D" strokeWidth={2} />
-          <Text style={styles.safetyGuaranteeText}>
-            If the seal is damaged or the order arrives warm, contact support for a review.
-          </Text>
+        {/* Actions */}
+        <View style={[styles.card, { marginTop: 16 }]}>
+          <TouchableOpacity style={styles.actionRow} onPress={emailSupport} activeOpacity={0.6}>
+            <AppIcon icon={Mail01Icon} size={18} color={C.text} strokeWidth={2} />
+            <Text style={styles.actionText}>Need help with this order?</Text>
+            <AppIcon icon={ArrowRight01Icon} size={16} color={C.placeholder} strokeWidth={2} />
+          </TouchableOpacity>
+          {order.status === 'placed' && (
+            <>
+              <View style={styles.divider} />
+              <TouchableOpacity
+                style={styles.actionRow}
+                onPress={confirmCancel}
+                activeOpacity={0.6}
+                accessibilityRole="button"
+              >
+                <Text style={[styles.actionText, { color: C.red, marginLeft: 0 }]}>Cancel order</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+        {order.status === 'placed' && (
+          <Text style={styles.footnote}>You can cancel until the store starts preparing your order.</Text>
+        )}
+
+        <View style={styles.assurance}>
+          <AppIcon icon={ShieldCheckIcon} size={14} color={C.secondary} strokeWidth={2} />
+          <Text style={styles.assuranceText}>Something not right? We’ll replace it or refund you.</Text>
         </View>
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  cancelOrderBtn: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#DC2626',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-  },
-  cancelOrderText: { color: '#DC2626', fontWeight: '800', fontSize: 15 },
   safeArea: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: C.bg,
+  },
+  center: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 24,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: C.text,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: C.secondary,
+    marginTop: 6,
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  primaryBtn: {
+    backgroundColor: C.red,
+    height: 50,
+    borderRadius: 25,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingVertical: THEME.spacing.sm,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F7',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  navTitle: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  orderIdSub: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    marginTop: 1,
-  },
-  content: {
-    flex: 1,
-    backgroundColor: THEME.colors.background,
-  },
-  scrollContent: {
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
-  },
-  errorContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 30,
-  },
-  errorTitle: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '700',
-    marginBottom: 12,
-  },
-  homeBtn: {
-    backgroundColor: '#000000',
-    paddingVertical: 12,
-    paddingHorizontal: 22,
-    borderRadius: THEME.radius.full,
-  },
-  homeBtnText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
-  etaCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: 16,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...THEME.shadow.card,
-  },
-  etaCardLeft: {
-    flex: 1,
-    paddingRight: 8,
-  },
-  etaIllustration: {
-    width: 96,
-    height: 96,
-  },
-  coldChainPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F0F9FF',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#BAE6FD',
-  },
-  coldChainPillText: {
-    color: '#0369A1',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  riderAvatarImg: {
-    width: 44,
-    height: 44,
-  },
-  etaHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
-  liveTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: THEME.colors.macroProtein,
-  },
-  liveTagText: {
-    color: '#000000',
-    fontSize: 10,
-    fontWeight: '900',
-    letterSpacing: 0.5,
-  },
-  slotLabelText: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  etaTime: {
-    color: '#000000',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  etaSub: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  coldSensorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
-  },
-  sensorHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
-  },
-  sensorIconCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sensorTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  sensorTitle: {
-    color: '#000000',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  optimalPill: {
-    backgroundColor: '#DCFCE7',
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
-  },
-  optimalText: {
-    color: '#15803D',
-    fontSize: 9,
-    fontWeight: '800',
-  },
-  sensorSub: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    marginTop: 1,
-  },
-  tempDisplayRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#F8F8FA',
-    borderRadius: THEME.radius.md,
-    padding: THEME.spacing.sm,
-    borderWidth: 1,
-    borderColor: '#EAEAEE',
-  },
-  tempLargeBox: {
-    flex: 1,
-  },
-  tempNumber: {
-    color: '#0284C7',
-    fontSize: 28,
-    fontWeight: '900',
-    letterSpacing: -1,
-  },
-  tempRangeNote: {
-    color: THEME.colors.textSecondary,
-    fontSize: 10,
-  },
-  sensorMetaCol: {
+  navHelp: {
+    width: 40,
     alignItems: 'flex-end',
   },
-  metaLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 9,
-  },
-  metaValue: {
-    color: '#000000',
-    fontSize: 11,
+  navTitle: {
+    fontSize: 17,
     fontWeight: '700',
-    marginBottom: 4,
+    color: C.text,
   },
-  stagesCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
+  navSub: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 1,
   },
-  stagesTitle: {
-    color: '#000000',
+  link: {
     fontSize: 15,
-    fontWeight: '800',
-    marginBottom: THEME.spacing.md,
+    fontWeight: '600',
+    color: C.red,
   },
-  stageRow: {
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    paddingHorizontal: 14,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginTop: 18,
+    marginBottom: 8,
+    marginLeft: 6,
+  },
+
+  /* hero */
+  hero: {
+    paddingVertical: 18,
+  },
+  heroTop: {
     flexDirection: 'row',
-    marginBottom: 16,
-  },
-  stageTimelineCol: {
     alignItems: 'center',
-    width: 24,
-    marginRight: 12,
+    gap: 8,
   },
-  stageCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 1.5,
-    borderColor: '#E5E5EA',
-    alignItems: 'center',
-    justifyContent: 'center',
+  heroEyebrow: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.red,
+    letterSpacing: 0.6,
   },
-  stageCircleCompleted: {
-    backgroundColor: '#15803D',
-    borderColor: '#15803D',
-  },
-  stageCircleCurrent: {
-    backgroundColor: '#000000',
-    borderColor: '#000000',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: '#E5E5EA',
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.5,
     marginTop: 4,
   },
-  timelineLineCompleted: {
-    backgroundColor: '#15803D',
-  },
-  stageDetailsCol: {
-    flex: 1,
-  },
-  stageTitleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  stageHeading: {
-    color: THEME.colors.textMuted,
-    fontSize: 13,
+  heroEta: {
+    fontSize: 16,
     fontWeight: '600',
+    color: C.text,
+    marginTop: 4,
   },
-  stageHeadingActive: {
-    color: '#000000',
-    fontWeight: '800',
+  heroSub: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: C.secondary,
+    marginTop: 6,
   },
-  stageTime: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
+  heroArt: {
+    width: 84,
+    height: 84,
   },
-  stageSub: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
+  segments: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 18,
   },
+  segment: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: C.track,
+  },
+  segmentDone: {
+    backgroundColor: C.green,
+  },
+
+  /* rider */
   riderCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
     gap: 12,
-    ...THEME.shadow.card,
+    paddingVertical: 14,
+    marginTop: 12,
   },
   riderAvatar: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+    backgroundColor: C.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  riderAvatarText: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '900',
-  },
-  riderName: {
-    color: '#000000',
-    fontSize: 14,
+  riderInitial: {
+    color: '#FFFFFF',
+    fontSize: 18,
     fontWeight: '800',
-  },
-  riderRole: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-  },
-  riderVaccinated: {
-    color: '#15803D',
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 2,
   },
   riderActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 10,
   },
-  actionCircle: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F7',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+  roundAction: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  detailsCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
-  },
-  detailsTitle: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-    marginBottom: 8,
-  },
-  itemSummaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F7',
-  },
-  itemName: {
-    color: '#000000',
-    fontSize: 12,
+  rowTitle: {
+    fontSize: 16,
     fontWeight: '700',
+    color: C.text,
   },
-  itemCutSpecs: {
-    color: THEME.colors.textSecondary,
-    fontSize: 10,
-    marginTop: 1,
-  },
-  itemPrice: {
-    color: '#000000',
+  rowSub: {
     fontSize: 13,
-    fontWeight: '800',
+    color: C.secondary,
+    marginTop: 2,
   },
-  summaryBreakdown: {
-    marginTop: 8,
+
+  /* progress */
+  stepRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-  breakdownRow: {
+  stepRail: {
+    alignItems: 'center',
+    width: 24,
+  },
+  stepDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: C.track,
+    backgroundColor: C.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepDotDone: {
+    backgroundColor: C.green,
+    borderColor: C.green,
+  },
+  stepDotCurrent: {
+    borderColor: C.red,
+  },
+  stepDotInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: C.red,
+  },
+  stepLine: {
+    flex: 1,
+    width: 2,
+    backgroundColor: C.track,
+    marginVertical: 2,
+  },
+  stepLineDone: {
+    backgroundColor: C.green,
+  },
+  stepBody: {
+    flex: 1,
+    paddingTop: 1,
+  },
+  stepTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 2,
-  },
-  breakdownLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-  },
-  breakdownVal: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    maxWidth: '65%',
-  },
-  totalLabel: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  totalVal: {
-    color: '#000000',
-    fontSize: 17,
-    fontWeight: '900',
-  },
-  safetyGuarantee: {
-    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#FFFFFF',
-    padding: THEME.spacing.md,
-    borderRadius: THEME.radius.lg,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
   },
-  safetyGuaranteeText: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
+  stepTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+  },
+  stepTime: {
+    fontSize: 12,
+    color: C.secondary,
+  },
+  stepSub: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+
+  /* details */
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 13,
+  },
+  detailLabel: {
+    fontSize: 12,
+    color: C.secondary,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: C.text,
+    marginTop: 2,
+    lineHeight: 20,
+  },
+
+  /* items */
+  itemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 10,
+  },
+  thumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: C.bg,
+  },
+  itemName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+  },
+  itemMeta: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  itemPrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  billLabel: {
+    fontSize: 14,
+    color: C.secondary,
+  },
+  billValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+  totalLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.text,
+  },
+  totalValue: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.text,
+  },
+
+  /* actions */
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minHeight: 50,
+  },
+  actionText: {
     flex: 1,
-    lineHeight: 15,
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+  },
+  footnote: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 8,
+    marginLeft: 6,
+  },
+  assurance: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 20,
+  },
+  assuranceText: {
+    fontSize: 12,
+    color: C.secondary,
   },
 });
