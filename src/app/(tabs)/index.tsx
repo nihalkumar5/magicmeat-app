@@ -84,9 +84,8 @@ const CRAVING_CATEGORIES = [
       'https://images.openai.com/static-rsc-4/rYgTuoQGG91BWdtto4NxfrBcTwlN9KKy6OhR0L4HnRaQzRyMxmI1b917lEjLtwgWhnIsMEwG0hinRYTVChvdbiOI_IF35SUqKvNmaPtwipT6gxCJw6NxqE-jj880MSoVXrFWe85zbXfRSMcBesuVE5BWcOlyziziOVRfKz8OeUM?purpose=inline',
   },
   {
-    id: 'ready-to-cook' as MeatCategory,
-    name: 'Chicken Wings',
-    badge: 'NEW',
+    id: 'curry-cuts' as MeatCategory,
+    name: 'Curry Cuts',
     image:
       'https://images.openai.com/static-rsc-4/j8EyQ2DuPjETzuzTPshiUCKX2DXozL6DzEJQ8PYuI81albvjoRqUdd8Q3TnYNEBRLqen6AntVn6zg7dYjnKrt9SiTSjNVkYGvCMgBzdBnD1gRQcA0aVySqLqboep_bA06fjbp1R4vvs_gUywRJpHu5FoPEPfw8WriqQSNFxU46U?purpose=inline',
   },
@@ -106,7 +105,6 @@ const SEARCH_KEYWORDS = [
   'Rohu Fish',
   'Biryani Cut',
   'Eggs',
-  'Peri-Peri Wings',
 ];
 
 const HERO_SLIDES = [
@@ -1193,7 +1191,6 @@ const HOME_CATEGORIES: { id: MeatCategory; label: string; image: string }[] = (
     { id: 'mutton', label: 'Mutton' },
     { id: 'fish', label: 'Fish' },
     { id: 'curry-cuts', label: 'Curry cuts', from: 'm1' },
-    { id: 'ready-to-cook', label: 'Ready to cook' },
     { id: 'eggs', label: 'Eggs' },
     { id: 'fresh-produce', label: 'Veggies & fruits' },
     { id: 'all', label: 'See all', from: 'c4' },

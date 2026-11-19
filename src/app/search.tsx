@@ -46,7 +46,6 @@ const SEARCH_CATEGORIES: { id: MeatCategory; name: string; image: string }[] = (
     { id: 'mutton', name: 'Mutton' },
     { id: 'fish', name: 'Fish' },
     { id: 'eggs', name: 'Eggs' },
-    { id: 'ready-to-cook', name: 'Ready to cook' },
     { id: 'fresh-produce', name: 'Veggies & fruits' },
   ] as { id: MeatCategory; name: string }[]
 ).map((c) => ({ ...c, image: PRODUCTS.find((p) => p.category === c.id)?.image || '' }));

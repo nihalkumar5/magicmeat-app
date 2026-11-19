@@ -48,7 +48,6 @@ const CATEGORIES: { id: MeatCategory; label: string; title: string; image: strin
     { id: 'mutton', label: 'Mutton', title: 'Mutton' },
     { id: 'fish', label: 'Fish', title: 'Fresh fish' },
     { id: 'curry-cuts', label: 'Curry cuts', title: 'Curry cuts', from: 'm1' },
-    { id: 'ready-to-cook', label: 'Ready to cook', title: 'Ready to cook' },
     { id: 'eggs', label: 'Eggs', title: 'Eggs' },
     { id: 'fresh-produce', label: 'Veggies & fruits', title: 'Veggies & fruits' },
   ] as { id: MeatCategory; label: string; title: string; from?: string }[]

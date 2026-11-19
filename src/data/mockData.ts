@@ -135,7 +135,7 @@ export const PRODUCE_CUTS: CutOption[] = [
   },
 ];
 
-export const PRODUCTS: Product[] = [
+const ALL_PRODUCTS: Product[] = [
   // 1. CHICKEN CATEGORY
   {
     id: "c1",
@@ -886,3 +886,9 @@ export const RECIPE_KITS: RecipeKit[] = [
     totalMacros: { calories: 390, proteinGrams: 32, carbsGrams: 8, fatGrams: 22 },
   },
 ];
+
+// Categories not on sale right now. Their products stay in the data so they
+// can come back by removing the category here.
+export const HIDDEN_CATEGORIES: Product['category'][] = ['ready-to-cook'];
+
+export const PRODUCTS: Product[] = ALL_PRODUCTS.filter((p) => !HIDDEN_CATEGORIES.includes(p.category));

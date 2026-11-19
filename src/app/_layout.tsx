@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
+import { AnimatedSplash } from '../components/AnimatedSplash';
 import {
   fetchProfile,
   isAdmin,
@@ -128,6 +129,7 @@ export default function RootLayout() {
         <View style={styles.boot}>
           <ActivityIndicator color="#DC2626" />
         </View>
+        <AnimatedSplash ready={false} />
       </SafeAreaProvider>
     );
   }
@@ -191,9 +193,9 @@ export default function RootLayout() {
                   animation: 'fade',
                 }}
               />
-            {/* Staff open /admin after logging in, then sign in with their email there. */}
-            <Stack.Screen name="admin" options={{ headerShown: false }} />
-          </Stack.Protected>
+              {/* Staff open /admin after logging in, then sign in with their email there. */}
+              <Stack.Screen name="admin" options={{ headerShown: false }} />
+            </Stack.Protected>
           </Stack>
 
           {/* Global Cut Customizer Modal */}
@@ -203,6 +205,7 @@ export default function RootLayout() {
           <LocationSelectorModal />
         </View>
       </View>
+      <AnimatedSplash ready />
     </SafeAreaProvider>
   );
 }
