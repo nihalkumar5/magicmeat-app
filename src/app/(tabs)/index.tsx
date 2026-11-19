@@ -30,6 +30,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { FadeInUp, PressableScale } from '../../components/motion';
+import { CATEGORY_IMAGES, CATEGORY_IMG_3D, CATEGORY_TILE_3D } from '../../data/categoryImages';
 import {
   AppIcon,
   Location01Icon,
@@ -55,6 +56,7 @@ import {
   Tick02Icon,
   Scooter01Icon,
   Home01Icon,
+  GridViewIcon,
 } from '../../components/HugeIcon';
 
 // Final 6 Essential Craving Categories (3-Column Circular Grid)
@@ -283,8 +285,6 @@ export default function HomeScreen() {
   const [activeOrderType, setActiveOrderType] = useState<OrderType>('takeaway');
   const [promiseOpen, setPromiseOpen] = useState(false);
   const { width } = useWindowDimensions();
-  // Width of one category tile (4 per row, 11 pt side padding, 5 pt gutters).
-  const categoryTile = (Math.min(width, 768) - 22) / 4 - 10;
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
   const popularDelights = useMemo(() => PRODUCTS.slice(0, 5), []);
@@ -950,20 +950,12 @@ export default function HomeScreen() {
                 accessibilityLabel={cat.label}
               >
                 <View style={styles.mCategoryTile}>
-                  {cat.mosaic ? (
-                    <View style={styles.mCategoryMosaic}>
-                      {cat.mosaic.map((src, k) => (
-                        <Image
-                          key={`${cat.id}-m${k}`}
-                          source={src}
-                          style={{ width: categoryTile * 0.4, height: categoryTile * 0.4 }}
-                          resizeMode="contain"
-                          fadeDuration={0}
-                        />
-                      ))}
-                    </View>
-                  ) : (
+                  {cat.source ? (
                     <Image source={cat.source} style={styles.mCategoryImg} resizeMode="contain" fadeDuration={0} />
+                  ) : (
+                    <View style={styles.mCategoryAllIcon}>
+                      <AppIcon icon={GridViewIcon} size={24} color="#DC2626" strokeWidth={1.9} />
+                    </View>
                   )}
                 </View>
                 <Text style={styles.mCategoryLabel} numberOfLines={2}>
@@ -1159,29 +1151,20 @@ const PROMISES = [
 const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
 
 // Category grid (Instacart / Blinkit style): the store's own cut-out
-// photos (transparent, on a plate) sitting on a soft warm tile. See all is a
-// 2 x 2 of four of them.
-const CAT_IMG = {
-  chicken: require('../../../assets/categories/chicken.png'),
-  mutton: require('../../../assets/categories/mutton.png'),
-  fish: require('../../../assets/categories/fish.png'),
-  curry: require('../../../assets/categories/curry-cuts.png'),
-  eggs: require('../../../assets/categories/eggs.png'),
-  produce: require('../../../assets/categories/veggies-fruits.png'),
-};
+// photos (transparent, on a plate) sitting on a soft warm tile. See all
+// shows a grid icon.
 const HOME_CATEGORIES: {
   id: MeatCategory;
   label: string;
   source?: ImageSourcePropType;
-  mosaic?: ImageSourcePropType[];
 }[] = [
-  { id: 'chicken', label: 'Chicken', source: CAT_IMG.chicken },
-  { id: 'mutton', label: 'Mutton', source: CAT_IMG.mutton },
-  { id: 'fish', label: 'Fish', source: CAT_IMG.fish },
-  { id: 'curry-cuts', label: 'Curry cuts', source: CAT_IMG.curry },
-  { id: 'eggs', label: 'Eggs', source: CAT_IMG.eggs },
-  { id: 'fresh-produce', label: 'Veggies & fruits', source: CAT_IMG.produce },
-  { id: 'all', label: 'See all', mosaic: [CAT_IMG.chicken, CAT_IMG.mutton, CAT_IMG.fish, CAT_IMG.eggs] },
+  { id: 'chicken', label: 'Chicken', source: CATEGORY_IMAGES.chicken },
+  { id: 'mutton', label: 'Mutton', source: CATEGORY_IMAGES.mutton },
+  { id: 'fish', label: 'Fish', source: CATEGORY_IMAGES.fish },
+  { id: 'curry-cuts', label: 'Curry cuts', source: CATEGORY_IMAGES['curry-cuts'] },
+  { id: 'eggs', label: 'Eggs', source: CATEGORY_IMAGES.eggs },
+  { id: 'fresh-produce', label: 'Veggies & fruits', source: CATEGORY_IMAGES['fresh-produce'] },
+  { id: 'all', label: 'See all' },
 ];
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
@@ -1581,23 +1564,28 @@ const styles = StyleSheet.create({
     width: '100%',
     aspectRatio: 1,
     borderRadius: 20,
-    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FBF4EE',
+    ...CATEGORY_TILE_3D,
   },
   mCategoryImg: {
-    width: '92%',
-    height: '92%',
+    width: '88%',
+    height: '88%',
+    marginTop: -4,
+    ...CATEGORY_IMG_3D,
   },
-  mCategoryMosaic: {
-    width: '100%',
-    height: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  mCategoryAllIcon: {
+    width: '58%',
+    height: '58%',
+    borderRadius: 999,
+    backgroundColor: '#FFFFFF',
     alignItems: 'center',
-    alignContent: 'center',
     justifyContent: 'center',
+    shadowColor: '#7C2D12',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 2,
   },
   mCategoryLabel: {
     marginTop: 6,

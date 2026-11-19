@@ -19,9 +19,9 @@ import { ShopCard } from '../../components/ShopCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { useStore } from '../../store/useStore';
-import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import type { MeatCategory, Product } from '../../types';
-import { AppIcon, Search01Icon, Sorting01Icon, DeliveryTruck01Icon } from '../../components/HugeIcon';
+import { AppIcon, Search01Icon, Sorting01Icon, DeliveryTruck01Icon, GridViewIcon } from '../../components/HugeIcon';
+import { CATEGORY_IMAGES, CATEGORY_IMG_3D, CATEGORY_TILE_3D } from '../../data/categoryImages';
 
 const C = {
   bg: '#FFFFFF',
@@ -37,26 +37,21 @@ const inCategory = (p: Product, id: MeatCategory) =>
   id === 'all'
     ? true
     : id === 'curry-cuts'
-    ? p.availableCuts.some((c) => c.name.toLowerCase().includes('curry'))
-    : p.category === id;
+      ? p.availableCuts.some((c) => c.name.toLowerCase().includes('curry'))
+      : p.category === id;
 
-// Left-rail categories, each shown with a photo of one of its products.
-const CATEGORIES: { id: MeatCategory; label: string; title: string; image: string }[] = (
+// Left-rail categories with the MagicMeat category cut-outs; All gets a grid icon.
+const CATEGORIES: { id: MeatCategory; label: string; title: string }[] = (
   [
-    { id: 'all', label: 'All', title: 'All products', from: 'c1' },
+    { id: 'all', label: 'All', title: 'All products' },
     { id: 'chicken', label: 'Chicken', title: 'Chicken' },
     { id: 'mutton', label: 'Mutton', title: 'Mutton' },
     { id: 'fish', label: 'Fish', title: 'Fresh fish' },
-    { id: 'curry-cuts', label: 'Curry cuts', title: 'Curry cuts', from: 'm1' },
+    { id: 'curry-cuts', label: 'Curry cuts', title: 'Curry cuts' },
     { id: 'eggs', label: 'Eggs', title: 'Eggs' },
     { id: 'fresh-produce', label: 'Veggies & fruits', title: 'Veggies & fruits' },
-  ] as { id: MeatCategory; label: string; title: string; from?: string }[]
-)
-  .map((c) => ({
-    ...c,
-    image: (c.from ? PRODUCTS.find((p) => p.id === c.from) : PRODUCTS.find((p) => inCategory(p, c.id)))?.image || '',
-  }))
-  .filter((c) => PRODUCTS.some((p) => inCategory(p, c.id)));
+  ] as { id: MeatCategory; label: string; title: string }[]
+).filter((c) => PRODUCTS.some((p) => inCategory(p, c.id)));
 
 type SortOption = 'popular' | 'low' | 'high';
 const SORT_LABEL: Record<SortOption, string> = { popular: 'Popular', low: 'Price: low', high: 'Price: high' };
@@ -116,7 +111,11 @@ export default function ShopScreen() {
 
       <View style={styles.body}>
         {/* Category rail */}
-        <ScrollView style={styles.rail} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 + tabInset }}>
+        <ScrollView
+          style={styles.rail}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingBottom: 20 + tabInset }}
+        >
           {CATEGORIES.map((cat) => {
             const on = cat.id === active.id;
             return (
@@ -131,8 +130,10 @@ export default function ShopScreen() {
               >
                 {on && <View style={styles.railBar} />}
                 <View style={[styles.railImgWrap, on && styles.railImgWrapOn]}>
-                  {!!cat.image && (
-                    <Image source={{ uri: optimizeImageUrl(cat.image, 120) }} style={styles.railImg} resizeMode="cover" />
+                  {CATEGORY_IMAGES[cat.id] ? (
+                    <Image source={CATEGORY_IMAGES[cat.id]} style={styles.railImg} resizeMode="contain" />
+                  ) : (
+                    <AppIcon icon={GridViewIcon} size={22} color={on ? C.red : '#6B7280'} strokeWidth={1.9} />
                   )}
                 </View>
                 <Text style={[styles.railLabel, on && styles.railLabelOn]} numberOfLines={2}>
@@ -268,19 +269,22 @@ const styles = StyleSheet.create({
     backgroundColor: C.red,
   },
   railImgWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    overflow: 'hidden',
-    backgroundColor: '#ECECEE',
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...CATEGORY_TILE_3D,
   },
   railImgWrapOn: {
     borderWidth: 2,
     borderColor: C.red,
   },
   railImg: {
-    width: '100%',
-    height: '100%',
+    width: '90%',
+    height: '90%',
+    marginTop: -2,
+    ...CATEGORY_IMG_3D,
   },
   railLabel: {
     marginTop: 5,
