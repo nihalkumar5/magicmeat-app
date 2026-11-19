@@ -6,13 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
 import { goBack } from '../utils/navigation';
 import { slotInfo } from '../data/slots';
-import { feesFor } from '../data/pricing';
+import { DELIVERY_FEE, feesFor, mrpFor } from '../data/pricing';
 import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
@@ -28,7 +30,8 @@ import {
   FlashIcon,
   Calendar01Icon,
   Clock01Icon,
-  SnowflakeIcon,
+  CheckmarkCircle02Icon,
+  Store01Icon,
 } from '../components/HugeIcon';
 
 // Firestore rules accept at most 6 lines per order (see firestore.rules).
@@ -38,14 +41,17 @@ function showError(message: string) {
   notify('Order not placed', message);
 }
 
-const PAYMENT_METHODS: { id: 'Cash on Delivery'; label: string; sub: string; icon: any }[] = [
-  {
-    id: 'Cash on Delivery',
-    label: 'Pay on delivery',
-    sub: 'Cash or UPI when your order arrives',
-    icon: Cash01Icon,
-  },
-];
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  placeholder: '#9CA3AF',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  green: '#15803D',
+  greenBg: '#F0FDF4',
+};
 
 export default function CheckoutScreen() {
   const {
@@ -63,7 +69,7 @@ export default function CheckoutScreen() {
     placeOrder,
   } = useStore();
 
-  const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery'>('Cash on Delivery');
+  const paymentMethod = 'Cash on Delivery' as const;
   const [deliveryNote, setDeliveryNote] = useState('');
   const [name, setName] = useState(profile.name);
   const [phone, setPhone] = useState(profile.phone);
@@ -74,6 +80,11 @@ export default function CheckoutScreen() {
   const subtotal = getCartSubtotal();
   const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
   const netGrams = getCartNetWeightGrams();
+  const isDelivery = orderFulfillment === 'delivery';
+  const mrpTotal = cart.reduce((sum, item) => sum + mrpFor(item.product, item.selectedCut) * item.quantity, 0);
+  const deliverySaved = isDelivery && deliveryFee === 0 ? DELIVERY_FEE : 0;
+  const totalSavings = Math.max(0, mrpTotal - subtotal) + deliverySaved;
+  const slot = slotInfo(deliveryMode);
 
   const handlePlaceOrder = async () => {
     if (isSubmitting) return;
@@ -136,210 +147,222 @@ export default function CheckoutScreen() {
     }
   };
 
+  const SlotIcon = deliveryMode === 'instant' ? FlashIcon : deliveryMode === 'sunday_morning' ? Calendar01Icon : Clock01Icon;
+
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      {/* Navbar */}
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backBtn}
           onPress={() => goBack('/(tabs)/cart')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Back to basket"
         >
-          <AppIcon icon={ArrowLeft01Icon} size={18} color="#000000" strokeWidth={2.5} />
+          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
         </TouchableOpacity>
         <Text style={styles.navTitle}>Checkout</Text>
-        <View style={{ width: 36 }} />
+        <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Address Card */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <AppIcon icon={Location01Icon} size={16} color="#000000" strokeWidth={2} />
-            <Text style={[styles.cardTitle, { flex: 1 }]}>
-              {orderFulfillment === 'takeaway' ? 'Pickup from' : 'Deliver to'}
-            </Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Address */}
+          <Text style={styles.sectionLabel}>{isDelivery ? 'DELIVER TO' : 'PICK UP FROM'}</Text>
+          <View style={[styles.card, styles.addressCard]}>
+            <View style={styles.iconTile}>
+              <AppIcon icon={isDelivery ? Location01Icon : Store01Icon} size={18} color={C.red} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Text style={styles.addressTitle} numberOfLines={1}>
+                {currentLocation.shortAddress || (isDelivery ? 'Delivery address' : 'Store')}
+              </Text>
+              <Text style={styles.addressText} numberOfLines={2}>
+                {selectedAddress}
+              </Text>
+              {isUnserviceable && (
+                <Text style={styles.errorText}>We don&apos;t deliver here yet. Please pick another address.</Text>
+              )}
+            </View>
             <TouchableOpacity
               onPress={() => router.push('/location-select')}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
               accessibilityRole="button"
+              accessibilityLabel="Change address"
             >
-              <Text style={styles.changeLink}>Change</Text>
+              <Text style={styles.link}>Change</Text>
             </TouchableOpacity>
           </View>
-          <Text style={styles.addressText}>{selectedAddress}</Text>
-          {isUnserviceable && (
-            <Text style={styles.unserviceableText}>
-              We don&apos;t deliver here yet. Go back and pick another address.
-            </Text>
-          )}
 
-          <View style={styles.contactRow}>
-            <TextInput
-              style={[styles.noteInput, styles.contactInput]}
-              value={name}
-              onChangeText={setName}
-              placeholder="Your name"
-              placeholderTextColor={THEME.colors.textMuted}
-              maxLength={80}
-              autoComplete="name"
-            />
-            <TextInput
-              style={[styles.noteInput, styles.contactInput]}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="10-digit mobile"
-              placeholderTextColor={THEME.colors.textMuted}
-              keyboardType="phone-pad"
-              maxLength={14}
-              autoComplete="tel"
-            />
+          {/* Contact */}
+          <Text style={styles.sectionLabel}>CONTACT</Text>
+          <View style={styles.card}>
+            <View style={styles.formRow}>
+              <Text style={styles.formLabel}>Name</Text>
+              <TextInput
+                style={styles.formInput}
+                value={name}
+                onChangeText={setName}
+                placeholder="Your name"
+                placeholderTextColor={C.placeholder}
+                maxLength={80}
+                autoComplete="name"
+                textContentType="name"
+                returnKeyType="next"
+              />
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.formRow}>
+              <Text style={styles.formLabel}>Mobile</Text>
+              <Text style={styles.prefix}>+91</Text>
+              <TextInput
+                style={styles.formInput}
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="10-digit number"
+                placeholderTextColor={C.placeholder}
+                keyboardType="phone-pad"
+                maxLength={14}
+                autoComplete="tel"
+                textContentType="telephoneNumber"
+              />
+            </View>
+            <View style={styles.divider} />
+            <View style={[styles.formRow, { alignItems: 'flex-start' }]}>
+              <Text style={[styles.formLabel, { paddingTop: 2 }]}>Note</Text>
+              <TextInput
+                style={[styles.formInput, styles.noteInput]}
+                value={deliveryNote}
+                onChangeText={setDeliveryNote}
+                placeholder={isDelivery ? 'For the rider (optional), e.g. ring the bell' : 'For the store (optional)'}
+                placeholderTextColor={C.placeholder}
+                maxLength={300}
+                multiline
+              />
+            </View>
           </View>
 
-          <View style={styles.deliveryNoteContainer}>
-            <Text style={styles.noteLabel}>
-              {orderFulfillment === 'takeaway' ? 'Note for the store (optional)' : 'Note for the rider (optional)'}
-            </Text>
-            <TextInput
-              style={styles.noteInput}
-              value={deliveryNote}
-              onChangeText={setDeliveryNote}
-              placeholder="e.g. Ring bell, hand over cold pack directly"
-              placeholderTextColor={THEME.colors.textMuted}
-              maxLength={300}
-            />
-          </View>
-        </View>
-
-        {/* Selected Slot Summary */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            {deliveryMode === 'instant' ? (
-              <AppIcon icon={FlashIcon} size={16} color="#000000" strokeWidth={2.2} />
-            ) : deliveryMode === 'sunday_morning' ? (
-              <AppIcon icon={Calendar01Icon} size={16} color="#000000" strokeWidth={2} />
-            ) : (
-              <AppIcon icon={Clock01Icon} size={16} color="#000000" strokeWidth={2} />
-            )}
-            <Text style={styles.cardTitle}>Delivery time</Text>
-          </View>
-
-          <View style={styles.slotBadge}>
-            <Text style={styles.slotBadgeText}>
-              {deliveryMode === 'instant' ? 'Express · in about 30 minutes' : slotInfo(deliveryMode).label}
-            </Text>
-          </View>
-
-          <View style={styles.tempAssurance}>
-            <AppIcon icon={SnowflakeIcon} size={14} color="#0284C7" strokeWidth={2} />
-            <Text style={styles.tempAssuranceText}>
-              {coldPackagingEnabled ? 'Packed cold in an insulated pouch with gel packs.' : 'Packed fresh and sealed.'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Payment Method Selector */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Payment</Text>
-
-          {PAYMENT_METHODS.map((pm) => {
-            const isSelected = paymentMethod === pm.id;
-            const Icon = pm.icon;
-            return (
-              <TouchableOpacity
-                key={pm.id}
-                style={[styles.paymentCard, isSelected && styles.paymentCardSelected]}
-                onPress={() => setPaymentMethod(pm.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.paymentLeft}>
-                  <View style={[styles.paymentIconBox, isSelected && styles.paymentIconBoxSelected]}>
-                    <AppIcon icon={Icon} size={18} color={isSelected ? '#FFFFFF' : '#8E8E93'} strokeWidth={2} />
-                  </View>
-                  <View>
-                    <Text style={[styles.paymentLabel, isSelected && styles.paymentLabelSelected]}>
-                      {pm.label}
-                    </Text>
-                    <Text style={styles.paymentSub}>{pm.sub}</Text>
-                  </View>
-                </View>
-
-                <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
-                  {isSelected && <View style={styles.radioInner} />}
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-
-        {/* Order Basket Summary */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Order summary</Text>
-          {netGrams > 0 && (
-            <Text style={styles.orderYieldSub}>
-              <Text style={{ color: '#15803D', fontWeight: '800' }}>{formatGrams(netGrams)}</Text> ready to cook
-            </Text>
-          )}
-
-          {cart.map((item) => (
-            <View key={item.cartItemId} style={styles.miniItemRow}>
-              <Text style={styles.miniItemTitle} numberOfLines={1}>
-                {item.quantity}x {item.product.name} · {item.selectedCut.name}
+          {/* Delivery time */}
+          <Text style={styles.sectionLabel}>{isDelivery ? 'DELIVERY TIME' : 'PICKUP TIME'}</Text>
+          <View style={[styles.card, styles.rowCard]}>
+            <View style={styles.iconTile}>
+              <AppIcon icon={SlotIcon} size={18} color={C.red} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>
+                {deliveryMode === 'instant' ? 'Express · about 30 mins' : slot.eta}
               </Text>
-              <Text style={styles.miniItemPrice}>₹{item.unitPrice * item.quantity}</Text>
+              <Text style={styles.rowSub}>
+                {coldPackagingEnabled ? 'Packed cold with gel packs' : 'Packed fresh and sealed'}
+              </Text>
             </View>
-          ))}
-
-          {deliveryFee > 0 && (
-            <View style={styles.miniItemRow}>
-              <Text style={styles.miniItemTitle}>Delivery fee</Text>
-              <Text style={styles.miniItemPrice}>₹{deliveryFee}</Text>
-            </View>
-          )}
-          {packagingFee > 0 && (
-            <View style={styles.miniItemRow}>
-              <Text style={styles.miniItemTitle}>Cold pack</Text>
-              <Text style={styles.miniItemPrice}>₹{packagingFee}</Text>
-            </View>
-          )}
-
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>To pay</Text>
-            <Text style={styles.totalAmount}>₹{grandTotal}</Text>
+            <TouchableOpacity
+              onPress={() => goBack('/(tabs)/cart')}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              accessibilityRole="button"
+              accessibilityLabel="Change delivery time"
+            >
+              <Text style={styles.link}>Change</Text>
+            </TouchableOpacity>
           </View>
-        </View>
 
-        <View style={styles.guaranteeRow}>
-          <AppIcon icon={ShieldCheckIcon} size={14} color="#15803D" strokeWidth={2} />
-          <Text style={styles.guaranteeText}>
-            No advance payment · Pay when it arrives
-          </Text>
-        </View>
+          {/* Payment */}
+          <Text style={styles.sectionLabel}>PAYMENT</Text>
+          <View style={[styles.card, styles.rowCard]}>
+            <View style={[styles.iconTile, { backgroundColor: C.greenBg }]}>
+              <AppIcon icon={Cash01Icon} size={18} color={C.green} strokeWidth={2} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Pay on delivery</Text>
+              <Text style={styles.rowSub}>Cash or UPI when your order arrives</Text>
+            </View>
+            <AppIcon icon={CheckmarkCircle02Icon} size={22} color={C.green} strokeWidth={2} />
+          </View>
 
-        <View style={{ height: 120 }} />
-      </ScrollView>
+          {/* Summary */}
+          <Text style={styles.sectionLabel}>ORDER SUMMARY</Text>
+          <View style={[styles.card, { paddingVertical: 6 }]}>
+            {cart.map((item) => (
+              <View key={item.cartItemId} style={styles.billRow}>
+                <Text style={styles.itemLine} numberOfLines={1}>
+                  <Text style={styles.qty}>{item.quantity}×  </Text>
+                  {item.product.name}
+                </Text>
+                <Text style={styles.billValue}>₹{item.unitPrice * item.quantity}</Text>
+              </View>
+            ))}
+            <View style={[styles.divider, { marginVertical: 6 }]} />
+            {isDelivery && (
+              <View style={styles.billRow}>
+                <Text style={styles.billLabel}>Delivery fee</Text>
+                {deliveryFee === 0 ? (
+                  <View style={styles.valueRow}>
+                    <Text style={styles.strike}>₹{DELIVERY_FEE}</Text>
+                    <Text style={[styles.billValue, { color: C.green }]}>FREE</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.billValue}>₹{deliveryFee}</Text>
+                )}
+              </View>
+            )}
+            {packagingFee > 0 && (
+              <View style={styles.billRow}>
+                <Text style={styles.billLabel}>Cold pack</Text>
+                <Text style={styles.billValue}>₹{packagingFee}</Text>
+              </View>
+            )}
+            <View style={[styles.divider, { marginVertical: 6 }]} />
+            <View style={styles.billRow}>
+              <Text style={styles.totalLabel}>To pay</Text>
+              <Text style={styles.totalValue}>₹{grandTotal}</Text>
+            </View>
+            {netGrams > 0 && (
+              <Text style={styles.yieldNote}>{formatGrams(netGrams)} of clean meat, ready to cook</Text>
+            )}
+            {totalSavings > 0 && (
+              <View style={styles.savingsBanner}>
+                <Text style={styles.savingsText}>You’re saving ₹{totalSavings} on this order</Text>
+              </View>
+            )}
+          </View>
 
-      {/* Sticky Bottom Place Order CTA */}
+          <View style={styles.assurance}>
+            <AppIcon icon={ShieldCheckIcon} size={14} color={C.secondary} strokeWidth={2} />
+            <Text style={styles.assuranceText}>No advance payment · Fresh, or your money back</Text>
+          </View>
+
+          <View style={{ height: 110 }} />
+        </ScrollView>
+      </KeyboardAvoidingView>
+
       <View style={styles.bottomBar}>
         <View>
-          <Text style={styles.bottomTotalLabel}>To pay</Text>
-          <Text style={styles.bottomTotalPrice}>₹{grandTotal}</Text>
+          <Text style={styles.bottomTotal}>₹{grandTotal}</Text>
+          <Text style={styles.bottomSub}>{totalSavings > 0 ? `Saving ₹${totalSavings}` : 'Pay on delivery'}</Text>
         </View>
-
         <TouchableOpacity
-          style={[styles.placeOrderBtn, isSubmitting && styles.placeOrderBtnDisabled]}
+          style={[styles.placeBtn, isSubmitting && { opacity: 0.7 }]}
           onPress={handlePlaceOrder}
           disabled={isSubmitting}
-          activeOpacity={0.8}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+          accessibilityLabel={`Place order, ₹${grandTotal}`}
+          accessibilityState={{ busy: isSubmitting, disabled: isSubmitting }}
         >
-          <Text style={styles.placeOrderText}>
-            {isSubmitting ? 'Placing order…' : 'Place order'}
-          </Text>
+          {isSubmitting ? (
+            <>
+              <ActivityIndicator color="#FFFFFF" size="small" />
+              <Text style={styles.placeText}>Placing order…</Text>
+            </>
+          ) : (
+            <Text style={styles.placeText}>Place order</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -347,296 +370,238 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
-  changeLink: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  unserviceableText: {
-    marginTop: 6,
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#B91C1C',
-  },
-  contactRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 12,
-  },
-  contactInput: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 13,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
-    borderRadius: THEME.radius.md,
-    backgroundColor: '#FFFFFF',
-  },
   safeArea: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: C.bg,
   },
   navBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingVertical: THEME.spacing.sm,
-    backgroundColor: '#FFFFFF',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: C.bg,
   },
   backBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#F2F2F7',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
   navTitle: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.text,
   },
   content: {
-    flex: 1,
-    backgroundColor: THEME.colors.background,
+    paddingHorizontal: 16,
   },
-  scrollContent: {
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginTop: 16,
+    marginBottom: 8,
+    marginLeft: 6,
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
+    backgroundColor: C.card,
+    borderRadius: 16,
+    paddingHorizontal: 14,
   },
-  cardHeader: {
-    flexDirection: 'row',
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
+  },
+  iconTile: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#FEF2F2',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 6,
+    justifyContent: 'center',
   },
-  cardTitle: {
-    color: '#000000',
+  link: {
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '600',
+    color: C.red,
+  },
+  addressCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingVertical: 14,
+  },
+  addressTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: C.text,
   },
   addressText: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 16,
-    marginBottom: 10,
+    fontSize: 13,
+    lineHeight: 18,
+    color: C.secondary,
+    marginTop: 2,
   },
-  deliveryNoteContainer: {
-    backgroundColor: '#F8F8FA',
-    borderRadius: THEME.radius.md,
-    padding: THEME.spacing.sm,
-    borderWidth: 1,
-    borderColor: '#EAEAEE',
+  errorText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.red,
+    marginTop: 6,
   },
-  noteLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    fontWeight: '700',
-    marginBottom: 2,
+  formRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 50,
+    gap: 8,
   },
-  noteInput: {
-    color: '#000000',
-    fontSize: 12,
+  formLabel: {
+    width: 64,
+    fontSize: 15,
+    color: C.text,
     fontWeight: '500',
   },
-  slotBadge: {
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: THEME.radius.md,
-    marginVertical: 6,
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+  prefix: {
+    fontSize: 16,
+    color: C.secondary,
   },
-  slotBadgeText: {
-    color: '#000000',
-    fontSize: 12,
-    fontWeight: '800',
+  formInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 16,
+    color: C.text,
+    paddingVertical: 12,
   },
-  tempAssurance: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 4,
+  noteInput: {
+    minHeight: 50,
+    textAlignVertical: 'top',
   },
-  tempAssuranceText: {
-    color: '#0284C7',
-    fontSize: 11,
-    fontWeight: '600',
-  },
-  paymentCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F8FA',
-    borderRadius: THEME.radius.md,
-    padding: 12,
-    marginTop: 8,
-    borderWidth: 1.5,
-    borderColor: '#EAEAEE',
-  },
-  paymentCardSelected: {
-    borderColor: '#000000',
-    backgroundColor: '#FFFFFF',
-  },
-  paymentLeft: {
+  rowCard: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
+    paddingVertical: 14,
   },
-  paymentIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E5EA',
+  rowTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
   },
-  paymentIconBoxSelected: {
-    backgroundColor: '#000000',
-  },
-  paymentLabel: {
-    color: '#000000',
+  rowSub: {
     fontSize: 13,
-    fontWeight: '700',
+    color: C.secondary,
+    marginTop: 2,
   },
-  paymentLabelSelected: {
-    color: '#000000',
-    fontWeight: '800',
-  },
-  paymentSub: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    marginTop: 1,
-  },
-  radioCircle: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#C7C7CC',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  radioCircleSelected: {
-    borderColor: '#000000',
-  },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#000000',
-  },
-  orderYieldSub: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    marginBottom: 8,
-  },
-  miniItemRow: {
+  billRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 4,
+    paddingVertical: 7,
+    gap: 12,
   },
-  miniItemTitle: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
+  itemLine: {
     flex: 1,
-    marginRight: 10,
-    fontWeight: '500',
+    fontSize: 14,
+    color: C.text,
   },
-  miniItemPrice: {
-    color: '#000000',
-    fontSize: 13,
+  qty: {
     fontWeight: '700',
+    color: C.secondary,
   },
-  totalRow: {
+  billLabel: {
+    fontSize: 14,
+    color: C.secondary,
+  },
+  valueRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
+    gap: 6,
+  },
+  strike: {
+    fontSize: 13,
+    color: C.placeholder,
+    textDecorationLine: 'line-through',
+  },
+  billValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
   },
   totalLabel: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.text,
   },
-  totalAmount: {
-    color: '#000000',
+  totalValue: {
     fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.5,
+    fontWeight: '800',
+    color: C.text,
   },
-  guaranteeRow: {
+  yieldNote: {
+    fontSize: 12,
+    color: C.secondary,
+    marginBottom: 6,
+  },
+  savingsBanner: {
+    backgroundColor: C.greenBg,
+    borderRadius: 10,
+    paddingVertical: 9,
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  savingsText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.green,
+  },
+  assurance: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginVertical: 4,
+    marginTop: 14,
   },
-  guaranteeText: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
+  assuranceText: {
+    fontSize: 12,
+    color: C.secondary,
   },
   bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingVertical: THEME.spacing.md,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.97)',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.hairline,
   },
-  bottomTotalLabel: {
-    color: THEME.colors.textMuted,
-    fontSize: 10,
-    textTransform: 'uppercase',
-    fontWeight: '600',
-  },
-  bottomTotalPrice: {
-    color: '#000000',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  placeOrderBtn: {
-    backgroundColor: '#000000',
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: THEME.radius.full,
-    ...THEME.shadow.button,
-  },
-  placeOrderBtnDisabled: {
-    opacity: 0.6,
-  },
-  placeOrderText: {
-    color: '#FFFFFF',
-    fontSize: 13,
+  bottomTotal: {
+    fontSize: 20,
     fontWeight: '800',
+    color: C.text,
+  },
+  bottomSub: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: C.green,
+    marginTop: 1,
+  },
+  placeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: C.red,
+    height: 52,
+    paddingHorizontal: 32,
+    borderRadius: 26,
+  },
+  placeText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
