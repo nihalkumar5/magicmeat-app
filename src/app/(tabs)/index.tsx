@@ -361,6 +361,11 @@ export default function HomeScreen() {
     }
   };
 
+  const openCategory = (category: MeatCategory) => {
+    setSelectedCategory(category);
+    router.push('/(tabs)/explore');
+  };
+
   const handleSlideSelect = (targetCategory: MeatCategory, productId: string) => {
     setSelectedCategory(targetCategory);
     router.push({
@@ -951,7 +956,7 @@ export default function HomeScreen() {
               <TouchableOpacity
                 key={`cat-${cat.name}-${idx}`}
                 style={styles.cravingGridItem}
-                onPress={() => setSelectedCategory(cat.id)}
+                onPress={() => openCategory(cat.id)}
                 activeOpacity={0.8}
               >
                 <View style={styles.cravingCircleWrapper}>
@@ -983,7 +988,7 @@ export default function HomeScreen() {
               <Text style={styles.mobileTop10Subtitle}>Our customers&apos; all-time favourites</Text>
             </View>
             <TouchableOpacity
-              onPress={() => router.push('/(tabs)/explore')}
+              onPress={() => openCategory('all')}
               activeOpacity={0.7}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
@@ -1017,38 +1022,6 @@ export default function HomeScreen() {
             removeClippedSubviews={Platform.OS === 'android'}
             overScrollMode="never"
           />
-        </View>
-
-        {/* Picks & Deals Banner (Lazizia Style Red Banner) */}
-        <View style={styles.dealsBannerContainer}>
-          <View style={styles.dealsBanner}>
-            <View style={styles.dealsHeaderRow}>
-              <View>
-                <Text style={styles.dealsTitle}>Picks &amp; Deals</Text>
-                <Text style={styles.dealsSubtitle}>Small prices. Big savings.</Text>
-              </View>
-              <View style={styles.dealsBasketBadge}>
-                <AppIcon icon={ShoppingBag01Icon} size={26} color="#FFFFFF" />
-              </View>
-            </View>
-
-            <View style={styles.dealsStoresRow}>
-              <TouchableOpacity style={[styles.storeChip, { backgroundColor: '#FBBF24' }]} activeOpacity={0.85}>
-                <Text style={styles.storeChipPrice}>₹9</Text>
-                <Text style={styles.storeChipLabel}>Store</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.storeChip, { backgroundColor: '#DC2626' }]} activeOpacity={0.85}>
-                <Text style={[styles.storeChipPrice, { color: '#FFFFFF' }]}>₹19</Text>
-                <Text style={[styles.storeChipLabel, { color: '#FFFFFF' }]}>Store</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.storeChip, { backgroundColor: '#991B1B' }]} activeOpacity={0.85}>
-                <Text style={[styles.storeChipPrice, { color: '#FFFFFF' }]}>₹29</Text>
-                <Text style={[styles.storeChipLabel, { color: '#FFFFFF' }]}>Store</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.dealsEmptyText}>No deals available right now — check back soon.</Text>
-          </View>
         </View>
 
         {/* Recipes Section (Watch & Cook) */}
@@ -1135,7 +1108,7 @@ export default function HomeScreen() {
               <Text style={styles.sectionHeading}>Premium Fish &amp; Seafood</Text>
               <Text style={styles.sectionSubtitle}>Same-day catch: fresh and flavourful</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/explore')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => openCategory('fish')} activeOpacity={0.7}>
               <Text style={styles.seeAllText}>See all &gt;</Text>
             </TouchableOpacity>
           </View>
@@ -1170,7 +1143,7 @@ export default function HomeScreen() {
               <Text style={styles.sectionHeading}>Best of Mutton</Text>
               <Text style={styles.sectionSubtitle}>Our most tender mutton cuts</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/explore')} activeOpacity={0.7}>
+            <TouchableOpacity onPress={() => openCategory('mutton')} activeOpacity={0.7}>
               <Text style={styles.seeAllText}>See all &gt;</Text>
             </TouchableOpacity>
           </View>
@@ -2324,86 +2297,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  /* Picks & Deals Banner */
-  dealsBannerContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: '#FFFFFF',
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
-  },
-  dealsBanner: {
-    backgroundColor: '#DC2626',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  dealsHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  dealsTitle: {
-    color: '#FFFFFF',
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-  },
-  dealsSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 12.5,
-    fontWeight: '500',
-    marginTop: 2,
-  },
-  dealsBasketBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dealsStoresRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
-  },
-  storeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  storeChipPrice: {
-    color: '#171717',
-    fontSize: 13.5,
-    fontWeight: '900',
-  },
-  storeChipLabel: {
-    color: '#171717',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  dealsEmptyText: {
-    color: 'rgba(255, 255, 255, 0.8)',
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  /* Recipe Video Cards */
   recipeVideoCard: {
     width: 156,
     height: 210,

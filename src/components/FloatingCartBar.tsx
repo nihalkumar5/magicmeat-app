@@ -8,10 +8,17 @@ import { AppIcon, ShoppingBag01Icon, ArrowRight01Icon } from './HugeIcon';
 const FloatingCartBarComponent: React.FC = () => {
   const cartLength = useStore((state) => state.cart.length);
   const totalItems = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
-  const totalPrice = useStore((state) => state.getCartTotal());
+  const itemTotal = useStore((state) => state.getCartSubtotal());
   const netGrams = useStore((state) => state.getCartNetWeightGrams());
 
   if (cartLength === 0) return null;
+
+  const summary =
+    netGrams >= 1000
+      ? `${(netGrams / 1000).toFixed(netGrams % 1000 === 0 ? 0 : 1)}kg Net Cooking Meat`
+      : netGrams > 0
+      ? `${netGrams}g Net Cooking Meat`
+      : `${totalItems} item${totalItems > 1 ? 's' : ''} in basket`;
 
   return (
     <View style={styles.wrapper}>
@@ -28,8 +35,8 @@ const FloatingCartBarComponent: React.FC = () => {
             </View>
           </View>
           <View>
-            <Text style={styles.weightText}>{netGrams}g Net Cooking Meat</Text>
-            <Text style={styles.priceText}>₹{totalPrice}</Text>
+            <Text style={styles.weightText}>{summary}</Text>
+            <Text style={styles.priceText}>₹{itemTotal}</Text>
           </View>
         </View>
 

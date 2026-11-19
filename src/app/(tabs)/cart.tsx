@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../../constants/theme';
 import { useStore } from '../../store/useStore';
+import { slotInfo } from '../../data/slots';
 import { router } from 'expo-router';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { StatusBar } from 'expo-status-bar';
@@ -51,6 +52,8 @@ export default function CartScreen() {
   const grandTotal = getCartTotal();
   const deliveryFee = orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
   const packagingFee = coldPackagingEnabled ? 15 : 0;
+  const sundaySlot = slotInfo('sunday_morning');
+  const eveningSlot = slotInfo('slot');
 
   if (cart.length === 0) {
     return (
@@ -207,7 +210,7 @@ export default function CartScreen() {
                     deliveryMode === 'sunday_morning' && styles.slotTitleActive,
                   ]}
                 >
-                  Sunday
+                  {sundaySlot.title}
                 </Text>
               </View>
               <Text style={styles.slotSubtitle}>7 - 9 AM</Text>
@@ -231,11 +234,11 @@ export default function CartScreen() {
                     deliveryMode === 'slot' && styles.slotTitleActive,
                   ]}
                 >
-                  Evening
+                  {eveningSlot.title}
                 </Text>
               </View>
               <Text style={styles.slotSubtitle}>5 - 7 PM</Text>
-              <Text style={styles.slotNote}>Dinner Cut</Text>
+              <Text style={styles.slotNote}>{eveningSlot.title === 'Today' ? 'Dinner Cut' : 'Next Day'}</Text>
             </TouchableOpacity>
           </View>
         </View>

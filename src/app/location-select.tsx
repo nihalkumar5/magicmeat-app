@@ -7,13 +7,13 @@ import {
   ScrollView,
   TextInput,
   ActivityIndicator,
-  Alert,
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { notify, confirmAction } from '../utils/dialogs';
 import { LocationData, MAGICMEAT_HUBS, DarkStoreHub } from '../types/location';
 import {
   detectDeviceLocation,
@@ -128,7 +128,7 @@ export default function LocationSelectScreen() {
       }
     } catch (err: any) {
       setIsDetecting(false);
-      Alert.alert(
+      notify(
         'Location Detection',
         err.message || 'Unable to detect GPS position. Please pick from saved addresses.'
       );
@@ -137,13 +137,13 @@ export default function LocationSelectScreen() {
 
   const handleSaveNewAddress = () => {
     if (!newTitle.trim() || !newAddress.trim()) {
-      Alert.alert('Required Fields', 'Please enter both location name and full address.');
+      notify('Required Fields', 'Please enter both location name and full address.');
       return;
     }
 
     const created: LocationData = {
       shortAddress: newTitle.trim(),
-      fullAddress: `${newAddress.trim()}, ${newCity.trim()}`,
+      fullAddress: [newAddress.trim(), newCity.trim()].filter(Boolean).join(', '),
       city: newCity.trim(),
       state: 'Chhattisgarh',
       coords: { latitude: 21.2514, longitude: 81.6296 },
@@ -526,17 +526,11 @@ export default function LocationSelectScreen() {
                       <TouchableOpacity
                         style={styles.deleteAddressBtn}
                         onPress={() => {
-                          Alert.alert(
+                          confirmAction(
                             'Delete Address',
                             `Are you sure you want to remove "${item.shortAddress}"?`,
-                            [
-                              { text: 'Cancel', style: 'cancel' },
-                              {
-                                text: 'Delete',
-                                style: 'destructive',
-                                onPress: () => removeSavedAddress(item.shortAddress),
-                              },
-                            ]
+                            'Delete',
+                            () => removeSavedAddress(item.shortAddress)
                           );
                         }}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}

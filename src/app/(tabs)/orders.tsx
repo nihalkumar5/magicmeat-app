@@ -89,7 +89,7 @@ export default function OrdersScreen() {
             <View style={styles.activeBody}>
               <Text style={styles.orderIdText}>Order #{activeOrder.id}</Text>
               <Text style={styles.activeEta}>
-                Arriving in <Text style={{ color: '#000000' }}>{activeOrder.eta}</Text>
+                {activeOrder.deliveryMode === 'instant' ? 'Arriving in ' : 'Arriving '}<Text style={{ color: '#000000' }}>{activeOrder.eta}</Text>
               </Text>
               <Text style={styles.activeSlot}>{activeOrder.slotLabel}</Text>
               <Text style={styles.activeItemsCount}>

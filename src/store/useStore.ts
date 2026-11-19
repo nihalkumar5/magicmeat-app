@@ -5,6 +5,7 @@ import { Platform } from 'react-native';
 import { Product, CutOption, CartItem, Order, DeliveryMode, MeatCategory, InventoryItem, OrderStatus } from '../types';
 import { LocationData } from '../types/location';
 import { unitPriceFor } from '../data/pricing';
+import { slotInfo } from '../data/slots';
 import {
   adminUpdateOrder,
   adminUpdateProduct,
@@ -453,18 +454,7 @@ export const useStore = create<StoreState>()(
     const deliveryFee = state.orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
     const packagingFee = state.coldPackagingEnabled ? 15 : 0;
     const total = subtotal + deliveryFee + packagingFee;
-    const slotLabel =
-      state.deliveryMode === 'instant'
-        ? '⚡ Instant Express (30 mins)'
-        : state.deliveryMode === 'sunday_morning'
-        ? '🌅 Sunday Morning (7:00 AM - 9:00 AM)'
-        : '📦 Today (5:00 PM - 7:00 PM)';
-    const eta =
-      state.deliveryMode === 'instant'
-        ? '30 mins'
-        : state.deliveryMode === 'sunday_morning'
-        ? 'Sunday 7:00 - 9:00 AM'
-        : 'Today 5:00 - 7:00 PM';
+    const { label: slotLabel, eta } = slotInfo(state.deliveryMode);
     const id = newOrderId();
 
     // Throws if the network is down or the rules reject the order (price

@@ -7,13 +7,13 @@ import {
   TouchableOpacity,
   TextInput,
   Image,
-  Alert,
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { notify, confirmAction } from '../utils/dialogs';
 import { adminSignIn, adminSignOut } from '../services/backend';
 import { PRODUCTS } from '../data/mockData';
 import { Order, OrderStatus } from '../types';
@@ -168,16 +168,16 @@ export default function AdminScreen() {
   const handleNextStatus = (order: Order) => {
     if (order.status === 'placed') {
       updateOrderStatus(order.id, 'butcher_prepping', 2.1);
-      Alert.alert('Butchery Started', `Order #${order.id} sent to master butcher cutting line.`);
+      notify('Butchery Started', `Order #${order.id} sent to master butcher cutting line.`);
     } else if (order.status === 'butcher_prepping') {
       updateOrderStatus(order.id, 'cold_packed', 1.8);
-      Alert.alert('Cold Packed', `Order #${order.id} sealed with 0-4°C cooling pack.`);
+      notify('Cold Packed', `Order #${order.id} sealed with 0-4°C cooling pack.`);
     } else if (order.status === 'cold_packed') {
       updateOrderStatus(order.id, 'out_for_delivery', 2.3);
-      Alert.alert('Dispatched', `Order #${order.id} handed to ${order.riderName || 'Rider'}.`);
+      notify('Dispatched', `Order #${order.id} handed to ${order.riderName || 'Rider'}.`);
     } else if (order.status === 'out_for_delivery') {
       updateOrderStatus(order.id, 'delivered', 2.4);
-      Alert.alert('Delivered', `Order #${order.id} marked as delivered to customer.`);
+      notify('Delivered', `Order #${order.id} marked as delivered to customer.`);
     }
   };
 
@@ -501,17 +501,12 @@ export default function AdminScreen() {
                         <TouchableOpacity
                           style={styles.cancelBtn}
                           onPress={() => {
-                            Alert.alert(
+                            confirmAction(
                               'Cancel Order',
                               `Are you sure you want to cancel order #${order.id}?`,
-                              [
-                                { text: 'No', style: 'cancel' },
-                                {
-                                  text: 'Yes, Cancel',
-                                  style: 'destructive',
-                                  onPress: () => cancelOrder(order.id),
-                                },
-                              ]
+                              'Yes, Cancel',
+                              () => cancelOrder(order.id),
+                              'No'
                             );
                           }}
                           activeOpacity={0.7}

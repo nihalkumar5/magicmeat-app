@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Linking,
   Modal,
   ScrollView,
@@ -14,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { notify } from '../utils/dialogs';
+import { cleanPhone, isValidPhone } from '../utils/validation';
 import { fetchProfile, saveProfile as saveRemoteProfile } from '../services/backend';
 import {
   AppIcon,
@@ -71,13 +72,17 @@ export default function ProfileMenuScreen() {
 
   const saveProfile = async () => {
     if (!editName.trim() || !editPhone.trim()) {
-      Alert.alert('Required fields', 'Please enter your name and mobile number.');
+      notify('Required fields', 'Please enter your name and mobile number.');
+      return;
+    }
+    if (!isValidPhone(editPhone)) {
+      notify('Invalid mobile number', 'Please enter a valid 10-digit mobile number.');
       return;
     }
 
     const profile = {
       name: editName.trim(),
-      phone: editPhone.trim(),
+      phone: cleanPhone(editPhone),
       email: editEmail.trim() || undefined,
     };
     setProfile({ name: profile.name, phone: profile.phone, email: profile.email || '' });
@@ -87,13 +92,13 @@ export default function ProfileMenuScreen() {
       setIsEditOpen(false);
     } catch {
       setIsEditOpen(false);
-      Alert.alert('Saved on this phone', 'Could not reach the server. Your profile will sync next time.');
+      notify('Saved on this phone', 'Could not reach the server. Your profile will sync next time.');
     }
   };
 
   const trackOrder = () => {
     if (!activeOrder) {
-      Alert.alert('No active order', 'Place an order to see live tracking here.');
+      notify('No active order', 'Place an order to see live tracking here.');
       return;
     }
     router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } });
@@ -168,7 +173,7 @@ export default function ProfileMenuScreen() {
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => Alert.alert('Freshness promise', 'If your order arrives above 4°C, contact support for a replacement review.')}
+            onPress={() => notify('Freshness promise', 'If your order arrives above 4°C, contact support for a replacement review.')}
           >
             <AppIcon icon={ShieldCheckIcon} size={19} color="#111827" />
             <View style={styles.menuCopy}>
@@ -180,7 +185,7 @@ export default function ProfileMenuScreen() {
           <View style={styles.divider} />
           <TouchableOpacity
             style={styles.menuRow}
-            onPress={() => Alert.alert('Terms & refunds', 'Refund and replacement requests are reviewed by MagicMeat support.')}
+            onPress={() => notify('Terms & refunds', 'Refund and replacement requests are reviewed by MagicMeat support.')}
           >
             <AppIcon icon={Invoice01Icon} size={19} color="#111827" />
             <View style={styles.menuCopy}>

@@ -6,12 +6,14 @@ import {
   ScrollView,
   TouchableOpacity,
   TextInput,
-  Alert,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
+import { slotInfo } from '../data/slots';
+import { notify } from '../utils/dialogs';
+import { cleanPhone, isValidPhone } from '../utils/validation';
+import { saveProfile } from '../services/backend';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -30,11 +32,7 @@ import {
 const MAX_CART_LINES = 6;
 
 function showError(message: string) {
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.alert(message);
-  } else {
-    Alert.alert('Order not placed', message);
-  }
+  notify('Order not placed', message);
 }
 
 const PAYMENT_METHODS: { id: 'Cash on Delivery'; label: string; sub: string; icon: any }[] = [
@@ -52,16 +50,27 @@ export default function CheckoutScreen() {
     deliveryMode,
     orderFulfillment,
     selectedAddress,
+    currentLocation,
+    profile,
+    setProfile,
     getCartTotal,
+    getCartSubtotal,
+    coldPackagingEnabled,
     getCartNetWeightGrams,
     placeOrder,
   } = useStore();
 
   const [paymentMethod, setPaymentMethod] = useState<'Cash on Delivery'>('Cash on Delivery');
-  const [deliveryNote, setDeliveryNote] = useState('Ring bell, hand over cold pack directly');
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [name, setName] = useState(profile.name);
+  const [phone, setPhone] = useState(profile.phone);
+  const isUnserviceable = orderFulfillment === 'delivery' && currentLocation.isServiceable === false;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const grandTotal = getCartTotal();
+  const subtotal = getCartSubtotal();
+  const deliveryFee = orderFulfillment === 'delivery' && subtotal < 299 ? 35 : 0;
+  const packagingFee = coldPackagingEnabled ? 15 : 0;
   const netGrams = getCartNetWeightGrams();
 
   const handlePlaceOrder = async () => {
@@ -73,6 +82,26 @@ export default function CheckoutScreen() {
     if (cart.length > MAX_CART_LINES) {
       showError(`Please keep it to ${MAX_CART_LINES} different items per order.`);
       return;
+    }
+    if (isUnserviceable) {
+      showError(`We don't deliver to ${currentLocation.city || 'this address'} yet. Please pick another address.`);
+      return;
+    }
+    if (!name.trim()) {
+      showError('Please enter your name.');
+      return;
+    }
+    if (!isValidPhone(phone)) {
+      showError('Please enter a valid 10-digit mobile number so we can reach you.');
+      return;
+    }
+
+    const nextProfile = { name: name.trim(), phone: cleanPhone(phone), email: profile.email };
+    if (nextProfile.name !== profile.name || nextProfile.phone !== profile.phone) {
+      setProfile(nextProfile);
+      saveProfile({ ...nextProfile, email: nextProfile.email || undefined }).catch((e) =>
+        console.warn('[checkout] profile sync', e?.code || e)
+      );
     }
 
     setIsSubmitting(true);
@@ -119,11 +148,45 @@ export default function CheckoutScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <AppIcon icon={Location01Icon} size={16} color="#000000" strokeWidth={2} />
-            <Text style={styles.cardTitle}>
+            <Text style={[styles.cardTitle, { flex: 1 }]}>
               {orderFulfillment === 'takeaway' ? 'Pickup Store' : 'Delivery Address'}
             </Text>
+            <TouchableOpacity
+              onPress={() => router.push('/location-select')}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              accessibilityRole="button"
+            >
+              <Text style={styles.changeLink}>Change</Text>
+            </TouchableOpacity>
           </View>
           <Text style={styles.addressText}>{selectedAddress}</Text>
+          {isUnserviceable && (
+            <Text style={styles.unserviceableText}>
+              We don&apos;t deliver here yet. Go back and pick another address.
+            </Text>
+          )}
+
+          <View style={styles.contactRow}>
+            <TextInput
+              style={[styles.noteInput, styles.contactInput]}
+              value={name}
+              onChangeText={setName}
+              placeholder="Your name"
+              placeholderTextColor={THEME.colors.textMuted}
+              maxLength={80}
+              autoComplete="name"
+            />
+            <TextInput
+              style={[styles.noteInput, styles.contactInput]}
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="10-digit mobile"
+              placeholderTextColor={THEME.colors.textMuted}
+              keyboardType="phone-pad"
+              maxLength={14}
+              autoComplete="tel"
+            />
+          </View>
 
           <View style={styles.deliveryNoteContainer}>
             <Text style={styles.noteLabel}>
@@ -133,8 +196,9 @@ export default function CheckoutScreen() {
               style={styles.noteInput}
               value={deliveryNote}
               onChangeText={setDeliveryNote}
-              placeholder="e.g. Leave with guard / Don't ring bell"
+              placeholder="e.g. Ring bell, hand over cold pack directly"
               placeholderTextColor={THEME.colors.textMuted}
+              maxLength={300}
             />
           </View>
         </View>
@@ -154,11 +218,7 @@ export default function CheckoutScreen() {
 
           <View style={styles.slotBadge}>
             <Text style={styles.slotBadgeText}>
-              {deliveryMode === 'instant'
-                ? '⚡ 30-Min Express Dark-Store Delivery'
-                : deliveryMode === 'sunday_morning'
-                ? '🌅 Sunday Morning 7:00 AM - 9:00 AM Guaranteed'
-                : '📦 Today Evening 5:00 PM - 7:00 PM'}
+              {deliveryMode === 'instant' ? '⚡ 30-Min Express Dark-Store Delivery' : slotInfo(deliveryMode).label}
             </Text>
           </View>
 
@@ -222,6 +282,19 @@ export default function CheckoutScreen() {
             </View>
           ))}
 
+          {deliveryFee > 0 && (
+            <View style={styles.miniItemRow}>
+              <Text style={styles.miniItemTitle}>Delivery fee (free above ₹299)</Text>
+              <Text style={styles.miniItemPrice}>₹{deliveryFee}</Text>
+            </View>
+          )}
+          {packagingFee > 0 && (
+            <View style={styles.miniItemRow}>
+              <Text style={styles.miniItemTitle}>Cold-chain thermal pouch</Text>
+              <Text style={styles.miniItemPrice}>₹{packagingFee}</Text>
+            </View>
+          )}
+
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total Payable</Text>
             <Text style={styles.totalAmount}>₹{grandTotal}</Text>
@@ -261,6 +334,33 @@ export default function CheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  changeLink: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#DC2626',
+  },
+  unserviceableText: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#B91C1C',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  contactInput: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 13,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E5E5EA',
+    borderRadius: THEME.radius.md,
+    backgroundColor: '#FFFFFF',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,
