@@ -1044,26 +1044,39 @@ export default function HomeScreen() {
         />
 
         {/* Jhatka story */}
-        <View style={styles.jhatkaBannerContainer}>
-          <View style={styles.jhatkaBanner}>
-            <View style={styles.jhatkaInnerFrame}>
-              <View style={styles.jhatkaLeftCol}>
-                <View style={styles.jhatkaTag}>
-                  <Text style={styles.jhatkaTagText}>100% JHATKA</Text>
+        <TouchableOpacity
+          style={styles.jhatkaCard}
+          activeOpacity={0.9}
+          onPress={() => openCategory('mutton')}
+          accessibilityRole="button"
+          accessibilityLabel="100% jhatka meat. Shop mutton"
+        >
+          <View style={styles.jhatkaText}>
+            <View style={styles.jhatkaTag}>
+              <Text style={styles.jhatkaTagHindi}>झटका</Text>
+              <Text style={styles.jhatkaTagText}>100% JHATKA</Text>
+            </View>
+            <Text style={styles.jhatkaTitle}>Jhatka, the traditional way</Text>
+            <View style={styles.jhatkaPoints}>
+              {['Single swift cut', 'Cleaned & cut to order', 'Packed fresh'].map((point) => (
+                <View key={point} style={styles.jhatkaPoint}>
+                  <AppIcon icon={CheckmarkBadge01Icon} size={14} color="#F87171" strokeWidth={2.2} />
+                  <Text style={styles.jhatkaPointText}>{point}</Text>
                 </View>
-                <Text style={styles.jhatkaTitle}>Jhatka, the traditional way</Text>
-                <Text style={styles.jhatkaSubtitle}>
-                  Prepared with a single swift cut, then cleaned and packed fresh for your kitchen.
-                </Text>
-              </View>
-              <Image
-                source={require('../../../assets/illustrations/master_chef.png')}
-                style={styles.jhatkaChefIllustration}
-                resizeMode="contain"
-              />
+              ))}
+            </View>
+            <View style={styles.jhatkaCta}>
+              <Text style={styles.jhatkaCtaText}>Shop mutton</Text>
+              <AppIcon icon={ArrowRight01Icon} size={14} color="#FFFFFF" strokeWidth={2.4} />
             </View>
           </View>
-        </View>
+          <Image
+            source={{ uri: optimizeImageUrl(JHATKA_IMAGE, 400) }}
+            style={styles.jhatkaImage}
+            resizeMode="cover"
+            fadeDuration={0}
+          />
+        </TouchableOpacity>
 
         {/* Fish */}
         <SectionHeader
@@ -1142,6 +1155,9 @@ export default function HomeScreen() {
     </SafeAreaView>
   );
 }
+
+// Our own mutton curry cut photo for the jhatka story card.
+const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
 
 // 4 x 2 category grid, each tile showing a photo of one of its products.
 const HOME_CATEGORIES: { id: MeatCategory; label: string; image: string }[] = (
@@ -2618,66 +2634,83 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginTop: 2,
   },
-  /* Traditional Jhatka Banner */
-  jhatkaBannerContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    width: '100%',
-    maxWidth: '100%',
-    overflow: 'hidden',
-  },
-  jhatkaBanner: {
-    backgroundColor: '#C52227',
-    borderRadius: 14,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#9E1317',
-  },
-  jhatkaInnerFrame: {
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-    borderRadius: 10,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+  /* Jhatka story card */
+  jhatkaCard: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    marginHorizontal: 16,
+    marginTop: 24,
+    borderRadius: 22,
+    overflow: 'hidden',
+    backgroundColor: '#1C1917',
+    minHeight: 200,
   },
-  jhatkaLeftCol: {
+  jhatkaText: {
     flex: 1,
-    paddingRight: 10,
+    padding: 18,
+    justifyContent: 'center',
   },
   jhatkaTag: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
     alignSelf: 'flex-start',
-    marginBottom: 6,
+    gap: 6,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#DC2626',
+  },
+  jhatkaTagHindi: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '800',
   },
   jhatkaTagText: {
     color: '#FFFFFF',
-    fontSize: 9.5,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '900',
     letterSpacing: 0.8,
   },
   jhatkaTitle: {
+    marginTop: 10,
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 21,
+    lineHeight: 25,
     fontWeight: '900',
-    letterSpacing: -0.3,
-    marginBottom: 4,
+    letterSpacing: -0.5,
   },
-  jhatkaSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
-    fontSize: 11.5,
+  jhatkaPoints: {
+    marginTop: 10,
+    gap: 6,
+  },
+  jhatkaPoint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  jhatkaPointText: {
+    color: 'rgba(255,255,255,0.82)',
+    fontSize: 13,
     fontWeight: '500',
-    lineHeight: 16,
   },
-  jhatkaChefIllustration: {
-    width: 78,
-    height: 78,
+  jhatkaCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 6,
+    marginTop: 14,
+    paddingHorizontal: 14,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  jhatkaCtaText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  jhatkaImage: {
+    width: '38%',
+    minHeight: 200,
   },
   /* Poetic Brand Footer */
   signoff: {
