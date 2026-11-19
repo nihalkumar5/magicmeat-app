@@ -1,61 +1,86 @@
 import { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  FlatList,
+  TouchableOpacity,
+  Image,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { PRODUCTS } from '../../data/mockData';
-import { DominosCard } from '../../components/DominosCard';
+import { FREE_DELIVERY_ABOVE } from '../../data/pricing';
+import { ShopCard } from '../../components/ShopCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
 import { useStore } from '../../store/useStore';
-import type { MeatCategory } from '../../types';
-import { AppIcon, Search01Icon, Sorting01Icon } from '../../components/HugeIcon';
+import { optimizeImageUrl } from '../../utils/imageOptimizer';
+import type { MeatCategory, Product } from '../../types';
+import { AppIcon, Search01Icon, Sorting01Icon, DeliveryTruck01Icon } from '../../components/HugeIcon';
 
 const C = {
-  bg: '#F2F2F7',
-  card: '#FFFFFF',
+  bg: '#FFFFFF',
+  rail: '#F7F7F8',
   text: '#111111',
   secondary: '#6B7280',
+  hairline: 'rgba(60, 60, 67, 0.12)',
   red: '#DC2626',
+  redBg: '#FEF2F2',
 };
 
-const CATEGORIES: { id: MeatCategory; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'chicken', label: 'Chicken' },
-  { id: 'mutton', label: 'Mutton' },
-  { id: 'fish', label: 'Fish' },
-  { id: 'curry-cuts', label: 'Curry cuts' },
-  { id: 'ready-to-cook', label: 'Ready to cook' },
-  { id: 'eggs', label: 'Eggs' },
-  { id: 'fresh-produce', label: 'Veggies & fruits' },
-];
+const inCategory = (p: Product, id: MeatCategory) =>
+  id === 'all'
+    ? true
+    : id === 'curry-cuts'
+    ? p.availableCuts.some((c) => c.name.toLowerCase().includes('curry'))
+    : p.category === id;
+
+// Left-rail categories, each shown with a photo of one of its products.
+const CATEGORIES: { id: MeatCategory; label: string; title: string; image: string }[] = (
+  [
+    { id: 'all', label: 'All', title: 'All products', from: 'c1' },
+    { id: 'chicken', label: 'Chicken', title: 'Chicken' },
+    { id: 'mutton', label: 'Mutton', title: 'Mutton' },
+    { id: 'fish', label: 'Fish', title: 'Fresh fish' },
+    { id: 'curry-cuts', label: 'Curry cuts', title: 'Curry cuts', from: 'm1' },
+    { id: 'ready-to-cook', label: 'Ready to cook', title: 'Ready to cook' },
+    { id: 'eggs', label: 'Eggs', title: 'Eggs' },
+    { id: 'fresh-produce', label: 'Veggies & fruits', title: 'Veggies & fruits' },
+  ] as { id: MeatCategory; label: string; title: string; from?: string }[]
+)
+  .map((c) => ({
+    ...c,
+    image: (c.from ? PRODUCTS.find((p) => p.id === c.from) : PRODUCTS.find((p) => inCategory(p, c.id)))?.image || '',
+  }))
+  .filter((c) => PRODUCTS.some((p) => inCategory(p, c.id)));
 
 type SortOption = 'popular' | 'low' | 'high';
-const SORT_LABEL: Record<SortOption, string> = {
-  popular: 'Popular',
-  low: 'Price: low to high',
-  high: 'Price: high to low',
-};
+const SORT_LABEL: Record<SortOption, string> = { popular: 'Popular', low: 'Price: low', high: 'Price: high' };
 const NEXT_SORT: Record<SortOption, SortOption> = { popular: 'low', low: 'high', high: 'popular' };
 
-const GUTTER = 16;
+const RAIL = 84;
+const PAD = 12;
 const GAP = 12;
 
 export default function ShopScreen() {
-  const selectedCategory = useStore((state) => state.selectedCategory);
-  const setSelectedCategory = useStore((state) => state.setSelectedCategory);
+  const selected = useStore((s) => s.selectedCategory);
+  const setSelected = useStore((s) => s.setSelectedCategory);
+  const location = useStore((s) => s.currentLocation);
+  const isPickup = useStore((s) => s.orderFulfillment === 'takeaway');
+  const cartEmpty = useStore((s) => s.cart.length === 0);
   const [sort, setSort] = useState<SortOption>('popular');
   const { width } = useWindowDimensions();
 
-  // Two columns on phones, more on wide web screens.
-  const columns = Platform.OS === 'web' && width >= 768 ? Math.min(4, Math.floor((width - GUTTER * 2) / 220)) : 2;
-  const contentWidth = Platform.OS === 'web' && width >= 768 ? Math.min(width, 980) : width;
-  const cardWidth = Math.floor((contentWidth - GUTTER * 2 - GAP * (columns - 1)) / columns);
+  const active = CATEGORIES.find((c) => c.id === selected) || CATEGORIES[0];
+  const gridWidth = Math.min(width, 900) - RAIL;
+  const columns = gridWidth > 560 ? 3 : 2;
+  const cardWidth = Math.floor((gridWidth - PAD * 2 - GAP * (columns - 1)) / columns);
 
-  let products = PRODUCTS.filter((p) => {
-    if (selectedCategory === 'all') return true;
-    if (selectedCategory === 'curry-cuts') return p.availableCuts.some((c) => c.name.toLowerCase().includes('curry'));
-    return p.category === selectedCategory;
-  });
+  let products = PRODUCTS.filter((p) => inCategory(p, active.id));
   if (sort === 'low') products = [...products].sort((a, b) => a.basePrice - b.basePrice);
   if (sort === 'high') products = [...products].sort((a, b) => b.basePrice - a.basePrice);
 
@@ -63,10 +88,22 @@ export default function ShopScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
 
+      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.largeTitle}>Shop</Text>
+        <View style={{ flex: 1, minWidth: 0 }}>
+          <Text style={styles.title} numberOfLines={1}>
+            {active.title}
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/location-select')} activeOpacity={0.6}>
+            <Text style={styles.subtitle} numberOfLines={1}>
+              {isPickup ? 'Pickup from ' : 'Delivering to '}
+              <Text style={{ color: C.text, fontWeight: '600' }}>{location.shortAddress}</Text>
+              {isPickup ? ' · ready in 10 mins' : ' · 30 mins'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <TouchableOpacity
-          style={styles.searchBtn}
+          style={styles.iconBtn}
           onPress={() => router.push('/search')}
           activeOpacity={0.7}
           accessibilityRole="button"
@@ -76,68 +113,87 @@ export default function ShopScreen() {
         </TouchableOpacity>
       </View>
 
-      <View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+      <View style={styles.body}>
+        {/* Category rail */}
+        <ScrollView style={styles.rail} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
           {CATEGORIES.map((cat) => {
-            const active = selectedCategory === cat.id;
+            const on = cat.id === active.id;
             return (
               <TouchableOpacity
                 key={cat.id}
-                style={[styles.chip, active && styles.chipActive]}
-                onPress={() => setSelectedCategory(cat.id)}
-                activeOpacity={0.8}
+                style={[styles.railItem, on && styles.railItemOn]}
+                onPress={() => setSelected(cat.id)}
+                activeOpacity={0.7}
                 accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={cat.label}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{cat.label}</Text>
+                {on && <View style={styles.railBar} />}
+                <View style={[styles.railImgWrap, on && styles.railImgWrapOn]}>
+                  {!!cat.image && (
+                    <Image source={{ uri: optimizeImageUrl(cat.image, 120) }} style={styles.railImg} resizeMode="cover" />
+                  )}
+                </View>
+                <Text style={[styles.railLabel, on && styles.railLabelOn]} numberOfLines={2}>
+                  {cat.label}
+                </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-      </View>
 
-      <View style={styles.toolbar}>
-        <Text style={styles.count}>
-          {products.length} item{products.length === 1 ? '' : 's'}
-        </Text>
-        <TouchableOpacity
-          style={styles.sortBtn}
-          onPress={() => setSort(NEXT_SORT[sort])}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel={`Sort: ${SORT_LABEL[sort]}. Tap to change`}
-        >
-          <AppIcon icon={Sorting01Icon} size={14} color={sort === 'popular' ? C.text : C.red} strokeWidth={2.2} />
-          <Text style={[styles.sortText, sort !== 'popular' && { color: C.red }]}>{SORT_LABEL[sort]}</Text>
-        </TouchableOpacity>
-      </View>
-
-      <FlatList
-        key={`grid-${columns}`}
-        data={products}
-        keyExtractor={(item) => item.id}
-        numColumns={columns}
-        columnWrapperStyle={columns > 1 ? { gap: GAP } : undefined}
-        contentContainerStyle={[styles.grid, { width: contentWidth, alignSelf: 'center' }]}
-        showsVerticalScrollIndicator={false}
-        renderItem={({ item }) => (
-          <DominosCard product={item} cardWidth={cardWidth} style={styles.gridCard} />
-        )}
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyTitle}>Nothing here yet</Text>
-            <Text style={styles.emptySub}>Try another category.</Text>
-            <TouchableOpacity onPress={() => setSelectedCategory('all')}>
-              <Text style={styles.link}>Show everything</Text>
+        {/* Products */}
+        <View style={{ flex: 1 }}>
+          <View style={styles.toolbar}>
+            <Text style={styles.count}>
+              {products.length} item{products.length === 1 ? '' : 's'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.sortChip, sort !== 'popular' && styles.sortChipOn]}
+              onPress={() => setSort(NEXT_SORT[sort])}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Sort: ${SORT_LABEL[sort]}. Tap to change`}
+            >
+              <AppIcon icon={Sorting01Icon} size={13} color={sort === 'popular' ? C.text : C.red} strokeWidth={2.2} />
+              <Text style={[styles.sortText, sort !== 'popular' && { color: C.red }]}>{SORT_LABEL[sort]}</Text>
             </TouchableOpacity>
           </View>
-        }
-        ListFooterComponent={<View style={{ height: 110 }} />}
-        initialNumToRender={6}
-        maxToRenderPerBatch={6}
-        windowSize={5}
-        removeClippedSubviews={Platform.OS === 'android'}
-      />
+
+          <FlatList
+            key={`grid-${columns}`}
+            data={products}
+            keyExtractor={(item) => item.id}
+            numColumns={columns}
+            columnWrapperStyle={{ gap: GAP }}
+            contentContainerStyle={styles.grid}
+            showsVerticalScrollIndicator={false}
+            renderItem={({ item }) => <ShopCard product={item} width={cardWidth} />}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyTitle}>Nothing here yet</Text>
+                <TouchableOpacity onPress={() => setSelected('all')}>
+                  <Text style={styles.link}>Show everything</Text>
+                </TouchableOpacity>
+              </View>
+            }
+            ListFooterComponent={<View style={{ height: 120 }} />}
+            initialNumToRender={6}
+            maxToRenderPerBatch={6}
+            windowSize={5}
+            removeClippedSubviews={Platform.OS === 'android'}
+          />
+        </View>
+      </View>
+
+      {cartEmpty && !isPickup && (
+        <View style={styles.freeStrip}>
+          <AppIcon icon={DeliveryTruck01Icon} size={15} color="#166534" strokeWidth={2} />
+          <Text style={styles.freeText}>
+            FREE DELIVERY on orders above <Text style={{ fontWeight: '800' }}>₹{FREE_DELIVERY_ABOVE}</Text>
+          </Text>
+        </View>
+      )}
 
       <FloatingCartBar />
     </SafeAreaView>
@@ -152,98 +208,159 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: GUTTER,
-    paddingTop: 8,
-    paddingBottom: 4,
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: C.hairline,
   },
-  largeTitle: {
-    fontSize: 32,
+  title: {
+    fontSize: 22,
     fontWeight: '800',
     color: C.text,
-    letterSpacing: -0.6,
+    letterSpacing: -0.4,
   },
-  searchBtn: {
+  subtitle: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  iconBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.card,
+    backgroundColor: C.rail,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chips: {
-    gap: 8,
-    paddingHorizontal: GUTTER,
+  body: {
+    flex: 1,
+    flexDirection: 'row',
+    width: '100%',
+    maxWidth: 900,
+    alignSelf: 'center',
+  },
+
+  /* rail */
+  rail: {
+    width: RAIL,
+    flexGrow: 0,
+    backgroundColor: C.rail,
+  },
+  railItem: {
+    alignItems: 'center',
     paddingVertical: 10,
+    paddingHorizontal: 4,
   },
-  chip: {
-    height: 36,
-    paddingHorizontal: 16,
-    borderRadius: 18,
-    backgroundColor: C.card,
-    justifyContent: 'center',
+  railItemOn: {
+    backgroundColor: C.bg,
   },
-  chipActive: {
-    backgroundColor: C.text,
+  railBar: {
+    position: 'absolute',
+    left: 0,
+    top: 10,
+    bottom: 10,
+    width: 3,
+    borderTopRightRadius: 3,
+    borderBottomRightRadius: 3,
+    backgroundColor: C.red,
   },
-  chipText: {
-    fontSize: 14,
-    fontWeight: '600',
+  railImgWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: 'hidden',
+    backgroundColor: '#ECECEE',
+  },
+  railImgWrapOn: {
+    borderWidth: 2,
+    borderColor: C.red,
+  },
+  railImg: {
+    width: '100%',
+    height: '100%',
+  },
+  railLabel: {
+    marginTop: 5,
+    fontSize: 11,
+    lineHeight: 14,
+    textAlign: 'center',
+    color: C.secondary,
+    fontWeight: '500',
+  },
+  railLabelOn: {
     color: C.text,
+    fontWeight: '700',
   },
-  chipTextActive: {
-    color: '#FFFFFF',
-  },
+
+  /* grid */
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: GUTTER,
-    paddingBottom: 8,
+    paddingHorizontal: PAD,
+    paddingVertical: 10,
   },
   count: {
     fontSize: 13,
     color: C.secondary,
   },
-  sortBtn: {
+  sortChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 4,
+    gap: 5,
+    height: 30,
+    paddingHorizontal: 10,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+  },
+  sortChipOn: {
+    borderColor: C.red,
+    backgroundColor: C.redBg,
   },
   sortText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: C.text,
   },
   grid: {
-    paddingHorizontal: GUTTER,
-    paddingTop: 4,
-  },
-  gridCard: {
-    marginRight: 0,
-    marginBottom: GAP,
-    borderWidth: 0,
+    paddingHorizontal: PAD,
   },
   empty: {
     alignItems: 'center',
     paddingTop: 60,
-    gap: 6,
+    gap: 8,
   },
   emptyTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '800',
     color: C.text,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: C.secondary,
   },
   link: {
     fontSize: 15,
     fontWeight: '600',
     color: C.red,
-    marginTop: 8,
+  },
+  freeStrip: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    backgroundColor: '#ECFDF3',
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#BBF7D0',
+  },
+  freeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+    letterSpacing: 0.2,
   },
 });
