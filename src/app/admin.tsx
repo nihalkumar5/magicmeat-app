@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -22,51 +24,84 @@ import { notify, confirmAction } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { adminSignIn, adminSignOut } from '../services/backend';
+import { orderLabel } from '../utils/orderId';
 import { PRODUCTS } from '../data/mockData';
-import type { Order } from '../types';
+import type { Order, Product } from '../types';
 import {
   AppIcon,
   ArrowLeft01Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  Search01Icon,
-  DeliveryTruck01Icon,
-  PlusSignIcon,
-  MinusSignIcon,
+  ArrowRight01Icon,
+  Alert02Icon,
   Call02Icon,
+  Cancel01Icon,
+  ChefHatIcon,
+  CheckmarkCircle02Icon,
+  Clock01Icon,
+  FlashIcon,
   Location01Icon,
+  MapsIcon,
+  MinusSignIcon,
+  Motorbike01Icon,
   Note01Icon,
-  Logout01Icon,
+  PackageIcon,
+  PlusSignIcon,
+  Search01Icon,
   Store01Icon,
+  Tick02Icon,
 } from '../components/HugeIcon';
 
-// Store admin, modelled on the Shopify mobile admin: a dark header with
-// today's numbers, then a white sheet with a scannable order list. Each
-// order opens in place, and one dark button moves it to the next step.
+// Store admin.
+//  · Today card (Stripe Dashboard): sales, orders and deliveries at a glance.
+//  · Orders grouped by stage (Linear), each a card with its next action
+//    (Uber Eats Orders: Reject / Accept on new orders, waiting time).
+//  · Order details in a sheet with a step timeline (IKEA order details).
+//  · Stock grouped by category with low / out filters (Shopify Inventory).
 
 const C = {
-  ink: '#0B0B0C',
-  bg: '#FFFFFF',
-  soft: '#F4F4F5',
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
   text: '#111111',
   secondary: '#6B7280',
-  placeholder: '#9CA3AF',
-  hairline: '#ECECEF',
+  tertiary: '#9CA3AF',
+  hairline: '#E8E8ED',
+  fill: '#F2F2F7',
   red: '#DC2626',
-  green: '#15803D',
-  greenBg: '#ECFDF3',
+  redSoft: '#FEF2F2',
+  green: '#16A34A',
+  greenDark: '#15803D',
+  greenSoft: '#F0FDF4',
+  amber: '#B45309',
+  amberSoft: '#FFFBEB',
+  blue: '#2563EB',
+  blueSoft: '#EFF6FF',
+  purple: '#7E22CE',
+  purpleSoft: '#FAF5FF',
 };
+
+const LOW_STOCK_KG = 5;
 
 type Stage = 'new' | 'preparing' | 'packed' | 'on_way' | 'delivered' | 'cancelled';
 
-const STAGE: Record<Stage, { label: string; color: string; bg: string; next?: string }> = {
-  new: { label: 'New', color: '#B45309', bg: '#FEF3C7', next: 'Accept and start preparing' },
-  preparing: { label: 'Preparing', color: '#1D4ED8', bg: '#EFF6FF', next: 'Mark as packed' },
-  packed: { label: 'Packed', color: '#0F766E', bg: '#F0FDFA', next: 'Send with rider' },
-  on_way: { label: 'On the way', color: '#7E22CE', bg: '#FAF5FF', next: 'Mark as delivered' },
-  delivered: { label: 'Delivered', color: C.green, bg: C.greenBg },
-  cancelled: { label: 'Cancelled', color: '#6B7280', bg: '#F3F4F6' },
-};
+const STAGES: {
+  key: Exclude<Stage, 'delivered' | 'cancelled'>;
+  title: string;
+  color: string;
+  soft: string;
+  icon: any;
+}[] = [
+  { key: 'new', title: 'New', color: C.red, soft: C.redSoft, icon: Alert02Icon },
+  { key: 'preparing', title: 'Preparing', color: C.blue, soft: C.blueSoft, icon: ChefHatIcon },
+  { key: 'packed', title: 'Packed, needs a rider', color: C.amber, soft: C.amberSoft, icon: PackageIcon },
+  { key: 'on_way', title: 'On the way', color: C.purple, soft: C.purpleSoft, icon: Motorbike01Icon },
+];
+
+const TIMELINE: { key: Stage; title: string }[] = [
+  { key: 'new', title: 'Order received' },
+  { key: 'preparing', title: 'Cutting and cleaning' },
+  { key: 'packed', title: 'Packed' },
+  { key: 'on_way', title: 'Out with rider' },
+  { key: 'delivered', title: 'Delivered' },
+];
 
 function stageOf(o: Order): Stage {
   switch (o.status) {
@@ -86,30 +121,22 @@ function stageOf(o: Order): Stage {
   }
 }
 
-type Filter = 'todo' | Stage | 'all';
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'todo', label: 'To do' },
-  { key: 'new', label: 'New' },
-  { key: 'preparing', label: 'Preparing' },
-  { key: 'packed', label: 'Packed' },
-  { key: 'on_way', label: 'On the way' },
-  { key: 'delivered', label: 'Delivered' },
-  { key: 'cancelled', label: 'Cancelled' },
-  { key: 'all', label: 'All' },
-];
-
 const isActive = (o: Order) => o.status !== 'delivered' && o.status !== 'cancelled';
 const itemCount = (o: Order) => o.items.reduce((n, i) => n + i.quantity, 0);
-const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+const rupees = (n: number) => `₹${n.toLocaleString('en-IN')}`;
 
-function timeAgo(ms?: number): string {
-  if (!ms) return '';
-  const mins = Math.max(0, Math.round((Date.now() - ms) / 60000));
+function minutesSince(ms: number | undefined, now: number): number | null {
+  if (!ms) return null;
+  return Math.max(0, Math.round((now - ms) / 60000));
+}
+
+function ago(mins: number | null): string {
+  if (mins === null) return '';
   if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.round(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return `${Math.round(hrs / 24)} d ago`;
+  if (mins < 60) return `${mins} min`;
+  const h = Math.floor(mins / 60);
+  if (h < 24) return `${h} hr ${mins % 60 ? `${mins % 60} min` : ''}`.trim();
+  return `${Math.floor(h / 24)} d`;
 }
 
 /* ================================================================ login */
@@ -174,7 +201,7 @@ function AdminLogin() {
           <TextInput
             style={styles.field}
             placeholder="you@magicmeat.in"
-            placeholderTextColor={C.placeholder}
+            placeholderTextColor={C.tertiary}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -188,7 +215,7 @@ function AdminLogin() {
           <TextInput
             style={styles.field}
             placeholder="Password"
-            placeholderTextColor={C.placeholder}
+            placeholderTextColor={C.tertiary}
             secureTextEntry
             autoComplete="password"
             textContentType="password"
@@ -201,13 +228,13 @@ function AdminLogin() {
           {!!error && <Text style={styles.loginError}>{error}</Text>}
 
           <TouchableOpacity
-            style={[styles.darkBtn, { marginTop: 22 }, busy && { opacity: 0.7 }]}
+            style={[styles.bigBtn, { marginTop: 22 }, busy && { opacity: 0.7 }]}
             onPress={submit}
             disabled={busy}
             activeOpacity={0.85}
             accessibilityRole="button"
           >
-            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.darkBtnText}>Sign in</Text>}
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.bigBtnText}>Sign in</Text>}
           </TouchableOpacity>
 
           <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={{ marginTop: 18, alignSelf: 'center' }}>
@@ -219,6 +246,136 @@ function AdminLogin() {
   );
 }
 
+/* ============================================================ order card */
+
+function OrderCard({
+  order,
+  now,
+  onOpen,
+  onAdvance,
+  onReject,
+}: {
+  order: Order;
+  now: number;
+  onOpen: () => void;
+  onAdvance: () => void;
+  onReject: () => void;
+}) {
+  const stage = stageOf(order);
+  const waited = minutesSince(order.createdAtMs, now);
+  const late = stage === 'new' && waited !== null && waited >= 10;
+  const slow = stage === 'new' && waited !== null && waited >= 5 && !late;
+  const express = order.deliveryMode === 'instant';
+  const thumbs = order.items.slice(0, 3);
+
+  const primary: Record<string, { label: string; style: object }> = {
+    new: { label: 'Accept', style: styles.btnRed },
+    preparing: { label: 'Mark as packed', style: styles.btnDark },
+    packed: { label: 'Assign rider', style: styles.btnDark },
+    on_way: { label: 'Mark as delivered', style: styles.btnGreen },
+  };
+  const action = primary[stage];
+
+  return (
+    <View style={styles.orderCard}>
+      <TouchableOpacity
+        onPress={onOpen}
+        activeOpacity={0.7}
+        accessibilityRole="button"
+        accessibilityLabel={`Open order ${order.id}`}
+      >
+        <View style={styles.cardTop}>
+          <Text style={styles.cardName} numberOfLines={1}>
+            {order.customerName || 'Customer'}
+          </Text>
+          <Text style={styles.cardTotal}>{rupees(order.total)}</Text>
+        </View>
+
+        <View style={styles.cardMetaRow}>
+          <Text style={styles.cardId}>{orderLabel(order.id)}</Text>
+          <Text style={styles.metaDot}>·</Text>
+          <AppIcon icon={Clock01Icon} size={12} color={late ? C.red : slow ? C.amber : C.secondary} strokeWidth={2.2} />
+          <Text
+            style={[
+              styles.cardMeta,
+              late && { color: C.red, fontWeight: '700' },
+              slow && { color: C.amber, fontWeight: '700' },
+            ]}
+          >
+            {stage === 'new' ? `Waiting ${ago(waited)}` : `${ago(waited)} ago`}
+          </Text>
+        </View>
+
+        <View style={styles.itemsRow}>
+          <View style={[styles.thumbs, { width: 30 + (thumbs.length - 1) * 18 }]}>
+            {thumbs.map((it, i) => (
+              <Image
+                key={`${order.id}-${i}`}
+                source={{ uri: optimizeImageUrl(it.product.image, 80) }}
+                style={[styles.thumb, { left: i * 18, zIndex: 3 - i }]}
+              />
+            ))}
+          </View>
+          <Text style={styles.itemsText} numberOfLines={2}>
+            {order.items.map((i) => `${i.quantity}× ${i.product.name}`).join(', ')}
+          </Text>
+        </View>
+
+        <View style={styles.tags}>
+          <View style={[styles.tag, express ? styles.tagExpress : null]}>
+            {express && <AppIcon icon={FlashIcon} size={11} color={C.red} strokeWidth={2.4} />}
+            <Text style={[styles.tagText, express && { color: C.red }]}>{express ? 'Express' : 'Normal'}</Text>
+          </View>
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>
+              {itemCount(order)} item{itemCount(order) === 1 ? '' : 's'}
+            </Text>
+          </View>
+          <View style={styles.tag}>
+            <Text style={styles.tagText}>Pay on delivery</Text>
+          </View>
+          {!!order.deliveryNote && (
+            <View style={[styles.tag, { backgroundColor: C.amberSoft }]}>
+              <AppIcon icon={Note01Icon} size={11} color={C.amber} strokeWidth={2.4} />
+              <Text style={[styles.tagText, { color: C.amber }]}>Note</Text>
+            </View>
+          )}
+          {stage === 'on_way' && !!order.riderName && (
+            <View style={[styles.tag, { backgroundColor: C.purpleSoft }]}>
+              <AppIcon icon={Motorbike01Icon} size={11} color={C.purple} strokeWidth={2.4} />
+              <Text style={[styles.tagText, { color: C.purple }]}>{order.riderName}</Text>
+            </View>
+          )}
+        </View>
+      </TouchableOpacity>
+
+      {action && (
+        <View style={styles.cardActions}>
+          {stage === 'new' && (
+            <TouchableOpacity
+              style={[styles.btn, styles.btnGhost]}
+              onPress={onReject}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+              accessibilityLabel={`Reject order ${order.id}`}
+            >
+              <Text style={[styles.btnText, { color: C.text }]}>Reject</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.btn, action.style, { flex: 1 }]}
+            onPress={onAdvance}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            <Text style={styles.btnText}>{action.label}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
 /* ================================================================ screen */
 
 export default function AdminScreen() {
@@ -226,72 +383,89 @@ export default function AdminScreen() {
     useStore();
 
   const [tab, setTab] = useState<'orders' | 'stock' | 'riders'>('orders');
-  const [filter, setFilter] = useState<Filter>('todo');
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
+  const [assignId, setAssignId] = useState<string | null>(null);
+  const [rider, setRider] = useState({ name: '', phone: '' });
+  const [showDone, setShowDone] = useState(false);
   const [search, setSearch] = useState('');
-  const [stockCat, setStockCat] = useState<'all' | 'chicken' | 'mutton' | 'fish' | 'eggs' | 'out'>('all');
-  const [riderDrafts, setRiderDrafts] = useState<Record<string, { name: string; phone: string }>>({});
+  const [stockFilter, setStockFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [now, setNow] = useState(() => Date.now());
 
-  const riderDraft = (orderId: string) => riderDrafts[orderId] || { name: '', phone: '' };
-  const setRiderDraft = (orderId: string, patch: Partial<{ name: string; phone: string }>) =>
-    setRiderDrafts((d) => ({ ...d, [orderId]: { ...riderDraft(orderId), ...patch } }));
-
-  const activeOrders = orders.filter(isActive);
-  const startOfToday = new Date();
-  startOfToday.setHours(0, 0, 0, 0);
-  const todaysOrders = orders.filter((o) => o.status !== 'cancelled' && (o.createdAtMs ?? 0) >= startOfToday.getTime());
-  const todayRevenue = todaysOrders.reduce((sum, o) => sum + (o.total || 0), 0);
-  const deliveredToday = todaysOrders.filter((o) => o.status === 'delivered').length;
-  const newCount = orders.filter((o) => o.status === 'placed').length;
-  const ridersOnRoad = orders.filter((o) => stageOf(o) === 'on_way' && o.riderName);
-  const isOut = (id: string) => {
-    const inv = inventory[id];
-    return inv ? !inv.inStock || inv.stockKg <= 0 : false;
-  };
-  const outOfStockCount = PRODUCTS.filter((p) => isOut(p.id)).length;
-
-  const countFor = (key: Filter) =>
-    key === 'all'
-      ? orders.length
-      : key === 'todo'
-        ? activeOrders.length
-        : orders.filter((o) => stageOf(o) === key).length;
-
-  // Work still to do is shown oldest first, so the earliest order goes out first.
-  const visibleOrders = (() => {
-    if (filter === 'all') return orders;
-    if (filter === 'todo') return [...activeOrders].reverse();
-    const list = orders.filter((o) => stageOf(o) === filter);
-    return filter === 'delivered' || filter === 'cancelled' ? list : [...list].reverse();
-  })();
-
-  const query = search.trim().toLowerCase();
-  const visibleProducts = PRODUCTS.filter((p) => {
-    if (stockCat === 'out' && !isOut(p.id)) return false;
-    if (stockCat !== 'all' && stockCat !== 'out' && p.category !== stockCat) return false;
-    return !query || p.name.toLowerCase().includes(query) || p.category.includes(query);
-  });
+  // Keep waiting times fresh.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 30000);
+    return () => clearInterval(t);
+  }, []);
 
   if (!isAdmin) return <AdminLogin />;
+
+  /* ------------------------------------------------------------ numbers */
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const isToday = (o: Order) => (o.createdAtMs ?? 0) >= startOfToday.getTime();
+  const todays = orders.filter((o) => isToday(o) && o.status !== 'cancelled');
+  const sales = todays.reduce((s, o) => s + (o.total || 0), 0);
+  const deliveredToday = todays.filter((o) => o.status === 'delivered').length;
+  const active = orders.filter(isActive);
+  const done = orders.filter((o) => !isActive(o)).slice(0, 20);
+
+  const stockOf = (p: Product) =>
+    inventory[p.id] || { productId: p.id, inStock: true, stockKg: 0, availableCutIds: [] as string[] };
+  const isOut = (p: Product) => {
+    const inv = inventory[p.id];
+    return inv ? !inv.inStock || inv.stockKg <= 0 : false;
+  };
+  const isLow = (p: Product) => !isOut(p) && stockOf(p).stockKg <= LOW_STOCK_KG;
+  const outCount = PRODUCTS.filter(isOut).length;
+  const lowCount = PRODUCTS.filter(isLow).length;
+
+  const recentRiders = (() => {
+    const seen = new Map<string, { name: string; phone: string }>();
+    for (const o of orders) {
+      if (o.riderName && o.riderPhone && !seen.has(o.riderPhone))
+        seen.set(o.riderPhone, { name: o.riderName, phone: o.riderPhone });
+    }
+    return [...seen.values()].slice(0, 6);
+  })();
+  const onRoad = orders.filter((o) => stageOf(o) === 'on_way');
+
+  const today = new Date(now).toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' });
+  const detail = orders.find((o) => o.id === detailId) || null;
+  const assigning = orders.find((o) => o.id === assignId) || null;
+
+  /* ------------------------------------------------------------ actions */
+  const openAssign = (order: Order) => {
+    setRider(recentRiders[0] ? { ...recentRiders[0] } : { name: '', phone: '' });
+    setDetailId(null);
+    setAssignId(order.id);
+  };
 
   const advance = (order: Order) => {
     const stage = stageOf(order);
     if (stage === 'new') updateOrderStatus(order.id, 'butcher_prepping');
     else if (stage === 'preparing') updateOrderStatus(order.id, 'cold_packed');
-    else if (stage === 'packed') {
-      const draft = riderDraft(order.id);
-      if (!draft.name.trim()) {
-        setOpenId(order.id);
-        return notify('Rider needed', 'Enter the rider name before sending the order.');
-      }
-      if (!isValidPhone(draft.phone)) {
-        setOpenId(order.id);
-        return notify('Rider needed', "Enter the rider's 10-digit mobile number so the customer can call.");
-      }
-      assignRider(order.id, draft.name.trim(), cleanPhone(draft.phone));
-    } else if (stage === 'on_way') {
-      updateOrderStatus(order.id, 'delivered');
-    }
+    else if (stage === 'packed') openAssign(order);
+    else if (stage === 'on_way') updateOrderStatus(order.id, 'delivered');
+  };
+
+  const reject = (order: Order) =>
+    confirmAction(
+      stageOf(order) === 'new' ? 'Reject this order?' : 'Cancel this order?',
+      `Order ${orderLabel(order.id)} will be cancelled and ${order.customerName || 'the customer'} will see it.`,
+      stageOf(order) === 'new' ? 'Reject' : 'Cancel order',
+      () => {
+        cancelOrder(order.id);
+        setDetailId(null);
+      },
+      'Keep',
+    );
+
+  const sendWithRider = () => {
+    if (!assigning) return;
+    if (!rider.name.trim()) return notify('Rider needed', 'Enter the rider’s name.');
+    if (!isValidPhone(rider.phone)) return notify('Rider needed', 'Enter the rider’s 10-digit mobile number.');
+    assignRider(assigning.id, rider.name.trim(), cleanPhone(rider.phone));
+    setAssignId(null);
   };
 
   const signOut = () =>
@@ -299,350 +473,237 @@ export default function AdminScreen() {
       adminSignOut().finally(() => router.replace('/login'));
     });
 
-  const stats = [
-    { label: 'To do', value: String(activeOrders.length), hint: newCount ? `${newCount} new` : 'All caught up' },
-    { label: 'Sales today', value: `₹${todayRevenue.toLocaleString('en-IN')}`, hint: `${todaysOrders.length} orders` },
-    { label: 'Delivered', value: String(deliveredToday), hint: 'today' },
-    {
-      label: 'Out of stock',
-      value: String(outOfStockCount),
-      hint: outOfStockCount ? 'needs restock' : 'all in stock',
-    },
-  ];
+  const openMaps = (address: string) =>
+    Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`);
 
+  /* ------------------------------------------------------------- stock */
+  const q = search.trim().toLowerCase();
+  const stockList = PRODUCTS.filter((p) => {
+    if (stockFilter === 'out' && !isOut(p)) return false;
+    if (stockFilter === 'low' && !isLow(p)) return false;
+    return !q || p.name.toLowerCase().includes(q) || p.category.includes(q);
+  });
+  const CATEGORY_TITLES: Record<string, string> = {
+    chicken: 'Chicken',
+    mutton: 'Mutton',
+    fish: 'Fish',
+    eggs: 'Eggs',
+    'ready-to-cook': 'Ready to cook',
+    'fresh-produce': 'Vegetables',
+  };
+  const stockGroups = Object.keys(CATEGORY_TITLES)
+    .map((cat) => ({ cat, items: stockList.filter((p) => p.category === cat) }))
+    .filter((g) => g.items.length > 0);
+
+  /* ------------------------------------------------------------ render */
   return (
-    <View style={styles.root}>
-      <StatusBar style="light" />
-
-      {/* Dark header (Shopify / eBay seller style) */}
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={() => goBack('/profile-menu')}
-            accessibilityRole="button"
-            accessibilityLabel="Back"
-          >
-            <AppIcon icon={ArrowLeft01Icon} size={20} color="#FFFFFF" strokeWidth={2.2} />
-          </TouchableOpacity>
-          <View style={styles.storeId}>
-            <View style={styles.storeAvatar}>
-              <Text style={styles.storeAvatarText}>MM</Text>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <StatusBar style="dark" />
+      <ScrollView
+        stickyHeaderIndices={[1]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 48 }}
+      >
+        {/* 0 · header */}
+        <View style={styles.header}>
+          <View style={styles.navRow}>
+            <TouchableOpacity
+              style={styles.circleBtn}
+              onPress={() => goBack('/profile-menu')}
+              accessibilityRole="button"
+              accessibilityLabel="Back"
+            >
+              <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.2} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <View style={styles.livePill}>
+              <View style={styles.liveDot} />
+              <Text style={styles.liveText}>Store open</Text>
             </View>
-            <View>
-              <Text style={styles.storeName}>MagicMeat Store</Text>
-              <View style={styles.liveRow}>
-                <View style={styles.liveDot} />
-                <Text style={styles.liveText}>Live · orders update instantly</Text>
-              </View>
+            <TouchableOpacity style={styles.signOutBtn} onPress={signOut} accessibilityRole="button">
+              <Text style={styles.signOutText}>Sign out</Text>
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.largeTitle}>Today</Text>
+          <Text style={styles.dateText}>{today}</Text>
+
+          <View style={styles.todayCard}>
+            <View style={styles.todayCell}>
+              <Text style={styles.todayLabel}>Sales</Text>
+              <Text style={styles.todayValue} numberOfLines={1} adjustsFontSizeToFit>
+                {rupees(sales)}
+              </Text>
+            </View>
+            <View style={styles.todayDivider} />
+            <View style={styles.todayCell}>
+              <Text style={styles.todayLabel}>Orders</Text>
+              <Text style={styles.todayValue}>{todays.length}</Text>
+            </View>
+            <View style={styles.todayDivider} />
+            <View style={styles.todayCell}>
+              <Text style={styles.todayLabel}>Delivered</Text>
+              <Text style={[styles.todayValue, { color: C.greenDark }]}>{deliveredToday}</Text>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.headerBtn}
-            onPress={signOut}
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-          >
-            <AppIcon icon={Logout01Icon} size={19} color="#FFFFFF" strokeWidth={2} />
-          </TouchableOpacity>
+
+          {outCount > 0 && (
+            <TouchableOpacity
+              style={styles.alertRow}
+              onPress={() => {
+                setTab('stock');
+                setStockFilter('out');
+              }}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+            >
+              <View style={styles.alertIcon}>
+                <AppIcon icon={Alert02Icon} size={16} color={C.red} strokeWidth={2.2} />
+              </View>
+              <Text style={styles.alertText}>
+                <Text style={{ fontWeight: '700' }}>
+                  {outCount} item{outCount === 1 ? '' : 's'} out of stock
+                </Text>{' '}
+                · customers can’t order {outCount === 1 ? 'it' : 'them'}
+              </Text>
+              <AppIcon icon={ArrowRight01Icon} size={16} color={C.tertiary} strokeWidth={2.2} />
+            </TouchableOpacity>
+          )}
         </View>
 
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stats}>
-          {stats.map((s) => (
-            <View key={s.label} style={styles.stat}>
-              <Text style={styles.statLabel}>{s.label.toUpperCase()}</Text>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statHint}>{s.hint}</Text>
-            </View>
-          ))}
-        </ScrollView>
-      </SafeAreaView>
-
-      {/* White sheet */}
-      <View style={styles.sheet}>
-        <View style={styles.tabs}>
-          {(
-            [
-              { key: 'orders', label: 'Orders', badge: activeOrders.length },
-              { key: 'stock', label: 'Stock', badge: outOfStockCount },
-              { key: 'riders', label: 'Riders', badge: ridersOnRoad.length },
-            ] as const
-          ).map((t) => {
-            const on = tab === t.key;
-            return (
-              <TouchableOpacity
-                key={t.key}
-                style={[styles.tab, on && styles.tabOn]}
-                onPress={() => setTab(t.key)}
-                activeOpacity={0.8}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: on }}
-              >
-                <Text style={[styles.tabText, on && styles.tabTextOn]}>{t.label}</Text>
-                {t.badge > 0 && (
-                  <View style={[styles.tabBadge, on && styles.tabBadgeOn]}>
-                    <Text style={[styles.tabBadgeText, on && styles.tabBadgeTextOn]}>{t.badge}</Text>
-                  </View>
-                )}
-              </TouchableOpacity>
-            );
-          })}
+        {/* 1 · sticky segmented control */}
+        <View style={styles.segmentWrap}>
+          <View style={styles.segmented}>
+            {(
+              [
+                { key: 'orders', label: 'Orders', n: active.length },
+                { key: 'stock', label: 'Stock', n: outCount },
+                { key: 'riders', label: 'Riders', n: onRoad.length },
+              ] as const
+            ).map((s) => {
+              const on = tab === s.key;
+              return (
+                <TouchableOpacity
+                  key={s.key}
+                  style={[styles.segment, on && styles.segmentOn]}
+                  onPress={() => setTab(s.key)}
+                  activeOpacity={0.8}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: on }}
+                >
+                  <Text style={[styles.segmentText, on && styles.segmentTextOn]}>
+                    {s.label}
+                    {s.n > 0 ? ` ${s.n}` : ''}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {/* ============================================================ orders */}
+        {/* 2 · content */}
+        <View style={styles.body}>
+          {/* ======================================================== orders */}
           {tab === 'orders' && (
             <>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-                {FILTERS.map((f) => {
-                  const on = filter === f.key;
-                  const n = countFor(f.key);
-                  return (
-                    <TouchableOpacity
-                      key={f.key}
-                      style={[styles.chip, on && styles.chipOn]}
-                      onPress={() => setFilter(f.key)}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.chipText, on && styles.chipTextOn]}>
-                        {f.label}
-                        {n ? ` ${n}` : ''}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-
-              {visibleOrders.length === 0 ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>{filter === 'todo' ? 'All caught up' : 'No orders here'}</Text>
-                  <Text style={styles.emptySub}>New orders appear here the moment a customer places them.</Text>
+              {active.length === 0 && (
+                <View style={styles.caughtUp}>
+                  <View style={styles.caughtIcon}>
+                    <AppIcon icon={Tick02Icon} size={26} color={C.green} strokeWidth={2.6} />
+                  </View>
+                  <Text style={styles.caughtTitle}>All caught up</Text>
+                  <Text style={styles.caughtSub}>New orders show up here the moment they’re placed.</Text>
                 </View>
-              ) : (
-                visibleOrders.map((order, idx) => {
-                  const stage = stageOf(order);
-                  const st = STAGE[stage];
-                  const open = openId === order.id;
-                  const active = isActive(order);
-                  const draft = riderDraft(order.id);
-                  const items = order.items.map((i) => `${i.quantity}× ${shortName(i.product.name)}`).join(', ');
-                  return (
-                    <View key={order.id}>
-                      {idx > 0 && <View style={styles.divider} />}
+              )}
 
-                      {/* Row */}
-                      <TouchableOpacity
-                        style={styles.orderRow}
-                        onPress={() => setOpenId(open ? null : order.id)}
-                        activeOpacity={0.6}
-                        accessibilityRole="button"
-                        accessibilityState={{ expanded: open }}
-                        accessibilityLabel={`Order ${order.id}, ${st.label}, ₹${order.total}`}
-                      >
-                        <View style={styles.orderHead}>
-                          <Text style={styles.orderId}>#{order.id.replace('MM-', '')}</Text>
-                          <Text style={styles.orderTotal}>₹{order.total}</Text>
-                        </View>
-                        <Text style={styles.orderMeta} numberOfLines={1}>
-                          {order.customerName || 'Customer'} • {itemCount(order)} item
-                          {itemCount(order) === 1 ? '' : 's'} • {timeAgo(order.createdAtMs) || order.placedAt}
-                        </Text>
-                        <Text style={styles.orderItems} numberOfLines={open ? undefined : 1}>
-                          {items}
-                        </Text>
-                        <View style={styles.badges}>
-                          <View style={[styles.badge, { backgroundColor: st.bg }]}>
-                            <View style={[styles.badgeDot, { backgroundColor: st.color }]} />
-                            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
-                          </View>
-                          <View style={[styles.badge, order.deliveryMode === 'instant' && styles.badgeExpress]}>
-                            <Text
-                              style={[
-                                styles.badgeText,
-                                { color: order.deliveryMode === 'instant' ? C.red : C.secondary },
-                              ]}
-                            >
-                              {order.deliveryMode === 'instant' ? 'Express' : 'Normal'}
-                            </Text>
-                          </View>
-                          <View style={styles.badge}>
-                            <Text style={[styles.badgeText, { color: C.secondary }]}>
-                              {order.status === 'delivered' ? 'Paid' : 'Cash / UPI on delivery'}
-                            </Text>
-                          </View>
-                          <View style={{ flex: 1 }} />
-                          <AppIcon
-                            icon={open ? ArrowUp01Icon : ArrowDown01Icon}
-                            size={16}
-                            color={C.placeholder}
-                            strokeWidth={2.2}
-                          />
-                        </View>
-                      </TouchableOpacity>
-
-                      {/* Details */}
-                      {open && (
-                        <View style={styles.detail}>
-                          <View style={styles.detailBlock}>
-                            <View style={{ flex: 1, minWidth: 0 }}>
-                              <Text style={styles.detailLabel}>DELIVER TO</Text>
-                              <Text style={styles.detailName}>{order.customerName || 'Customer'}</Text>
-                              <View style={styles.addressRow}>
-                                <AppIcon icon={Location01Icon} size={13} color={C.secondary} strokeWidth={2} />
-                                <Text style={styles.addressText}>{order.address}</Text>
-                              </View>
-                              {!!order.customerPhone && (
-                                <Text style={styles.detailPhone}>+91 {order.customerPhone}</Text>
-                              )}
-                            </View>
-                            {!!order.customerPhone && (
-                              <TouchableOpacity
-                                style={styles.callBtn}
-                                onPress={() => Linking.openURL(`tel:+91${order.customerPhone}`)}
-                                accessibilityLabel={`Call ${order.customerName || 'customer'}`}
-                              >
-                                <AppIcon icon={Call02Icon} size={17} color={C.text} strokeWidth={2} />
-                              </TouchableOpacity>
-                            )}
-                          </View>
-
-                          {!!order.deliveryNote && (
-                            <View style={styles.noteBox}>
-                              <AppIcon icon={Note01Icon} size={14} color="#B45309" strokeWidth={2} />
-                              <Text style={styles.noteText}>{order.deliveryNote}</Text>
-                            </View>
-                          )}
-
-                          <Text style={[styles.detailLabel, { marginTop: 14 }]}>ITEMS</Text>
-                          {order.items.map((item, i) => (
-                            <View key={`${item.cartItemId}-${i}`} style={styles.itemRow}>
-                              <Image
-                                source={{ uri: optimizeImageUrl(item.product.image, 100) }}
-                                style={styles.itemThumb}
-                              />
-                              <View style={{ flex: 1, minWidth: 0 }}>
-                                <Text style={styles.itemName} numberOfLines={1}>
-                                  {item.product.name}
-                                </Text>
-                                <Text style={styles.itemCut} numberOfLines={1}>
-                                  {item.selectedCut.name}
-                                  {item.selectedCut.allowsSkinOption
-                                    ? ` · ${item.isSkinless ? 'Skinless' : 'With skin'}`
-                                    : ''}
-                                </Text>
-                              </View>
-                              <Text style={styles.itemQty}>× {item.quantity}</Text>
-                            </View>
-                          ))}
-
-                          <View style={styles.moneyBox}>
-                            <View style={styles.moneyRow}>
-                              <Text style={styles.moneyLabel}>Items</Text>
-                              <Text style={styles.moneyValue}>₹{order.subtotal}</Text>
-                            </View>
-                            <View style={styles.moneyRow}>
-                              <Text style={styles.moneyLabel}>
-                                {order.deliveryMode === 'instant' ? 'Express delivery' : 'Delivery'}
-                              </Text>
-                              <Text style={styles.moneyValue}>
-                                {order.deliveryFee ? `₹${order.deliveryFee}` : 'Free'}
-                              </Text>
-                            </View>
-                            <View style={[styles.moneyRow, styles.moneyTotalRow]}>
-                              <Text style={styles.moneyTotalLabel}>
-                                {order.status === 'delivered' ? 'Collected' : 'Collect on delivery'}
-                              </Text>
-                              <Text style={styles.moneyTotal}>₹{order.total}</Text>
-                            </View>
-                          </View>
-
-                          {!!order.riderName && (
-                            <View style={styles.riderLine}>
-                              <AppIcon icon={DeliveryTruck01Icon} size={15} color={C.secondary} strokeWidth={2} />
-                              <Text style={styles.riderLineText}>
-                                {order.riderName}
-                                {order.riderPhone ? ` · +91 ${order.riderPhone}` : ''}
-                              </Text>
-                            </View>
-                          )}
-
-                          {stage === 'packed' && (
-                            <>
-                              <Text style={[styles.detailLabel, { marginTop: 14 }]}>RIDER</Text>
-                              <View style={styles.riderForm}>
-                                <TextInput
-                                  style={[styles.field, { flex: 1 }]}
-                                  placeholder="Rider name"
-                                  placeholderTextColor={C.placeholder}
-                                  value={draft.name}
-                                  onChangeText={(name) => setRiderDraft(order.id, { name })}
-                                  maxLength={60}
-                                />
-                                <TextInput
-                                  style={[styles.field, { flex: 1 }]}
-                                  placeholder="Mobile"
-                                  placeholderTextColor={C.placeholder}
-                                  keyboardType="phone-pad"
-                                  value={draft.phone}
-                                  onChangeText={(phone) => setRiderDraft(order.id, { phone })}
-                                  maxLength={14}
-                                />
-                              </View>
-                            </>
-                          )}
-
-                          {active && (
-                            <TouchableOpacity
-                              style={styles.cancelLink}
-                              onPress={() =>
-                                confirmAction(
-                                  'Cancel this order?',
-                                  `Order #${order.id} will be cancelled and the customer will see it.`,
-                                  'Cancel order',
-                                  () => cancelOrder(order.id),
-                                  'Keep',
-                                )
-                              }
-                              accessibilityRole="button"
-                              accessibilityLabel={`Cancel order ${order.id}`}
-                            >
-                              <Text style={styles.cancelText}>Cancel order</Text>
-                            </TouchableOpacity>
-                          )}
-                        </View>
-                      )}
-
-                      {/* Next step: always one tap away */}
-                      {active && !!st.next && (
-                        <TouchableOpacity
-                          style={styles.nextBtn}
-                          onPress={() => advance(order)}
-                          activeOpacity={0.85}
-                          accessibilityRole="button"
-                        >
-                          <Text style={styles.nextBtnText}>{st.next}</Text>
-                        </TouchableOpacity>
-                      )}
+              {STAGES.map((s) => {
+                const list = active.filter((o) => stageOf(o) === s.key).reverse();
+                if (list.length === 0) return null;
+                return (
+                  <View key={s.key} style={styles.section}>
+                    <View style={styles.sectionHead}>
+                      <View style={[styles.sectionIcon, { backgroundColor: s.soft }]}>
+                        <AppIcon icon={s.icon} size={14} color={s.color} strokeWidth={2.2} />
+                      </View>
+                      <Text style={styles.sectionTitle}>{s.title}</Text>
+                      <Text style={styles.sectionCount}>{list.length}</Text>
                     </View>
-                  );
-                })
+                    {list.map((o) => (
+                      <OrderCard
+                        key={o.id}
+                        order={o}
+                        now={now}
+                        onOpen={() => setDetailId(o.id)}
+                        onAdvance={() => advance(o)}
+                        onReject={() => reject(o)}
+                      />
+                    ))}
+                  </View>
+                );
+              })}
+
+              {done.length > 0 && (
+                <View style={styles.section}>
+                  <TouchableOpacity
+                    style={styles.sectionHead}
+                    onPress={() => setShowDone((v) => !v)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityState={{ expanded: showDone }}
+                  >
+                    <View style={[styles.sectionIcon, { backgroundColor: C.greenSoft }]}>
+                      <AppIcon icon={CheckmarkCircle02Icon} size={14} color={C.green} strokeWidth={2.2} />
+                    </View>
+                    <Text style={styles.sectionTitle}>Completed</Text>
+                    <Text style={styles.sectionCount}>{done.length}</Text>
+                    <View style={{ flex: 1 }} />
+                    <Text style={styles.sectionLink}>{showDone ? 'Hide' : 'Show'}</Text>
+                  </TouchableOpacity>
+                  {showDone && (
+                    <View style={styles.group}>
+                      {done.map((o, i) => {
+                        const delivered = o.status === 'delivered';
+                        return (
+                          <TouchableOpacity
+                            key={o.id}
+                            style={[styles.doneRow, i > 0 && styles.rowBorder]}
+                            onPress={() => setDetailId(o.id)}
+                            activeOpacity={0.6}
+                          >
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.doneName} numberOfLines={1}>
+                                {o.customerName || 'Customer'}
+                              </Text>
+                              <Text style={styles.doneMeta} numberOfLines={1}>
+                                {orderLabel(o.id)} · {o.placedAt}
+                              </Text>
+                            </View>
+                            <View style={{ alignItems: 'flex-end' }}>
+                              <Text style={styles.doneTotal}>{rupees(o.total)}</Text>
+                              <Text style={[styles.doneStatus, { color: delivered ? C.greenDark : C.secondary }]}>
+                                {delivered ? 'Delivered' : 'Cancelled'}
+                              </Text>
+                            </View>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
               )}
             </>
           )}
 
-          {/* ============================================================ stock */}
+          {/* ========================================================= stock */}
           {tab === 'stock' && (
             <>
               <View style={styles.searchField}>
-                <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+                <AppIcon icon={Search01Icon} size={17} color={C.tertiary} strokeWidth={2.2} />
                 <TextInput
                   style={styles.searchInput}
                   placeholder="Search products"
-                  placeholderTextColor={C.placeholder}
+                  placeholderTextColor={C.tertiary}
                   value={search}
                   onChangeText={setSearch}
                   autoCorrect={false}
@@ -652,456 +713,1130 @@ export default function AdminScreen() {
                     onPress={() => setSearch('')}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Text style={styles.mutedLink}>Clear</Text>
+                    <AppIcon icon={Cancel01Icon} size={16} color={C.tertiary} strokeWidth={2.2} />
                   </TouchableOpacity>
                 )}
               </View>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+              <View style={styles.filterRow}>
                 {(
                   [
-                    { key: 'all', label: 'All' },
-                    { key: 'out', label: `Out of stock${outOfStockCount ? ` ${outOfStockCount}` : ''}` },
-                    { key: 'chicken', label: 'Chicken' },
-                    { key: 'mutton', label: 'Mutton' },
-                    { key: 'fish', label: 'Fish' },
-                    { key: 'eggs', label: 'Eggs' },
+                    { key: 'all', label: 'All', n: PRODUCTS.length },
+                    { key: 'low', label: 'Low', n: lowCount },
+                    { key: 'out', label: 'Out of stock', n: outCount },
                   ] as const
-                ).map((c) => (
-                  <TouchableOpacity
-                    key={c.key}
-                    style={[styles.chip, stockCat === c.key && styles.chipOn]}
-                    onPress={() => setStockCat(c.key)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.chipText, stockCat === c.key && styles.chipTextOn]}>{c.label}</Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+                ).map((f) => {
+                  const on = stockFilter === f.key;
+                  return (
+                    <TouchableOpacity
+                      key={f.key}
+                      style={[styles.filter, on && styles.filterOn]}
+                      onPress={() => setStockFilter(f.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.filterText, on && styles.filterTextOn]}>
+                        {f.label} {f.n}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
 
-              {visibleProducts.length === 0 ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>
-                    {stockCat === 'out' ? 'Everything is in stock' : 'No products found'}
+              {stockGroups.length === 0 ? (
+                <View style={styles.caughtUp}>
+                  <Text style={styles.caughtTitle}>
+                    {stockFilter === 'out'
+                      ? 'Everything is in stock'
+                      : stockFilter === 'low'
+                        ? 'Nothing is running low'
+                        : 'No products found'}
                   </Text>
                 </View>
               ) : (
-                visibleProducts.map((p, idx) => {
-                  const inv = inventory[p.id] || { productId: p.id, inStock: true, stockKg: 0, availableCutIds: [] };
-                  const out = isOut(p.id);
-                  return (
-                    <View key={p.id}>
-                      {idx > 0 && <View style={[styles.divider, { marginLeft: 64 }]} />}
-                      <View style={styles.stockRow}>
-                        <Image
-                          source={{ uri: optimizeImageUrl(p.image, 100) }}
-                          style={[styles.stockThumb, out && { opacity: 0.4 }]}
-                        />
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.stockName} numberOfLines={1}>
-                            {p.name}
-                          </Text>
-                          <Text style={[styles.stockMeta, out && styles.stockMetaOut]}>
-                            {out ? 'Out of stock' : `₹${p.basePrice} · ${p.netWeight}`}
-                          </Text>
-                          <View style={styles.kgStepper}>
-                            <TouchableOpacity
-                              style={styles.kgBtn}
-                              onPress={() => updateStockKg(p.id, inv.stockKg - 5)}
-                              accessibilityLabel={`Remove 5 kg of ${p.name}`}
-                            >
-                              <AppIcon icon={MinusSignIcon} size={13} color={C.text} strokeWidth={2.4} />
-                            </TouchableOpacity>
-                            <Text style={styles.kgText}>{inv.stockKg} kg</Text>
-                            <TouchableOpacity
-                              style={styles.kgBtn}
-                              onPress={() => updateStockKg(p.id, inv.stockKg + 5)}
-                              accessibilityLabel={`Add 5 kg of ${p.name}`}
-                            >
-                              <AppIcon icon={PlusSignIcon} size={13} color={C.text} strokeWidth={2.4} />
-                            </TouchableOpacity>
+                stockGroups.map((g) => (
+                  <View key={g.cat} style={styles.section}>
+                    <Text style={styles.groupTitle}>{CATEGORY_TITLES[g.cat].toUpperCase()}</Text>
+                    <View style={styles.group}>
+                      {g.items.map((p, i) => {
+                        const inv = stockOf(p);
+                        const out = isOut(p);
+                        const low = isLow(p);
+                        return (
+                          <View key={p.id} style={[styles.stockRow, i > 0 && styles.rowBorder]}>
+                            <Image
+                              source={{ uri: optimizeImageUrl(p.image, 100) }}
+                              style={[styles.stockThumb, out && { opacity: 0.35 }]}
+                            />
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.stockName} numberOfLines={1}>
+                                {p.name}
+                              </Text>
+                              <Text style={styles.stockMeta} numberOfLines={1}>
+                                {rupees(p.basePrice)} · {p.netWeight}
+                              </Text>
+                              <View style={styles.stockControls}>
+                                <View style={styles.kg}>
+                                  <TouchableOpacity
+                                    style={styles.kgBtn}
+                                    onPress={() => updateStockKg(p.id, inv.stockKg - 5)}
+                                    accessibilityLabel={`Remove 5 kg of ${p.name}`}
+                                  >
+                                    <AppIcon icon={MinusSignIcon} size={12} color={C.text} strokeWidth={2.6} />
+                                  </TouchableOpacity>
+                                  <Text style={styles.kgText}>{inv.stockKg} kg</Text>
+                                  <TouchableOpacity
+                                    style={styles.kgBtn}
+                                    onPress={() => updateStockKg(p.id, inv.stockKg + 5)}
+                                    accessibilityLabel={`Add 5 kg of ${p.name}`}
+                                  >
+                                    <AppIcon icon={PlusSignIcon} size={12} color={C.text} strokeWidth={2.6} />
+                                  </TouchableOpacity>
+                                </View>
+                                {out ? (
+                                  <Text style={[styles.stockState, { color: C.red }]}>Out of stock</Text>
+                                ) : low ? (
+                                  <Text style={[styles.stockState, { color: C.amber }]}>Running low</Text>
+                                ) : null}
+                              </View>
+                            </View>
+                            <Switch
+                              value={!out}
+                              onValueChange={() => toggleStock(p.id)}
+                              trackColor={{ false: '#E5E5EA', true: '#34C759' }}
+                              thumbColor="#FFFFFF"
+                              accessibilityLabel={`${p.name} available`}
+                              testID={`toggle-stock-${p.id}`}
+                            />
                           </View>
-                        </View>
-                        <Switch
-                          value={!out}
-                          onValueChange={() => toggleStock(p.id)}
-                          trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-                          thumbColor="#FFFFFF"
-                          accessibilityLabel={`${p.name} in stock`}
-                          testID={`toggle-stock-${p.id}`}
-                        />
-                      </View>
+                        );
+                      })}
                     </View>
-                  );
-                })
+                  </View>
+                ))
               )}
               <Text style={styles.footnote}>Turning an item on with 0 kg adds 5 kg so customers can order it.</Text>
             </>
           )}
 
-          {/* ============================================================ riders */}
+          {/* ======================================================== riders */}
           {tab === 'riders' && (
             <>
-              <Text style={styles.sectionTitle}>On delivery</Text>
-              {ridersOnRoad.length === 0 ? (
-                <View style={styles.empty}>
-                  <Text style={styles.emptyTitle}>No rider is out</Text>
-                  <Text style={styles.emptySub}>Riders show up here when you send a packed order.</Text>
-                </View>
-              ) : (
-                ridersOnRoad.map((o, idx) => (
-                  <View key={o.id}>
-                    {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
-                    <View style={styles.riderRow}>
-                      <View style={styles.riderAvatar}>
-                        <Text style={styles.riderInitial}>{(o.riderName || '?')[0].toUpperCase()}</Text>
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.stockName}>{o.riderName}</Text>
-                        <Text style={styles.stockMeta} numberOfLines={1}>
-                          #{o.id.replace('MM-', '')} · {o.customerName || 'Customer'} · ₹{o.total}
-                        </Text>
-                      </View>
-                      {!!o.riderPhone && (
-                        <TouchableOpacity
-                          style={styles.callBtn}
-                          onPress={() => Linking.openURL(`tel:+91${o.riderPhone}`)}
-                          accessibilityLabel={`Call ${o.riderName}`}
-                        >
-                          <AppIcon icon={Call02Icon} size={17} color={C.text} strokeWidth={2} />
-                        </TouchableOpacity>
-                      )}
-                    </View>
+              <View style={styles.section}>
+                <Text style={styles.groupTitle}>ON DELIVERY</Text>
+                {onRoad.length === 0 ? (
+                  <View style={[styles.group, styles.groupEmpty]}>
+                    <Text style={styles.emptyLine}>No rider is out right now.</Text>
                   </View>
-                ))
-              )}
+                ) : (
+                  <View style={styles.group}>
+                    {onRoad.map((o, i) => (
+                      <View key={o.id} style={[styles.riderRow, i > 0 && styles.rowBorder]}>
+                        <View style={styles.riderAvatar}>
+                          <Text style={styles.riderInitial}>{(o.riderName || '?')[0].toUpperCase()}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.stockName}>{o.riderName || 'Rider'}</Text>
+                          <Text style={styles.stockMeta} numberOfLines={1}>
+                            To {o.customerName || 'customer'} · collect {rupees(o.total)}
+                          </Text>
+                        </View>
+                        {!!o.riderPhone && (
+                          <TouchableOpacity
+                            style={styles.roundAction}
+                            onPress={() => Linking.openURL(`tel:+91${o.riderPhone}`)}
+                            accessibilityLabel={`Call ${o.riderName}`}
+                          >
+                            <AppIcon icon={Call02Icon} size={17} color={C.green} strokeWidth={2.2} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <View style={styles.section}>
+                <Text style={styles.groupTitle}>RECENT RIDERS</Text>
+                {recentRiders.length === 0 ? (
+                  <View style={[styles.group, styles.groupEmpty]}>
+                    <Text style={styles.emptyLine}>Riders you assign will be saved here for one-tap reuse.</Text>
+                  </View>
+                ) : (
+                  <View style={styles.group}>
+                    {recentRiders.map((r, i) => (
+                      <View key={r.phone} style={[styles.riderRow, i > 0 && styles.rowBorder]}>
+                        <View style={[styles.riderAvatar, { backgroundColor: C.fill }]}>
+                          <Text style={[styles.riderInitial, { color: C.text }]}>{r.name[0].toUpperCase()}</Text>
+                        </View>
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <Text style={styles.stockName}>{r.name}</Text>
+                          <Text style={styles.stockMeta}>+91 {r.phone}</Text>
+                        </View>
+                        <TouchableOpacity
+                          style={styles.roundAction}
+                          onPress={() => Linking.openURL(`tel:+91${r.phone}`)}
+                          accessibilityLabel={`Call ${r.name}`}
+                        >
+                          <AppIcon icon={Call02Icon} size={17} color={C.green} strokeWidth={2.2} />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
+              </View>
             </>
           )}
+        </View>
+      </ScrollView>
 
-          <View style={{ height: 40 }} />
-        </ScrollView>
-      </View>
-    </View>
+      {/* ================================================== order details */}
+      <Modal visible={!!detail} transparent animationType="slide" onRequestClose={() => setDetailId(null)}>
+        <Pressable style={styles.backdrop} onPress={() => setDetailId(null)} accessibilityLabel="Close" />
+        {detail && (
+          <View style={styles.sheet}>
+            <View style={styles.grabber} />
+            <View style={styles.sheetHead}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sheetTitle}>Order {orderLabel(detail.id)}</Text>
+                <Text style={styles.sheetSub}>
+                  {detail.placedAt} ·{' '}
+                  {detail.deliveryMode === 'instant' ? 'Express · 15–20 mins' : 'Normal · 45–60 mins'}
+                </Text>
+              </View>
+              <TouchableOpacity style={styles.circleBtn} onPress={() => setDetailId(null)} accessibilityLabel="Close">
+                <AppIcon icon={Cancel01Icon} size={18} color={C.text} strokeWidth={2.2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.sheetBody} showsVerticalScrollIndicator={false}>
+              {/* timeline */}
+              {stageOf(detail) === 'cancelled' ? (
+                <View style={[styles.banner, { backgroundColor: C.fill }]}>
+                  <Text style={styles.bannerText}>This order was cancelled.</Text>
+                </View>
+              ) : (
+                <View style={styles.timeline}>
+                  {TIMELINE.map((t, i) => {
+                    const cur = TIMELINE.findIndex((x) => x.key === stageOf(detail));
+                    const doneStep = i < cur || stageOf(detail) === 'delivered';
+                    const current = i === cur && stageOf(detail) !== 'delivered';
+                    return (
+                      <View key={t.key} style={styles.tlRow}>
+                        <View style={styles.tlRail}>
+                          <View style={[styles.tlDot, doneStep && styles.tlDotDone, current && styles.tlDotCurrent]}>
+                            {doneStep && <AppIcon icon={Tick02Icon} size={10} color="#FFFFFF" strokeWidth={3} />}
+                          </View>
+                          {i < TIMELINE.length - 1 && <View style={[styles.tlLine, doneStep && styles.tlLineDone]} />}
+                        </View>
+                        <Text
+                          style={[
+                            styles.tlText,
+                            (doneStep || current) && { color: C.text },
+                            current && { fontWeight: '800' },
+                          ]}
+                        >
+                          {t.title}
+                          {t.key === 'on_way' && detail.riderName ? ` · ${detail.riderName}` : ''}
+                        </Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* customer */}
+              <Text style={styles.groupTitle}>CUSTOMER</Text>
+              <View style={[styles.group, { padding: 14 }]}>
+                <Text style={styles.custName}>{detail.customerName || 'Customer'}</Text>
+                {!!detail.customerPhone && <Text style={styles.custLine}>+91 {detail.customerPhone}</Text>}
+                <View style={styles.addressRow}>
+                  <AppIcon icon={Location01Icon} size={14} color={C.secondary} strokeWidth={2} />
+                  <Text style={styles.addressText}>{detail.address}</Text>
+                </View>
+                <View style={styles.contactBtns}>
+                  {!!detail.customerPhone && (
+                    <TouchableOpacity
+                      style={styles.contactBtn}
+                      onPress={() => Linking.openURL(`tel:+91${detail.customerPhone}`)}
+                      activeOpacity={0.7}
+                    >
+                      <AppIcon icon={Call02Icon} size={16} color={C.green} strokeWidth={2.2} />
+                      <Text style={styles.contactBtnText}>Call</Text>
+                    </TouchableOpacity>
+                  )}
+                  <TouchableOpacity
+                    style={styles.contactBtn}
+                    onPress={() => openMaps(detail.address)}
+                    activeOpacity={0.7}
+                  >
+                    <AppIcon icon={MapsIcon} size={16} color={C.blue} strokeWidth={2.2} />
+                    <Text style={styles.contactBtnText}>Directions</Text>
+                  </TouchableOpacity>
+                </View>
+                {!!detail.deliveryNote && (
+                  <View style={styles.noteBox}>
+                    <AppIcon icon={Note01Icon} size={14} color={C.amber} strokeWidth={2} />
+                    <Text style={styles.noteText}>{detail.deliveryNote}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* items */}
+              <Text style={styles.groupTitle}>ITEMS · {itemCount(detail)}</Text>
+              <View style={styles.group}>
+                {detail.items.map((it, i) => (
+                  <View key={`${it.cartItemId}-${i}`} style={[styles.itemRow, i > 0 && styles.rowBorder]}>
+                    <Image source={{ uri: optimizeImageUrl(it.product.image, 100) }} style={styles.itemThumb} />
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.itemName} numberOfLines={2}>
+                        {it.product.name}
+                      </Text>
+                      <Text style={styles.itemCut} numberOfLines={1}>
+                        {it.selectedCut.name}
+                        {it.selectedCut.allowsSkinOption ? ` · ${it.isSkinless ? 'Skinless' : 'With skin'}` : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.qtyBadge}>
+                      <Text style={styles.qtyText}>×{it.quantity}</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+
+              {/* bill */}
+              <Text style={styles.groupTitle}>PAYMENT</Text>
+              <View style={[styles.group, { padding: 14, gap: 8 }]}>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>Items</Text>
+                  <Text style={styles.billValue}>{rupees(detail.subtotal)}</Text>
+                </View>
+                <View style={styles.billRow}>
+                  <Text style={styles.billLabel}>
+                    {detail.deliveryMode === 'instant' ? 'Express delivery' : 'Delivery'}
+                  </Text>
+                  <Text style={styles.billValue}>{detail.deliveryFee ? rupees(detail.deliveryFee) : 'Free'}</Text>
+                </View>
+                <View style={[styles.billRow, styles.billTotalRow]}>
+                  <Text style={styles.billTotalLabel}>
+                    {detail.status === 'delivered' ? 'Collected' : 'Collect on delivery'}
+                  </Text>
+                  <Text style={styles.billTotal}>{rupees(detail.total)}</Text>
+                </View>
+                <Text style={styles.billHint}>Cash or UPI</Text>
+              </View>
+
+              {isActive(detail) && (
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => reject(detail)} activeOpacity={0.7}>
+                  <Text style={styles.cancelText}>{stageOf(detail) === 'new' ? 'Reject order' : 'Cancel order'}</Text>
+                </TouchableOpacity>
+              )}
+            </ScrollView>
+
+            {isActive(detail) && (
+              <SafeAreaView edges={['bottom']} style={styles.sheetFooter}>
+                <TouchableOpacity
+                  style={[
+                    styles.bigBtn,
+                    stageOf(detail) === 'new' && { backgroundColor: C.red },
+                    stageOf(detail) === 'on_way' && { backgroundColor: C.green },
+                  ]}
+                  onPress={() => {
+                    const s = stageOf(detail);
+                    advance(detail);
+                    if (s !== 'packed') setDetailId(null);
+                  }}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.bigBtnText}>
+                    {
+                      {
+                        new: 'Accept order',
+                        preparing: 'Mark as packed',
+                        packed: 'Assign rider',
+                        on_way: 'Mark as delivered',
+                      }[stageOf(detail) as 'new' | 'preparing' | 'packed' | 'on_way']
+                    }
+                  </Text>
+                </TouchableOpacity>
+              </SafeAreaView>
+            )}
+          </View>
+        )}
+      </Modal>
+
+      {/* ==================================================== assign rider */}
+      <Modal visible={!!assigning} transparent animationType="slide" onRequestClose={() => setAssignId(null)}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <Pressable style={styles.backdrop} onPress={() => setAssignId(null)} accessibilityLabel="Close" />
+          {assigning && (
+            <View style={[styles.sheet, { maxHeight: undefined }]}>
+              <View style={styles.grabber} />
+              <View style={styles.sheetHead}>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.sheetTitle}>Assign a rider</Text>
+                  <Text style={styles.sheetSub}>
+                    {orderLabel(assigning.id)} · {assigning.customerName || 'Customer'} · collect{' '}
+                    {rupees(assigning.total)}
+                  </Text>
+                </View>
+                <TouchableOpacity style={styles.circleBtn} onPress={() => setAssignId(null)} accessibilityLabel="Close">
+                  <AppIcon icon={Cancel01Icon} size={18} color={C.text} strokeWidth={2.2} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.sheetBody}>
+                {recentRiders.length > 0 && (
+                  <>
+                    <Text style={styles.groupTitle}>RECENT</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
+                      {recentRiders.map((r) => {
+                        const on = rider.phone === r.phone;
+                        return (
+                          <TouchableOpacity
+                            key={r.phone}
+                            style={[styles.riderChip, on && styles.riderChipOn]}
+                            onPress={() => setRider({ ...r })}
+                            activeOpacity={0.8}
+                          >
+                            <Text style={[styles.riderChipText, on && { color: '#FFFFFF' }]}>{r.name}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+                  </>
+                )}
+
+                <Text style={styles.fieldLabel}>Rider name</Text>
+                <TextInput
+                  style={styles.field}
+                  placeholder="e.g. Ramesh"
+                  placeholderTextColor={C.tertiary}
+                  value={rider.name}
+                  onChangeText={(name) => setRider((r) => ({ ...r, name }))}
+                  maxLength={60}
+                />
+                <Text style={styles.fieldLabel}>Rider mobile</Text>
+                <TextInput
+                  style={styles.field}
+                  placeholder="10-digit number"
+                  placeholderTextColor={C.tertiary}
+                  keyboardType="phone-pad"
+                  value={rider.phone}
+                  onChangeText={(phone) => setRider((r) => ({ ...r, phone }))}
+                  maxLength={14}
+                />
+                <Text style={styles.billHint}>The customer sees the rider’s name and can call this number.</Text>
+              </View>
+
+              <SafeAreaView edges={['bottom']} style={styles.sheetFooter}>
+                <TouchableOpacity style={styles.bigBtn} onPress={sendWithRider} activeOpacity={0.85}>
+                  <Text style={styles.bigBtnText}>Send with rider</Text>
+                </TouchableOpacity>
+              </SafeAreaView>
+            </View>
+          )}
+        </KeyboardAvoidingView>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
+  safe: {
     flex: 1,
-    backgroundColor: C.ink,
+    backgroundColor: C.bg,
   },
 
   /* header */
   header: {
-    backgroundColor: C.ink,
-    paddingBottom: 18,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
-  headerRow: {
+  navRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 6,
+    gap: 8,
   },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+  circleBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  storeId: {
-    flex: 1,
+  livePill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-  },
-  storeAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: C.red,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  storeAvatarText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '900',
-  },
-  storeName: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  liveRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    marginTop: 1,
+    gap: 6,
+    height: 30,
+    paddingHorizontal: 11,
+    borderRadius: 15,
+    backgroundColor: C.greenSoft,
   },
   liveDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: '#22C55E',
+    backgroundColor: C.green,
   },
   liveText: {
-    color: '#A1A1AA',
-    fontSize: 12,
-  },
-  stats: {
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingTop: 16,
-  },
-  stat: {
-    width: 132,
-    borderRadius: 16,
-    padding: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-  },
-  statLabel: {
-    color: '#A1A1AA',
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: '700',
-    letterSpacing: 0.6,
+    color: C.greenDark,
   },
-  statValue: {
-    color: '#FFFFFF',
-    fontSize: 24,
+  signOutBtn: {
+    height: 30,
+    paddingHorizontal: 12,
+    borderRadius: 15,
+    backgroundColor: C.card,
+    justifyContent: 'center',
+  },
+  signOutText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.secondary,
+  },
+  largeTitle: {
+    fontSize: 34,
     fontWeight: '800',
-    letterSpacing: -0.5,
-    marginTop: 6,
+    color: C.text,
+    letterSpacing: -0.8,
+    marginTop: 14,
   },
-  statHint: {
-    color: '#A1A1AA',
-    fontSize: 12,
+  dateText: {
+    fontSize: 15,
+    color: C.secondary,
     marginTop: 2,
   },
-
-  /* sheet */
-  sheet: {
-    flex: 1,
-    backgroundColor: C.bg,
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
-    overflow: 'hidden',
-  },
-  tabs: {
-    flexDirection: 'row',
-    gap: 6,
-    margin: 14,
-    marginBottom: 6,
-    padding: 4,
-    borderRadius: 14,
-    backgroundColor: C.soft,
-  },
-  tab: {
-    flex: 1,
-    height: 38,
-    borderRadius: 10,
+  todayCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
+    marginTop: 16,
+    paddingVertical: 16,
+    borderRadius: 18,
+    backgroundColor: C.card,
   },
-  tabOn: {
+  todayCell: {
+    flex: 1,
+    paddingHorizontal: 14,
+  },
+  todayDivider: {
+    width: 1,
+    height: 36,
+    backgroundColor: C.hairline,
+  },
+  todayLabel: {
+    fontSize: 13,
+    color: C.secondary,
+    fontWeight: '600',
+  },
+  todayValue: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.5,
+    marginTop: 4,
+  },
+  alertRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: C.card,
+  },
+  alertIcon: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.redSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertText: {
+    flex: 1,
+    fontSize: 14,
+    color: C.text,
+  },
+
+  /* segmented */
+  segmentWrap: {
     backgroundColor: C.bg,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  segmented: {
+    flexDirection: 'row',
+    padding: 3,
+    borderRadius: 11,
+    backgroundColor: '#E4E4EA',
+  },
+  segment: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  segmentOn: {
+    backgroundColor: C.card,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
     elevation: 2,
   },
-  tabText: {
+  segmentText: {
     fontSize: 14,
     fontWeight: '600',
     color: C.secondary,
   },
-  tabTextOn: {
+  segmentTextOn: {
     color: C.text,
     fontWeight: '700',
   },
-  tabBadge: {
-    minWidth: 20,
-    height: 20,
-    borderRadius: 10,
-    paddingHorizontal: 6,
-    backgroundColor: '#E4E4E7',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabBadgeOn: {
-    backgroundColor: C.ink,
-  },
-  tabBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.secondary,
-  },
-  tabBadgeTextOn: {
-    color: '#FFFFFF',
-  },
-  content: {
+  body: {
     paddingHorizontal: 16,
   },
-  chips: {
-    gap: 8,
-    paddingVertical: 10,
+
+  /* sections */
+  section: {
+    marginTop: 14,
   },
-  chip: {
-    height: 34,
-    paddingHorizontal: 14,
-    borderRadius: 17,
-    backgroundColor: C.soft,
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  sectionIcon: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  chipOn: {
-    backgroundColor: C.ink,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#3F3F46',
-  },
-  chipTextOn: {
-    color: '#FFFFFF',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: C.hairline,
-  },
-
-  /* order row */
-  orderRow: {
-    paddingTop: 14,
-    paddingBottom: 10,
-  },
-  orderHead: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  orderId: {
+  sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
     color: C.text,
     letterSpacing: -0.2,
   },
-  orderTotal: {
-    fontSize: 16,
+  sectionCount: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.tertiary,
+  },
+  sectionLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.blue,
+  },
+  group: {
+    borderRadius: 16,
+    backgroundColor: C.card,
+    overflow: 'hidden',
+  },
+  groupEmpty: {
+    padding: 16,
+  },
+  groupTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginBottom: 8,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+  rowBorder: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.hairline,
+  },
+  emptyLine: {
+    fontSize: 14,
+    color: C.secondary,
+  },
+
+  /* order card */
+  orderCard: {
+    borderRadius: 18,
+    backgroundColor: C.card,
+    padding: 14,
+    marginBottom: 10,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 1,
+  },
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 10,
+  },
+  cardName: {
+    flex: 1,
+    fontSize: 17,
     fontWeight: '700',
     color: C.text,
   },
-  orderMeta: {
-    fontSize: 13,
-    color: C.secondary,
-    marginTop: 3,
-  },
-  orderItems: {
-    fontSize: 14,
+  cardTotal: {
+    fontSize: 17,
+    fontWeight: '800',
     color: C.text,
-    marginTop: 4,
-    lineHeight: 20,
   },
-  badges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 8,
-  },
-  badge: {
+  cardMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
+    marginTop: 3,
+  },
+  cardId: {
+    fontSize: 13,
+    color: C.secondary,
+    fontWeight: '600',
+  },
+  metaDot: {
+    fontSize: 13,
+    color: C.tertiary,
+  },
+  cardMeta: {
+    fontSize: 13,
+    color: C.secondary,
+  },
+  itemsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 12,
+  },
+  thumbs: {
+    height: 30,
+  },
+  thumb: {
+    position: 'absolute',
+    top: 0,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: C.card,
+    backgroundColor: C.fill,
+  },
+  itemsText: {
+    flex: 1,
+    fontSize: 14,
+    color: C.text,
+    lineHeight: 19,
+  },
+  tags: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 12,
+  },
+  tag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     height: 24,
-    paddingHorizontal: 9,
-    borderRadius: 7,
-    backgroundColor: C.soft,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: C.fill,
   },
-  badgeExpress: {
-    backgroundColor: '#FEF2F2',
+  tagExpress: {
+    backgroundColor: C.redSoft,
   },
-  badgeDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  tagText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: C.secondary,
   },
-  badgeText: {
+  cardActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 14,
+  },
+  btn: {
+    height: 42,
+    borderRadius: 12,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  btnRed: {
+    backgroundColor: C.red,
+  },
+  btnDark: {
+    backgroundColor: C.text,
+  },
+  btnGreen: {
+    backgroundColor: C.green,
+  },
+  btnGhost: {
+    backgroundColor: C.fill,
+  },
+
+  /* completed */
+  doneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  doneName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+  },
+  doneMeta: {
+    fontSize: 12,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  doneTotal: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+  },
+  doneStatus: {
+    fontSize: 12,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+
+  /* caught up */
+  caughtUp: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+  },
+  caughtIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: C.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+  },
+  caughtTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.text,
+  },
+  caughtSub: {
+    fontSize: 14,
+    color: C.secondary,
+    textAlign: 'center',
+    marginTop: 4,
+  },
+
+  /* stock */
+  searchField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    height: 40,
+    borderRadius: 11,
+    paddingHorizontal: 12,
+    backgroundColor: '#E4E4EA',
+    marginTop: 6,
+  },
+  searchInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 16,
+    color: C.text,
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
+  },
+  filterRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  filter: {
+    height: 32,
+    paddingHorizontal: 13,
+    borderRadius: 16,
+    backgroundColor: C.card,
+    justifyContent: 'center',
+  },
+  filterOn: {
+    backgroundColor: C.text,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: C.text,
+  },
+  filterTextOn: {
+    color: '#FFFFFF',
+  },
+  stockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  stockThumb: {
+    width: 54,
+    height: 54,
+    borderRadius: 12,
+    backgroundColor: C.fill,
+  },
+  stockName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+  },
+  stockMeta: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  stockControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  stockState: {
     fontSize: 12,
     fontWeight: '700',
   },
-  nextBtn: {
-    height: 46,
-    borderRadius: 12,
-    backgroundColor: C.ink,
+  kg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 28,
+    borderRadius: 14,
+    paddingHorizontal: 3,
+    backgroundColor: C.fill,
+  },
+  kgBtn: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: C.card,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
   },
-  nextBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  /* order detail */
-  detail: {
-    borderRadius: 14,
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: C.hairline,
-    padding: 14,
-    marginBottom: 10,
-  },
-  detailBlock: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: C.placeholder,
-    letterSpacing: 0.6,
-    marginBottom: 6,
-  },
-  detailName: {
-    fontSize: 15,
+  kgText: {
+    minWidth: 44,
+    textAlign: 'center',
+    fontSize: 13,
     fontWeight: '700',
     color: C.text,
   },
-  detailPhone: {
+  footnote: {
+    fontSize: 12,
+    color: C.tertiary,
+    textAlign: 'center',
+    marginTop: 16,
+  },
+
+  /* riders */
+  riderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  riderAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: C.purpleSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  riderInitial: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: C.purple,
+  },
+  roundAction: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: C.greenSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  /* sheets */
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  sheet: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    maxHeight: '90%',
+    backgroundColor: C.bg,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 38,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+    marginTop: 8,
+  },
+  sheetHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+  },
+  sheetTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.4,
+  },
+  sheetSub: {
     fontSize: 13,
     color: C.secondary,
-    marginTop: 3,
+    marginTop: 2,
+  },
+  sheetBody: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  sheetFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    backgroundColor: C.card,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.hairline,
+  },
+  banner: {
+    padding: 14,
+    borderRadius: 14,
+    marginBottom: 14,
+  },
+  bannerText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.secondary,
+  },
+
+  /* timeline */
+  timeline: {
+    borderRadius: 16,
+    backgroundColor: C.card,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  tlRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  tlRail: {
+    alignItems: 'center',
+    width: 18,
+  },
+  tlDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2,
+    borderColor: '#D1D5DB',
+    backgroundColor: C.card,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tlDotDone: {
+    borderColor: C.green,
+    backgroundColor: C.green,
+  },
+  tlDotCurrent: {
+    borderColor: C.red,
+    borderWidth: 5,
+  },
+  tlLine: {
+    width: 2,
+    flex: 1,
+    minHeight: 16,
+    backgroundColor: '#E5E7EB',
+    marginVertical: 2,
+  },
+  tlLineDone: {
+    backgroundColor: C.green,
+  },
+  tlText: {
+    flex: 1,
+    fontSize: 15,
+    color: C.tertiary,
+    fontWeight: '600',
+    paddingBottom: 14,
+    marginTop: -1,
+  },
+
+  /* detail blocks */
+  custName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: C.text,
+  },
+  custLine: {
+    fontSize: 14,
+    color: C.secondary,
+    marginTop: 2,
   },
   addressRow: {
     flexDirection: 'row',
-    gap: 5,
-    marginTop: 3,
+    gap: 6,
+    marginTop: 8,
   },
   addressText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     color: C.secondary,
-    lineHeight: 18,
+    lineHeight: 20,
   },
-  callBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.bg,
-    borderWidth: 1,
-    borderColor: C.hairline,
+  contactBtns: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
+  contactBtn: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: C.fill,
+  },
+  contactBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
   },
   noteBox: {
     flexDirection: 'row',
@@ -1109,7 +1844,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: '#FFFBEB',
+    backgroundColor: C.amberSoft,
   },
   noteText: {
     flex: 1,
@@ -1120,14 +1855,15 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    paddingVertical: 6,
+    gap: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
   itemThumb: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: C.soft,
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: C.fill,
   },
   itemName: {
     fontSize: 14,
@@ -1137,90 +1873,107 @@ const styles = StyleSheet.create({
   itemCut: {
     fontSize: 12,
     color: C.secondary,
-    marginTop: 1,
-  },
-  itemQty: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: C.text,
-  },
-  moneyBox: {
-    marginTop: 10,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: C.hairline,
-    gap: 6,
-  },
-  moneyRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  moneyLabel: {
-    fontSize: 13,
-    color: C.secondary,
-  },
-  moneyValue: {
-    fontSize: 13,
-    color: C.text,
-    fontWeight: '600',
-  },
-  moneyTotalRow: {
     marginTop: 2,
   },
-  moneyTotalLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.text,
-  },
-  moneyTotal: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: C.text,
-  },
-  riderLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-  },
-  riderLineText: {
-    fontSize: 13,
-    color: C.secondary,
-    fontWeight: '600',
-  },
-  riderForm: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cancelLink: {
-    alignSelf: 'flex-start',
-    marginTop: 14,
-  },
-  cancelText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: C.red,
-  },
-
-  /* shared fields and buttons */
-  field: {
-    height: 46,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#E5E7EB',
-    backgroundColor: C.bg,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    color: C.text,
-  },
-  darkBtn: {
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: C.ink,
+  qtyBadge: {
+    minWidth: 36,
+    height: 28,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    backgroundColor: C.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  darkBtnText: {
+  qtyText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#FFFFFF',
+  },
+  billRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  billLabel: {
+    fontSize: 14,
+    color: C.secondary,
+  },
+  billValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+  billTotalRow: {
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: C.hairline,
+  },
+  billTotalLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.text,
+  },
+  billTotal: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: C.text,
+  },
+  billHint: {
+    fontSize: 12,
+    color: C.tertiary,
+    marginTop: 6,
+  },
+  cancelBtn: {
+    alignSelf: 'center',
+    paddingVertical: 14,
+    marginTop: 6,
+  },
+  cancelText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: C.red,
+  },
+  riderChip: {
+    height: 36,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: C.card,
+    justifyContent: 'center',
+  },
+  riderChipOn: {
+    backgroundColor: C.text,
+  },
+  riderChipText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.text,
+  },
+
+  /* shared */
+  field: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: C.card,
+    borderWidth: 1,
+    borderColor: C.hairline,
+    paddingHorizontal: 14,
+    fontSize: 16,
+    color: C.text,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.text,
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  bigBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: C.text,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bigBtnText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '700',
@@ -1231,145 +1984,14 @@ const styles = StyleSheet.create({
     color: C.secondary,
   },
 
-  /* stock */
-  searchField: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    height: 44,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    backgroundColor: C.soft,
-    marginTop: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 15,
-    color: C.text,
-    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
-  },
-  stockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  stockThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: C.soft,
-  },
-  stockName: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: C.text,
-  },
-  stockMeta: {
-    fontSize: 13,
-    color: C.secondary,
-    marginTop: 2,
-  },
-  stockMetaOut: {
-    color: C.red,
-    fontWeight: '700',
-  },
-  kgStepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: 10,
-    marginTop: 8,
-    paddingHorizontal: 4,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: C.soft,
-  },
-  kgBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: C.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  kgText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.text,
-    minWidth: 40,
-    textAlign: 'center',
-  },
-  footnote: {
-    fontSize: 12,
-    color: C.placeholder,
-    marginTop: 14,
-    textAlign: 'center',
-  },
-
-  /* riders */
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: C.text,
-    marginTop: 12,
-    marginBottom: 4,
-  },
-  riderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 12,
-  },
-  riderAvatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#F3E8FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  riderInitial: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#7E22CE',
-  },
-
-  /* empty */
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 20,
-  },
-  emptyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: C.text,
-  },
-  emptySub: {
-    fontSize: 14,
-    color: C.secondary,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-
   /* login */
   loginSafe: {
     flex: 1,
-    backgroundColor: C.bg,
+    backgroundColor: '#FFFFFF',
   },
   loginNav: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-  },
-  circleBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.soft,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   loginContent: {
     paddingHorizontal: 22,
@@ -1380,7 +2002,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: C.ink,
+    backgroundColor: C.text,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1396,14 +2018,7 @@ const styles = StyleSheet.create({
     color: C.secondary,
     lineHeight: 21,
     marginTop: 6,
-    marginBottom: 20,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: C.text,
-    marginTop: 12,
-    marginBottom: 6,
+    marginBottom: 8,
   },
   loginError: {
     fontSize: 14,

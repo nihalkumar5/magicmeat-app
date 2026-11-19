@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking, Image, A
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { orderLabel } from '../../utils/orderId';
 import { useStore } from '../../store/useStore';
 import { goBack } from '../../utils/navigation';
 import { confirmAction } from '../../utils/dialogs';
@@ -103,11 +104,13 @@ export default function OrderTrackingScreen() {
       'The store hasn’t started preparing it yet.',
       'Cancel order',
       () => cancelOrder(order.id),
-      'Keep order'
+      'Keep order',
     );
 
   const emailSupport = () =>
-    Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Help with order ${order.id}`)}`);
+    Linking.openURL(
+      `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent(`Help with order ${orderLabel(order.id)} (${order.id})`)}`,
+    );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
@@ -124,7 +127,7 @@ export default function OrderTrackingScreen() {
         </TouchableOpacity>
         <View style={{ alignItems: 'center' }}>
           <Text style={styles.navTitle}>Order status</Text>
-          <Text style={styles.navSub}>#{order.id}</Text>
+          <Text style={styles.navSub}>Order {orderLabel(order.id)}</Text>
         </View>
         <TouchableOpacity
           style={styles.navHelp}
@@ -146,7 +149,13 @@ export default function OrderTrackingScreen() {
           <View style={styles.heroTop}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.heroEyebrow, isCancelled && { color: C.secondary }]}>
-                {isCancelled ? 'CANCELLED' : isDelivered ? 'COMPLETED' : order.deliveryMode === 'instant' ? 'EXPRESS' : 'NORMAL'}
+                {isCancelled
+                  ? 'CANCELLED'
+                  : isDelivered
+                    ? 'COMPLETED'
+                    : order.deliveryMode === 'instant'
+                      ? 'EXPRESS'
+                      : 'NORMAL'}
               </Text>
               <Text style={styles.heroTitle}>{headline.title}</Text>
               {!isCancelled && !isDelivered ? (
@@ -234,9 +243,7 @@ export default function OrderTrackingScreen() {
                           {idx === 0 ? order.placedAt : current ? 'Now' : ''}
                         </Text>
                       </View>
-                      <Text style={[styles.stepSub, !(done || current) && { color: C.placeholder }]}>
-                        {stage.sub}
-                      </Text>
+                      <Text style={[styles.stepSub, !(done || current) && { color: C.placeholder }]}>{stage.sub}</Text>
                     </View>
                   </View>
                 );
@@ -252,7 +259,9 @@ export default function OrderTrackingScreen() {
             <AppIcon icon={Location01Icon} size={18} color={C.secondary} strokeWidth={2} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text style={styles.detailLabel}>Deliver to</Text>
-              <Text style={styles.detailValue} numberOfLines={2}>{order.address}</Text>
+              <Text style={styles.detailValue} numberOfLines={2}>
+                {order.address}
+              </Text>
             </View>
           </View>
           <View style={[styles.divider, { marginLeft: 30 }]} />
@@ -261,7 +270,11 @@ export default function OrderTrackingScreen() {
             <View style={{ flex: 1 }}>
               <Text style={styles.detailLabel}>Payment</Text>
               <Text style={styles.detailValue}>
-                {isCancelled ? 'Nothing to pay' : isDelivered ? `Pay on delivery · ₹${order.total}` : `Pay ₹${order.total} on delivery (cash or UPI)`}
+                {isCancelled
+                  ? 'Nothing to pay'
+                  : isDelivered
+                    ? `Pay on delivery · ₹${order.total}`
+                    : `Pay ₹${order.total} on delivery (cash or UPI)`}
               </Text>
             </View>
           </View>
