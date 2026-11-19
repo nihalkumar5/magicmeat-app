@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { DominosCard } from '../../components/DominosCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
+import { useTabBarInset } from '../../components/FloatingTabBar';
 import { ShopCard } from '../../components/ShopCard';
 import { FREE_DELIVERY_ABOVE } from '../../data/pricing';
 import { PRODUCTS } from '../../data/mockData';
@@ -288,6 +289,7 @@ const HeroBannerCarousel = React.memo<HeroProps>(function HeroBannerCarousel({ w
 HeroBannerCarousel.displayName = 'HeroBannerCarousel';
 
 export default function HomeScreen() {
+  const tabInset = useTabBarInset();
   const setSelectedCategory = useStore((state) => state.setSelectedCategory);
   const currentLocation = useStore((state) => state.currentLocation);
   const setLocationModalOpen = useStore((state) => state.setLocationModalOpen);
@@ -1111,7 +1113,7 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 110 + tabInset }} />
       </ScrollView>
 
       <FloatingCartBar />

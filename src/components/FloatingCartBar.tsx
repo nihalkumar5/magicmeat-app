@@ -3,11 +3,13 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
 import { router } from 'expo-router';
+import { useTabBarInset } from './FloatingTabBar';
 import { FREE_DELIVERY_ABOVE } from '../data/pricing';
 import { formatGrams } from '../utils/format';
 import { AppIcon, ShoppingBag01Icon, ArrowRight01Icon } from './HugeIcon';
 
 const FloatingCartBarComponent: React.FC = () => {
+  const tabInset = useTabBarInset();
   const cartLength = useStore((state) => state.cart.length);
   const totalItems = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
   const itemTotal = useStore((state) => state.getCartSubtotal());
@@ -26,7 +28,7 @@ const FloatingCartBarComponent: React.FC = () => {
       : itemsLabel;
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, tabInset > 0 && { bottom: tabInset + 4 }]}>
       <TouchableOpacity
         style={styles.container}
         activeOpacity={0.92}

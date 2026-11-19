@@ -18,6 +18,7 @@ import { formatGrams } from '../../utils/format';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { PRODUCTS } from '../../data/mockData';
 import { DominosCard } from '../../components/DominosCard';
+import { useTabBarInset } from '../../components/FloatingTabBar';
 import type { DeliveryMode } from '../../types';
 import {
   AppIcon,
@@ -48,6 +49,7 @@ const C = {
 };
 
 export default function CartScreen() {
+  const tabInset = useTabBarInset();
   const {
     cart,
     updateQuantity,
@@ -366,11 +368,11 @@ export default function CartScreen() {
           <Text style={styles.assuranceText}>Fresh, or your money back · Pay cash or UPI on delivery</Text>
         </View>
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 130 + tabInset }} />
       </ScrollView>
 
       {/* Checkout bar */}
-      <View style={styles.checkoutBar}>
+      <View style={[styles.checkoutBar, { bottom: tabInset }]}>
         {(totalSavings > 0 || (isDelivery && amountToFreeDelivery > 0)) && (
           <Text style={styles.checkoutHint}>
             {isDelivery && amountToFreeDelivery > 0

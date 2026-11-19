@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
 import { reorderToCart } from '../../utils/reorder';
+import { useTabBarInset } from '../../components/FloatingTabBar';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import type { Order } from '../../types';
 import { AppIcon, ArrowRight01Icon, RotateLeft01Icon } from '../../components/HugeIcon';
@@ -41,6 +42,7 @@ function summary(o: Order): string {
 }
 
 export default function OrdersScreen() {
+  const tabInset = useTabBarInset();
   const { orders } = useStore();
   const active = orders.filter(isActive);
   const past = orders.filter((o) => !isActive(o));
@@ -165,7 +167,7 @@ export default function OrdersScreen() {
           </View>
         )}
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 110 + tabInset }} />
       </ScrollView>
     </SafeAreaView>
   );

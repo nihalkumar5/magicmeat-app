@@ -17,6 +17,7 @@ import { PRODUCTS } from '../../data/mockData';
 import { FREE_DELIVERY_ABOVE } from '../../data/pricing';
 import { ShopCard } from '../../components/ShopCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
+import { useTabBarInset } from '../../components/FloatingTabBar';
 import { useStore } from '../../store/useStore';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import type { MeatCategory, Product } from '../../types';
@@ -67,6 +68,7 @@ const PAD = 12;
 const GAP = 12;
 
 export default function ShopScreen() {
+  const tabInset = useTabBarInset();
   const selected = useStore((s) => s.selectedCategory);
   const setSelected = useStore((s) => s.setSelectedCategory);
   const location = useStore((s) => s.currentLocation);
@@ -115,7 +117,7 @@ export default function ShopScreen() {
 
       <View style={styles.body}>
         {/* Category rail */}
-        <ScrollView style={styles.rail} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView style={styles.rail} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 + tabInset }}>
           {CATEGORIES.map((cat) => {
             const on = cat.id === active.id;
             return (
@@ -177,7 +179,7 @@ export default function ShopScreen() {
                 </TouchableOpacity>
               </View>
             }
-            ListFooterComponent={<View style={{ height: 120 }} />}
+            ListFooterComponent={<View style={{ height: 90 + tabInset }} />}
             initialNumToRender={6}
             maxToRenderPerBatch={6}
             windowSize={5}
@@ -187,7 +189,7 @@ export default function ShopScreen() {
       </View>
 
       {cartEmpty && !isPickup && (
-        <View style={styles.freeStrip}>
+        <View style={[styles.freeStrip, { bottom: tabInset + 4 }]}>
           <AppIcon icon={DeliveryTruck01Icon} size={15} color="#166534" strokeWidth={2} />
           <Text style={styles.freeText}>
             FREE DELIVERY on orders above <Text style={{ fontWeight: '800' }}>₹{FREE_DELIVERY_ABOVE}</Text>
@@ -345,17 +347,18 @@ const styles = StyleSheet.create({
   },
   freeStrip: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 16,
+    right: 16,
     bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 9,
+    paddingVertical: 10,
+    borderRadius: 16,
     backgroundColor: '#ECFDF3',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#BBF7D0',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: '#BBF7D0',
   },
   freeText: {
     fontSize: 12,

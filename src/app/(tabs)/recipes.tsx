@@ -6,8 +6,10 @@ import { RECIPE_KITS } from '../../data/mockData';
 import { RecipeCard } from '../../components/RecipeCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
 import { AppIcon, ChefHatIcon, SparklesIcon } from '../../components/HugeIcon';
+import { useTabBarInset } from '../../components/FloatingTabBar';
 
 export default function RecipesScreen() {
+  const tabInset = useTabBarInset();
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
@@ -46,7 +48,7 @@ export default function RecipesScreen() {
           <RecipeCard key={kit.id} kit={kit} />
         ))}
 
-        <View style={{ height: 110 }} />
+        <View style={{ height: 110 + tabInset }} />
       </ScrollView>
 
       <FloatingCartBar />
