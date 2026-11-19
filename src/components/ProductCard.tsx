@@ -30,13 +30,6 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
   const setCustomizerProduct = useStore((state) => state.setCustomizerProduct);
   const toggleWishlist = useStore((state) => state.toggleWishlist);
 
-  const [notified, setNotified] = React.useState(false);
-
-  const handleNotifyMe = (e: any) => {
-    e?.stopPropagation?.();
-    setNotified(true);
-  };
-
   const handleCardPress = () => {
     router.push({
       pathname: '/product/[id]',
@@ -172,16 +165,9 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
 
         {/* 48px Height Add Button / Stepper / Notify Me */}
         {isOutOfStock ? (
-          <TouchableOpacity
-            style={[styles.notifyBtn, notified && styles.notifyBtnDone]}
-            onPress={handleNotifyMe}
-            activeOpacity={0.8}
-            testID={`notify-btn-${product.id}`}
-          >
-            <Text style={[styles.notifyBtnText, notified && styles.notifyBtnTextDone]}>
-              {notified ? '✓ Notification Set' : 'Notify Me'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.notifyBtn} accessibilityState={{ disabled: true }}>
+            <Text style={styles.notifyBtnText}>Out of Stock</Text>
+          </View>
         ) : qtyInCart > 0 ? (
           <View style={styles.stepperContainer} testID={`stepper-${product.id}`}>
             <TouchableOpacity

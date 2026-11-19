@@ -6,6 +6,7 @@ import { Product, CutOption, CartItem, Order, DeliveryMode, MeatCategory, Invent
 import { LocationData } from '../types/location';
 import { unitPriceFor } from '../data/pricing';
 import { slotInfo } from '../data/slots';
+import { notify } from '../utils/dialogs';
 import {
   adminUpdateOrder,
   adminUpdateProduct,
@@ -236,6 +237,21 @@ export const INITIAL_INVENTORY: Record<string, InventoryItem> = {
   rtc1: { productId: 'rtc1', inStock: true, stockKg: 20, availableCutIds: ['curry-medium'] },
 };
 
+// Stock given to an empty item when an admin taps "Restock".
+const RESTOCK_KG = 5;
+
+function adminSaveFailed(action: string) {
+  return (e: any) => {
+    console.warn(`[store] ${action}`, e?.code || e);
+    notify(
+      'Not saved',
+      e?.code === 'permission-denied'
+        ? 'This change was refused. Sign in again as a store admin.'
+        : 'Could not reach the server. Check your connection and try again.'
+    );
+  };
+}
+
 // Firestore rules accept up to 20 units per order line.
 const MAX_LINE_QTY = 20;
 
@@ -270,37 +286,45 @@ export const useStore = create<StoreState>()(
       // app/_layout.tsx bring the change back into this store.
       toggleStock: (productId: string) => {
         const current = get().inventory[productId];
-        adminUpdateProduct(productId, { inStock: !(current?.inStock ?? true) }).catch((e) =>
-          console.warn('[store] toggleStock', e?.code || e)
-        );
+        const restocking = !(current?.inStock ?? true);
+        // Customers see an item with 0 kg as out of stock, so restocking an
+        // empty item also gives it one stepper step of stock.
+        const patch =
+          restocking && (current?.stockKg ?? 0) <= 0
+            ? { inStock: true, stockKg: RESTOCK_KG }
+            : { inStock: restocking };
+        adminUpdateProduct(productId, patch).catch(adminSaveFailed('toggleStock'));
       },
 
       updateStockKg: (productId: string, stockKg: number) => {
         const kg = Math.max(0, stockKg);
-        adminUpdateProduct(productId, { stockKg: kg, inStock: kg > 0 }).catch((e) =>
-          console.warn('[store] updateStockKg', e?.code || e)
-        );
+        adminUpdateProduct(productId, { stockKg: kg, inStock: kg > 0 }).catch(adminSaveFailed('updateStockKg'));
       },
 
       toggleCutStock: (productId: string, cutId: string) => {
         const ids = get().inventory[productId]?.availableCutIds || [];
         const next = ids.includes(cutId) ? ids.filter((c) => c !== cutId) : [...ids, cutId];
-        adminUpdateProduct(productId, { availableCutIds: next }).catch((e) =>
-          console.warn('[store] toggleCutStock', e?.code || e)
-        );
+        adminUpdateProduct(productId, { availableCutIds: next }).catch(adminSaveFailed('toggleCutStock'));
       },
 
       cancelOrder: (orderId: string) => {
-        const write = get().isAdmin
-          ? adminUpdateOrder(orderId, { status: 'cancelled' })
-          : cancelMyOrder(orderId);
-        write.catch((e) => console.warn('[store] cancelOrder', e?.code || e));
+        if (get().isAdmin) {
+          adminUpdateOrder(orderId, { status: 'cancelled' }).catch(adminSaveFailed('cancelOrder'));
+          return;
+        }
+        cancelMyOrder(orderId).catch((e) => {
+          console.warn('[store] cancelOrder', e?.code || e);
+          notify(
+            'Could not cancel',
+            e?.code === 'permission-denied'
+              ? 'The store has already started preparing this order. Please contact support.'
+              : 'Could not reach the server. Check your connection and try again.'
+          );
+        });
       },
 
       assignRider: (orderId: string, riderName: string, riderPhone: string) => {
-        adminUpdateOrder(orderId, { riderName, riderPhone, status: 'out_for_delivery' }).catch((e) =>
-          console.warn('[store] assignRider', e?.code || e)
-        );
+        adminUpdateOrder(orderId, { riderName, riderPhone, status: 'out_for_delivery' }).catch(adminSaveFailed('assignRider'));
       },
 
       toggleWishlist: (productId: string) =>
@@ -505,9 +529,7 @@ export const useStore = create<StoreState>()(
   },
 
   updateOrderStatus: (orderId, status, temp) => {
-    adminUpdateOrder(orderId, { status, currentTempCelsius: temp }).catch((e) =>
-      console.warn('[store] updateOrderStatus', e?.code || e)
-    );
+    adminUpdateOrder(orderId, { status, currentTempCelsius: temp }).catch(adminSaveFailed('updateOrderStatus'));
   },
 }),
     {

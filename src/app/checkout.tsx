@@ -83,6 +83,17 @@ export default function CheckoutScreen() {
       showError(`Please keep it to ${MAX_CART_LINES} different items per order.`);
       return;
     }
+    const { inventory } = useStore.getState();
+    const soldOut = cart.filter((item) => {
+      const inv = inventory[item.product.id];
+      return inv ? !inv.inStock || inv.stockKg <= 0 : false;
+    });
+    if (soldOut.length > 0) {
+      showError(
+        `${soldOut.map((i) => i.product.name).join(', ')} ${soldOut.length > 1 ? 'are' : 'is'} out of stock. Please remove ${soldOut.length > 1 ? 'them' : 'it'} from your basket.`
+      );
+      return;
+    }
     if (isUnserviceable) {
       showError(`We don't deliver to ${currentLocation.city || 'this address'} yet. Please pick another address.`);
       return;

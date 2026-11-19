@@ -42,7 +42,6 @@ export default function ProductDetailScreen() {
 
   const invItem = inventory[product.id];
   const isOutOfStock = invItem ? !invItem.inStock || invItem.stockKg <= 0 : false;
-  const [notified, setNotified] = useState(false);
 
   // Pack sizes and their prices come from data/pricing.ts, the same table
   // Firestore checks orders against.
@@ -328,15 +327,9 @@ export default function ProductDetailScreen() {
 
           {/* Add to Cart or Stepper or Notify Me Button (Lazizia Style) */}
           {isOutOfStock || !selectedPack.inStock ? (
-            <TouchableOpacity
-              style={[styles.bottomNotifyBtn, notified && styles.bottomNotifyBtnDone]}
-              onPress={() => setNotified(true)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.bottomNotifyText, notified && styles.bottomNotifyTextDone]}>
-                {notified ? '✓ Notification Set' : 'Notify Me'}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.bottomNotifyBtn} accessibilityState={{ disabled: true }}>
+              <Text style={styles.bottomNotifyText}>Out of Stock</Text>
+            </View>
           ) : qtyInCart > 0 ? (
             <View style={styles.bottomStepper}>
               <TouchableOpacity

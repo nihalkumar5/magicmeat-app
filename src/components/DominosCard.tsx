@@ -114,7 +114,7 @@ const DominosCardComponent: React.FC<Props> = ({
         {/* Action Button: Clean Outline Button, Stepper, or Notify Me */}
         {isOutOfStock ? (
           <View style={styles.notifyBtn}>
-            <Text style={styles.notifyBtnText}>Notify Me</Text>
+            <Text style={styles.notifyBtnText}>Out of Stock</Text>
           </View>
         ) : qtyInCart > 0 ? (
           <View style={styles.stepperContainer}>

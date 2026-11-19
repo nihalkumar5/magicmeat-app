@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
 import { notify, confirmAction } from '../utils/dialogs';
+import { cleanPhone, isValidPhone } from '../utils/validation';
 import { adminSignIn, adminSignOut } from '../services/backend';
 import { PRODUCTS } from '../data/mockData';
 import { Order, OrderStatus } from '../types';
@@ -23,7 +24,6 @@ import {
   Search01Icon,
   ThermometerColdIcon,
   DeliveryTruck01Icon,
-  ShieldCheckIcon,
   PlusSignIcon,
   MinusSignIcon,
   UserIcon,
@@ -104,6 +104,7 @@ export default function AdminScreen() {
     inventory,
     updateOrderStatus,
     cancelOrder,
+    assignRider,
     toggleStock,
     updateStockKg,
   } = useStore();
@@ -112,15 +113,38 @@ export default function AdminScreen() {
   const [orderStatusFilter, setOrderStatusFilter] = useState<'all' | OrderStatus>('all');
   const [inventorySearch, setInventorySearch] = useState('');
   const [inventoryCat, setInventoryCat] = useState<'all' | 'chicken' | 'mutton' | 'fish' | 'eggs'>('all');
+  const [riderDrafts, setRiderDrafts] = useState<Record<string, { name: string; phone: string }>>({});
+
+  const riderDraft = (orderId: string) => riderDrafts[orderId] || { name: '', phone: '' };
+  const setRiderDraft = (orderId: string, patch: Partial<{ name: string; phone: string }>) =>
+    setRiderDrafts((d) => ({ ...d, [orderId]: { ...riderDraft(orderId), ...patch } }));
+
+  const dispatchOrder = (order: Order) => {
+    const draft = riderDraft(order.id);
+    if (!draft.name.trim()) {
+      notify('Rider needed', 'Enter the rider name before dispatching.');
+      return;
+    }
+    if (!isValidPhone(draft.phone)) {
+      notify('Rider needed', "Enter the rider's 10-digit mobile number so the customer can call.");
+      return;
+    }
+    assignRider(order.id, draft.name.trim(), cleanPhone(draft.phone));
+  };
+
+  // Riders currently out with an order, newest first.
+  const ridersOnRoad = orders.filter((o) => o.status === 'out_for_delivery' && o.riderName);
 
   // Key KPI Metrics
   const activeOrdersCount = orders.filter(
     (o) => o.status !== 'delivered' && o.status !== 'cancelled'
   ).length;
 
-  const todayRevenue = orders
-    .filter((o) => o.status !== 'cancelled')
-    .reduce((sum, o) => sum + (o.total || (o as any).totalAmount || 0), 0);
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const todaysOrders = orders.filter((o) => o.status !== 'cancelled' && (o.createdAtMs ?? 0) >= startOfToday.getTime());
+  const todayRevenue = todaysOrders.reduce((sum, o) => sum + (o.total || 0), 0);
+  const deliveredToday = todaysOrders.filter((o) => o.status === 'delivered').length;
 
   const outOfStockCount = Object.values(inventory).filter((i) => !i.inStock).length;
 
@@ -168,16 +192,12 @@ export default function AdminScreen() {
   const handleNextStatus = (order: Order) => {
     if (order.status === 'placed') {
       updateOrderStatus(order.id, 'butcher_prepping', 2.1);
-      notify('Butchery Started', `Order #${order.id} sent to master butcher cutting line.`);
     } else if (order.status === 'butcher_prepping') {
       updateOrderStatus(order.id, 'cold_packed', 1.8);
-      notify('Cold Packed', `Order #${order.id} sealed with 0-4°C cooling pack.`);
     } else if (order.status === 'cold_packed') {
-      updateOrderStatus(order.id, 'out_for_delivery', 2.3);
-      notify('Dispatched', `Order #${order.id} handed to ${order.riderName || 'Rider'}.`);
+      dispatchOrder(order);
     } else if (order.status === 'out_for_delivery') {
       updateOrderStatus(order.id, 'delivered', 2.4);
-      notify('Delivered', `Order #${order.id} marked as delivered to customer.`);
     }
   };
 
@@ -230,9 +250,9 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Revenue</Text>
+          <Text style={styles.metricLabel}>Today</Text>
           <Text style={styles.metricValue}>₹{todayRevenue}</Text>
-          <Text style={styles.metricSub}>Gross sales</Text>
+          <Text style={styles.metricSub}>{todaysOrders.length} orders</Text>
         </View>
 
         <View style={styles.metricCard}>
@@ -244,9 +264,9 @@ export default function AdminScreen() {
         </View>
 
         <View style={styles.metricCard}>
-          <Text style={styles.metricLabel}>Cold Room</Text>
-          <Text style={[styles.metricValue, { color: '#0284C7' }]}>1.8°C</Text>
-          <Text style={styles.metricSub}>0–4°C Safe</Text>
+          <Text style={styles.metricLabel}>Delivered</Text>
+          <Text style={[styles.metricValue, { color: '#15803D' }]}>{deliveredToday}</Text>
+          <Text style={styles.metricSub}>Today</Text>
         </View>
       </View>
 
@@ -285,7 +305,7 @@ export default function AdminScreen() {
           testID="tab-hub"
         >
           <Text style={[styles.tabButtonText, activeTab === 'hub' && styles.tabButtonTextActive]}>
-            Cold Hub &amp; Riders
+            Riders
           </Text>
         </TouchableOpacity>
       </View>
@@ -335,6 +355,12 @@ export default function AdminScreen() {
                   key: 'delivered',
                   label: `Delivered (${
                     orders.filter((o) => o.status === 'delivered').length
+                  })`,
+                },
+                {
+                  key: 'cancelled',
+                  label: `Cancelled (${
+                    orders.filter((o) => o.status === 'cancelled').length
                   })`,
                 },
               ].map((chip) => (
@@ -473,6 +499,27 @@ export default function AdminScreen() {
                         </TouchableOpacity>
                       )}
 
+                      {order.status === 'cold_packed' && (
+                        <View style={styles.riderForm}>
+                          <TextInput
+                            style={styles.riderInput}
+                            placeholder="Rider name"
+                            placeholderTextColor="#9CA3AF"
+                            value={riderDraft(order.id).name}
+                            onChangeText={(name) => setRiderDraft(order.id, { name })}
+                            maxLength={60}
+                          />
+                          <TextInput
+                            style={styles.riderInput}
+                            placeholder="Rider mobile"
+                            placeholderTextColor="#9CA3AF"
+                            keyboardType="phone-pad"
+                            value={riderDraft(order.id).phone}
+                            onChangeText={(phone) => setRiderDraft(order.id, { phone })}
+                            maxLength={14}
+                          />
+                        </View>
+                      )}
                       {order.status === 'cold_packed' && (
                         <TouchableOpacity
                           style={[styles.actionBtnPrimary, { backgroundColor: '#7C3AED' }]}
@@ -671,63 +718,32 @@ export default function AdminScreen() {
         {/* ============================================================= */}
         {activeTab === 'hub' && (
           <View>
-            {/* Chiller Cold Room Monitor */}
-            <View style={styles.hubMonitorCard}>
-              <View style={styles.hubHeaderRow}>
-                <AppIcon icon={ShieldCheckIcon} size={20} color="#15803D" strokeWidth={2} />
-                <Text style={styles.hubTitle}>Chiller &amp; Cold Room Telemetry</Text>
-              </View>
-
-              <View style={styles.chillerGrid}>
-                <View style={styles.chillerBox}>
-                  <Text style={styles.chillerName}>Chicken Cold Room</Text>
-                  <Text style={styles.chillerTemp}>1.6°C</Text>
-                  <Text style={styles.chillerStatus}>🟢 Optimal (0–4°C)</Text>
-                </View>
-                <View style={styles.chillerBox}>
-                  <Text style={styles.chillerName}>Mutton Cold Room</Text>
-                  <Text style={styles.chillerTemp}>2.1°C</Text>
-                  <Text style={styles.chillerStatus}>🟢 Optimal (0–4°C)</Text>
-                </View>
-                <View style={styles.chillerBox}>
-                  <Text style={styles.chillerName}>Seafood Freezer</Text>
-                  <Text style={styles.chillerTemp}>-18.4°C</Text>
-                  <Text style={styles.chillerStatus}>🟢 Deep Frozen</Text>
-                </View>
-                <View style={styles.chillerBox}>
-                  <Text style={styles.chillerName}>Sensor Battery</Text>
-                  <Text style={styles.chillerTemp}>98%</Text>
-                  <Text style={styles.chillerStatus}>🟢 IoT Connected</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Delivery Fleet Section */}
             <View style={styles.hubMonitorCard}>
               <View style={styles.hubHeaderRow}>
                 <AppIcon icon={DeliveryTruck01Icon} size={20} color="#171717" strokeWidth={2} />
-                <Text style={styles.hubTitle}>Delivery Fleet Status (Atal Nagar Hub)</Text>
+                <Text style={styles.hubTitle}>Riders on delivery ({ridersOnRoad.length})</Text>
               </View>
 
-              {[
-                { name: 'Vikram Singh', phone: '+91 98765 43210', status: 'Delivering #MM-849201', active: true },
-                { name: 'Amit Sahu', phone: '+91 91234 56789', status: 'Prepping at Hub', active: true },
-                { name: 'Rajesh Kumar', phone: '+91 98765 12345', status: 'Delivering #MM-849182', active: true },
-                { name: 'Dinesh Yadav', phone: '+91 94567 89012', status: 'Idle (Ready for pickup)', active: false },
-              ].map((rider, i) => (
-                <View key={i} style={styles.riderRow}>
-                  <View style={styles.riderAvatar}>
-                    <Text style={styles.riderInitial}>{rider.name[0]}</Text>
+              {ridersOnRoad.length === 0 ? (
+                <Text style={styles.riderPhone}>
+                  No rider is out right now. Riders appear here when you dispatch an order.
+                </Text>
+              ) : (
+                ridersOnRoad.map((o) => (
+                  <View key={o.id} style={styles.riderRow}>
+                    <View style={styles.riderAvatar}>
+                      <Text style={styles.riderInitial}>{(o.riderName || '?')[0].toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.riderName}>{o.riderName}</Text>
+                      <Text style={styles.riderPhone}>{o.riderPhone ? `+91 ${o.riderPhone}` : 'No phone'}</Text>
+                    </View>
+                    <View style={styles.riderStatusBadge}>
+                      <Text style={styles.riderStatusText}>Delivering {o.id}</Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.riderName}>{rider.name}</Text>
-                    <Text style={styles.riderPhone}>{rider.phone}</Text>
-                  </View>
-                  <View style={styles.riderStatusBadge}>
-                    <Text style={styles.riderStatusText}>{rider.status}</Text>
-                  </View>
-                </View>
-              ))}
+                ))
+              )}
             </View>
           </View>
         )}
@@ -739,6 +755,24 @@ export default function AdminScreen() {
 }
 
 const styles = StyleSheet.create({
+  riderForm: {
+    width: '100%',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  riderInput: {
+    flex: 1,
+    minWidth: 0,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: '#111827',
+  },
   loginInput: {
     width: '100%',
     maxWidth: 320,
@@ -1079,6 +1113,7 @@ const styles = StyleSheet.create({
   },
   orderActionsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 10,
   },
