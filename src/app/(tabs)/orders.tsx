@@ -1,167 +1,194 @@
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  Image,
-} from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { THEME } from '../../constants/theme';
-import { useStore } from '../../store/useStore';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ColdChainBadge } from '../../components/ColdChainBadge';
-import {
-  AppIcon,
-  ArrowRight01Icon,
-  RotateLeft01Icon,
-  Clock01Icon,
-  ArrowLeft01Icon,
-} from '../../components/HugeIcon';
+import { useStore } from '../../store/useStore';
+import { PRODUCTS } from '../../data/mockData';
+import { notify } from '../../utils/dialogs';
+import { optimizeImageUrl } from '../../utils/imageOptimizer';
+import type { Order } from '../../types';
+import { AppIcon, ArrowRight01Icon, RotateLeft01Icon } from '../../components/HugeIcon';
 
-const STATUS_LABEL: Record<string, string> = {
-  placed: 'Placed',
-  butcher_prepping: 'Preparing',
-  cold_packed: 'Packed',
-  rider_assigned: 'Rider assigned',
-  out_for_delivery: 'On the way',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
+const C = {
+  bg: '#F2F2F7',
+  card: '#FFFFFF',
+  text: '#111111',
+  secondary: '#6B7280',
+  placeholder: '#9CA3AF',
+  hairline: 'rgba(60, 60, 67, 0.14)',
+  red: '#DC2626',
+  green: '#16A34A',
 };
 
+const STATUS: Record<string, { label: string; color: string; bg: string; step: number }> = {
+  placed: { label: 'Order placed', color: '#B45309', bg: '#FEF3C7', step: 0 },
+  butcher_prepping: { label: 'Being prepared', color: '#1D4ED8', bg: '#EFF6FF', step: 1 },
+  cold_packed: { label: 'Packed', color: '#0F766E', bg: '#F0FDFA', step: 2 },
+  rider_assigned: { label: 'Rider assigned', color: '#7E22CE', bg: '#FAF5FF', step: 3 },
+  out_for_delivery: { label: 'On the way', color: '#7E22CE', bg: '#FAF5FF', step: 3 },
+  delivered: { label: 'Delivered', color: '#15803D', bg: '#F0FDF4', step: 4 },
+  cancelled: { label: 'Cancelled', color: '#6B7280', bg: '#F3F4F6', step: 0 },
+};
+
+const isActive = (o: Order) => o.status !== 'delivered' && o.status !== 'cancelled';
+const itemCount = (o: Order) => o.items.reduce((n, item) => n + item.quantity, 0);
+
+function summary(o: Order): string {
+  const first = o.items[0];
+  if (!first) return 'Order';
+  const name = first.product.name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
+  const more = o.items.length - 1;
+  return `${first.quantity}× ${name}${more > 0 ? ` + ${more} more` : ''}`;
+}
+
 export default function OrdersScreen() {
-  const { orders, activeOrder } = useStore();
+  const { orders, addToCart, inventory } = useStore();
+  const active = orders.filter(isActive);
+  const past = orders.filter((o) => !isActive(o));
+
+  const openOrder = (o: Order) => router.push({ pathname: '/order-tracking/[id]', params: { id: o.id } });
+
+  // Put an old order back in the basket. Prices come from today's price
+  // table; items we no longer sell or that are out of stock are skipped.
+  const orderAgain = (o: Order) => {
+    const skipped: string[] = [];
+    let added = 0;
+    for (const item of o.items) {
+      const product = PRODUCTS.find((p) => p.id === item.product.id);
+      const inv = inventory[item.product.id];
+      const soldOut = inv ? !inv.inStock || inv.stockKg <= 0 : false;
+      if (!product || soldOut) {
+        skipped.push(item.product.name);
+        continue;
+      }
+      addToCart(product, item.selectedCut, item.isSkinless, item.quantity);
+      added += 1;
+    }
+    if (added === 0) {
+      notify('Not available right now', 'Everything in this order is out of stock. Please try again later.');
+      return;
+    }
+    if (skipped.length) {
+      notify('Added to your basket', `${skipped.join(', ')} ${skipped.length > 1 ? 'are' : 'is'} out of stock and was left out.`);
+    }
+    router.push('/(tabs)/cart');
+  };
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top']}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
-            activeOpacity={0.7}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-          >
-            <AppIcon icon={ArrowLeft01Icon} size={20} color="#000000" strokeWidth={2.5} />
-          </TouchableOpacity>
-          <View style={styles.headerTextCol}>
-            <Text style={styles.headerTitle}>Your orders</Text>
-            <Text style={styles.headerSubtitle}>Track current orders and see past ones</Text>
-          </View>
-        </View>
+        <Text style={styles.largeTitle}>Orders</Text>
       </View>
 
-      <ScrollView
-        style={styles.content}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Active Order Card */}
-        {activeOrder && (
-          <TouchableOpacity
-            style={styles.activeOrderCard}
-            onPress={() =>
-              router.push({
-                pathname: '/order-tracking/[id]',
-                params: { id: activeOrder.id },
-              })
-            }
-            activeOpacity={0.9}
-          >
-            <View style={styles.activeHeaderRow}>
-              <View style={styles.activeBadge}>
-                <View style={styles.livePulse} />
-                <Text style={styles.activeBadgeText}>ACTIVE • {(STATUS_LABEL[activeOrder.status] || activeOrder.status).toUpperCase()}</Text>
-              </View>
-              <ColdChainBadge temp="Packed cold" size="sm" />
-            </View>
-
-            <View style={styles.activeBody}>
-              <Text style={styles.orderIdText}>Order #{activeOrder.id}</Text>
-              <Text style={styles.activeEta}>
-                {activeOrder.deliveryMode === 'instant' ? 'Arriving in ' : 'Arriving '}<Text style={{ color: '#000000' }}>{activeOrder.eta}</Text>
-              </Text>
-              <Text style={styles.activeSlot}>{activeOrder.slotLabel}</Text>
-              <Text style={styles.activeItemsCount}>
-                {activeOrder.items.length} item{activeOrder.items.length > 1 ? 's' : ''} · ₹{activeOrder.total}
-              </Text>
-            </View>
-
-            <View style={styles.activeFooter}>
-              <Text style={styles.trackText}>Track order</Text>
-              <AppIcon icon={ArrowRight01Icon} size={16} color="#FFFFFF" strokeWidth={2.5} />
-            </View>
-          </TouchableOpacity>
-        )}
-
-        {/* Past Orders */}
-        <Text style={styles.sectionTitle}>Past orders</Text>
-
-        {orders.length === 0 && !activeOrder && (
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {orders.length === 0 && (
           <View style={styles.emptyCard}>
             <Image
               source={require('../../../assets/illustrations/checkout_counter.png')}
-              style={styles.emptyIllustration}
+              style={styles.emptyArt}
               resizeMode="contain"
             />
             <Text style={styles.emptyTitle}>No orders yet</Text>
-            <Text style={styles.emptySubtitle}>
-              When you place an order, you can track it live from here.
-            </Text>
-            <TouchableOpacity
-              style={styles.orderNowBtn}
-              onPress={() => router.push('/(tabs)')}
-              activeOpacity={0.88}
-            >
-              <Text style={styles.orderNowBtnText}>Start shopping</Text>
-              <AppIcon icon={ArrowRight01Icon} size={15} color="#FFFFFF" strokeWidth={2.5} />
+            <Text style={styles.emptySub}>When you place an order, you can track it live from here.</Text>
+            <TouchableOpacity style={styles.primaryBtn} onPress={() => router.push('/(tabs)')} activeOpacity={0.85}>
+              <Text style={styles.primaryBtnText}>Start shopping</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {orders.map((order) => (
-          <View key={order.id} style={styles.orderCard}>
-            <View style={styles.orderHeaderRow}>
-              <View>
-                <Text style={styles.cardOrderId}>#{order.id}</Text>
-                <Text style={styles.cardDate}>
-                  {order.placedAt} • {order.paymentMethod}
-                </Text>
+        {/* In progress */}
+        {active.length > 0 && <Text style={styles.sectionLabel}>IN PROGRESS</Text>}
+        {active.map((o) => {
+          const st = STATUS[o.status] || STATUS.placed;
+          return (
+            <TouchableOpacity
+              key={o.id}
+              style={styles.activeCard}
+              onPress={() => openOrder(o)}
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              accessibilityLabel={`${st.label}. Track order`}
+            >
+              <View style={styles.activeTop}>
+                <View style={styles.liveDot} />
+                <Text style={styles.activeStatus}>{st.label}</Text>
+                <Text style={styles.activeId}>#{o.id.replace('MM-', '')}</Text>
               </View>
-              <View style={styles.statusBadge}>
-                <AppIcon icon={Clock01Icon} size={11} color="#15803D" strokeWidth={2} />
-                <Text style={styles.statusText}>{STATUS_LABEL[order.status] || order.status}</Text>
+              <Text style={styles.activeEta}>
+                {o.deliveryMode === 'instant' ? 'Arriving in ' : 'Arriving '}
+                <Text style={{ color: '#FCA5A5' }}>{o.eta}</Text>
+              </Text>
+              <Text style={styles.activeMeta}>
+                {itemCount(o)} item{itemCount(o) === 1 ? '' : 's'} · ₹{o.total} · Pay on delivery
+              </Text>
+              <View style={styles.segments}>
+                {[1, 2, 3, 4].map((n) => (
+                  <View key={n} style={[styles.segment, n <= st.step && styles.segmentDone]} />
+                ))}
               </View>
-            </View>
+              <View style={styles.trackRow}>
+                <Text style={styles.trackText}>Track order</Text>
+                <AppIcon icon={ArrowRight01Icon} size={16} color="#FFFFFF" strokeWidth={2.4} />
+              </View>
+            </TouchableOpacity>
+          );
+        })}
 
-            <View style={styles.orderItemsList}>
-              {order.items.map((it, idx) => (
-                <Text key={idx} style={styles.orderItemName} numberOfLines={1}>
-                  • {it.quantity}x {it.product.name} ({it.selectedCut.name})
-                </Text>
-              ))}
-            </View>
-
-            <View style={styles.orderFooterRow}>
-              <Text style={styles.orderTotal}>₹{order.total}</Text>
-              <TouchableOpacity
-                style={styles.reorderBtn}
-                onPress={() =>
-                  router.push({
-                    pathname: '/order-tracking/[id]',
-                    params: { id: order.id },
-                  })
-                }
-              >
-                <AppIcon icon={RotateLeft01Icon} size={12} color="#000000" strokeWidth={2} />
-                <Text style={styles.reorderText}>Details</Text>
-              </TouchableOpacity>
-            </View>
+        {/* Past */}
+        {past.length > 0 && <Text style={styles.sectionLabel}>PAST ORDERS</Text>}
+        {past.length > 0 && (
+          <View style={styles.card}>
+            {past.map((o, idx) => {
+              const st = STATUS[o.status] || STATUS.delivered;
+              const thumbs = o.items.slice(0, 2);
+              return (
+                <View key={o.id}>
+                  {idx > 0 && <View style={styles.divider} />}
+                  <TouchableOpacity
+                    style={styles.pastRow}
+                    onPress={() => openOrder(o)}
+                    activeOpacity={0.6}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${summary(o)}, ${st.label}, ₹${o.total}`}
+                  >
+                    <View style={styles.thumbStack}>
+                      {thumbs.map((item, i) => (
+                        <Image
+                          key={`${o.id}-thumb-${i}`}
+                          source={{ uri: optimizeImageUrl(item.product.image, 120) }}
+                          style={[styles.thumb, i === 1 && styles.thumbBack]}
+                        />
+                      ))}
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={styles.pastTitle} numberOfLines={1}>
+                        {summary(o)}
+                      </Text>
+                      <Text style={styles.pastMeta} numberOfLines={1}>
+                        {o.placedAt} · ₹{o.total}
+                      </Text>
+                      <View style={[styles.pill, { backgroundColor: st.bg }]}>
+                        <Text style={[styles.pillText, { color: st.color }]}>{st.label}</Text>
+                      </View>
+                    </View>
+                    <AppIcon icon={ArrowRight01Icon} size={16} color="#C7C7CC" strokeWidth={2.2} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.againBtn}
+                    onPress={() => orderAgain(o)}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Order ${summary(o)} again`}
+                  >
+                    <AppIcon icon={RotateLeft01Icon} size={14} color={C.red} strokeWidth={2.2} />
+                    <Text style={styles.againText}>Order again</Text>
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
           </View>
-        ))}
-
+        )}
 
         <View style={{ height: 110 }} />
       </ScrollView>
@@ -172,272 +199,215 @@ export default function OrdersScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: C.bg,
   },
   header: {
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
-    paddingBottom: THEME.spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E5EA',
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 6,
   },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTextCol: {
-    flex: 1,
-  },
-  headerTitle: {
-    color: '#000000',
-    fontSize: 22,
-    fontWeight: '900',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
+  largeTitle: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.6,
   },
   content: {
-    flex: 1,
-    backgroundColor: THEME.colors.background,
+    paddingHorizontal: 16,
   },
-  scrollContent: {
-    paddingHorizontal: THEME.spacing.lg,
-    paddingTop: THEME.spacing.md,
-  },
-  activeOrderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.xl,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.lg,
-    borderWidth: 1.5,
-    borderColor: '#000000',
-    ...THEME.shadow.card,
-  },
-  activeHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: THEME.spacing.sm,
-  },
-  activeBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  livePulse: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: THEME.colors.macroProtein,
-  },
-  activeBadgeText: {
-    color: '#000000',
-    fontSize: 11,
-    fontWeight: '900',
-  },
-  activeBody: {
-    marginVertical: 4,
-  },
-  orderIdText: {
-    color: THEME.colors.textMuted,
+  sectionLabel: {
     fontSize: 12,
     fontWeight: '600',
+    color: C.secondary,
+    letterSpacing: 0.4,
+    marginTop: 16,
+    marginBottom: 8,
+    marginLeft: 6,
+  },
+  card: {
+    backgroundColor: C.card,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: C.hairline,
+  },
+
+  /* active */
+  activeCard: {
+    backgroundColor: C.text,
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 10,
+  },
+  activeTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  liveDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  activeStatus: {
+    flex: 1,
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  activeId: {
+    color: '#A1A1AA',
+    fontSize: 12,
   },
   activeEta: {
-    color: '#000000',
-    fontSize: 20,
-    fontWeight: '900',
-    marginTop: 2,
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '800',
+    marginTop: 10,
+    letterSpacing: -0.3,
   },
-  activeSlot: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  activeItemsCount: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
+  activeMeta: {
+    color: '#A1A1AA',
+    fontSize: 13,
     marginTop: 4,
   },
-  activeFooter: {
+  segments: {
+    flexDirection: 'row',
+    gap: 5,
+    marginTop: 14,
+  },
+  segment: {
+    flex: 1,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+  },
+  segmentDone: {
+    backgroundColor: '#22C55E',
+  },
+  trackRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#000000',
-    marginTop: THEME.spacing.md,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: THEME.radius.full,
-    ...THEME.shadow.button,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.18)',
   },
   trackText: {
     color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  sectionTitle: {
-    color: '#000000',
-    fontSize: 17,
-    fontWeight: '900',
-    marginBottom: THEME.spacing.md,
-  },
-  emptyCard: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    backgroundColor: '#FAFAFA',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#EEEEEE',
-    marginVertical: 12,
-  },
-  emptyIllustration: {
-    width: 140,
-    height: 140,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    color: '#0F172A',
-    fontSize: 18,
-    fontWeight: '900',
-    letterSpacing: -0.3,
-  },
-  emptySubtitle: {
-    color: '#64748B',
-    fontSize: 12.5,
-    textAlign: 'center',
-    marginTop: 6,
-    lineHeight: 18,
-    maxWidth: 280,
-  },
-  orderNowBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#0F172A',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: THEME.radius.full,
-    marginTop: 18,
-    ...THEME.shadow.button,
-  },
-  orderNowBtnText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  orderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.lg,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
-  },
-  orderHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 8,
-  },
-  cardOrderId: {
-    color: '#000000',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  cardDate: {
-    color: THEME.colors.textMuted,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#E8F5E9',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: THEME.radius.full,
-    gap: 4,
-  },
-  statusText: {
-    color: '#15803D',
-    fontSize: 11,
+    fontSize: 15,
     fontWeight: '700',
   },
-  orderItemsList: {
-    marginVertical: 6,
+
+  /* past */
+  pastRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingTop: 14,
+    paddingBottom: 8,
   },
-  orderItemName: {
-    color: THEME.colors.textSecondary,
+  thumbStack: {
+    width: 56,
+    height: 56,
+  },
+  thumb: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: 50,
+    height: 50,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: C.card,
+    backgroundColor: C.bg,
+    zIndex: 2,
+  },
+  thumbBack: {
+    top: 6,
+    left: 6,
+    zIndex: 1,
+  },
+  pastTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+  },
+  pastMeta: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 2,
+  },
+  pill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  pillText: {
     fontSize: 12,
-    marginBottom: 2,
+    fontWeight: '700',
   },
-  orderFooterRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F2F2F7',
-  },
-  orderTotal: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '900',
-  },
-  reorderBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#F2F2F7',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: THEME.radius.full,
-  },
-  reorderText: {
-    color: '#000000',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  complianceCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: THEME.radius.lg,
-    padding: THEME.spacing.md,
-    marginTop: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E2E2EA',
-    ...THEME.shadow.card,
-  },
-  complianceHeader: {
+  againBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 4,
+    alignSelf: 'flex-start',
+    marginLeft: 82,
+    marginBottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    backgroundColor: '#FEF2F2',
   },
-  complianceTitle: {
-    color: '#15803D',
-    fontSize: 12,
+  againText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.red,
+  },
+
+  /* empty */
+  emptyCard: {
+    backgroundColor: C.card,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  emptyArt: {
+    width: 180,
+    height: 150,
+  },
+  emptyTitle: {
+    fontSize: 20,
     fontWeight: '800',
+    color: C.text,
+    marginTop: 6,
   },
-  complianceDesc: {
-    color: THEME.colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
+  emptySub: {
+    fontSize: 14,
+    color: C.secondary,
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 18,
+  },
+  primaryBtn: {
+    backgroundColor: C.red,
+    height: 50,
+    borderRadius: 25,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
