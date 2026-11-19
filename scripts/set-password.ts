@@ -13,6 +13,9 @@ if (!args.includes('--project') || !projectId || !email) {
   process.exit(1);
 }
 
+// Local Google login (ADC) needs a quota project for the Auth/Firestore admin APIs.
+process.env.GOOGLE_CLOUD_QUOTA_PROJECT ||= projectId;
+
 function askHidden(question: string): Promise<string> {
   return new Promise((resolve) => {
     const stdin = process.stdin;
