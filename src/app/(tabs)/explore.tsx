@@ -109,7 +109,7 @@ export default function ExploreScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* 2. FILTER ROW (Veg/Non-Veg Style Meat Filters & Sort By) */}
+      {/* 2. Filter row */}
       <View style={styles.filterRow}>
         {/* Chicken Only Filter */}
         <TouchableOpacity
@@ -120,7 +120,6 @@ export default function ExploreScreen() {
           onPress={() => setQuickFilter(quickFilter === 'chicken' ? 'all' : 'chicken')}
           activeOpacity={0.8}
         >
-          <View style={styles.filterDotChicken} />
           <Text
             style={[
               styles.filterPillText,
@@ -140,7 +139,6 @@ export default function ExploreScreen() {
           onPress={() => setQuickFilter(quickFilter === 'mutton' ? 'all' : 'mutton')}
           activeOpacity={0.8}
         >
-          <View style={styles.filterDotMutton} />
           <Text
             style={[
               styles.filterPillText,
@@ -338,18 +336,6 @@ const styles = StyleSheet.create({
   filterPillActive: {
     borderColor: '#DC2626',
     backgroundColor: '#FEF2F2',
-  },
-  filterDotChicken: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#16A34A',
-  },
-  filterDotMutton: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#DC2626',
   },
   filterPillText: {
     color: '#374151',

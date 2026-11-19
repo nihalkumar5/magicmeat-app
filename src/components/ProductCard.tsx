@@ -89,15 +89,14 @@ const ProductCardComponent: React.FC<Props> = ({ product }) => {
           </View>
         )}
 
-        {/* Top-Left Overlays: Non-Veg Indicator + Bestseller Badge */}
-        <View style={styles.topLeftGroup}>
-          <View style={styles.nonVegBox}>
-            <View style={styles.nonVegDot} />
+        {/* Top-left badge */}
+        {!!product.badge && (
+          <View style={styles.topLeftGroup}>
+            <View style={styles.badgePill}>
+              <Text style={styles.badgePillText}>{product.badge}</Text>
+            </View>
           </View>
-          <View style={styles.badgePill}>
-            <Text style={styles.badgePillText}>{product.badge || 'Bestseller'}</Text>
-          </View>
-        </View>
+        )}
 
         {/* Top-Right: Wishlist Heart Button */}
         <TouchableOpacity
@@ -237,27 +236,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     zIndex: 5,
-  },
-  nonVegBox: {
-    width: 14,
-    height: 14,
-    borderWidth: 1.2,
-    borderColor: '#DC2626',
-    borderRadius: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  nonVegDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#DC2626',
   },
   badgePill: {
     backgroundColor: '#DC2626',

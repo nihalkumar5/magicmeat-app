@@ -178,7 +178,7 @@ export default function ProductDetailScreen() {
           showsVerticalScrollIndicator={false}
           bounces={true}
         >
-          {/* 1. Hero Image Container with Non-Veg Badge */}
+          {/* Hero image */}
           <View style={styles.heroWrapper}>
             <Image
               source={{ uri: optimizeImageUrl(product.image, 720) }}
@@ -186,12 +186,6 @@ export default function ProductDetailScreen() {
               resizeMode="cover"
               fadeDuration={0}
             />
-            {/* Non-Veg Badge on bottom-left */}
-            <View style={styles.nonVegBadge}>
-              <View style={styles.nonVegBox}>
-                <View style={styles.nonVegDot} />
-              </View>
-            </View>
           </View>
 
           {/* 2. Content Body */}
@@ -524,34 +518,6 @@ const styles = StyleSheet.create({
   heroImage: {
     width: '100%',
     height: '100%',
-  },
-  nonVegBadge: {
-    position: 'absolute',
-    bottom: 12,
-    left: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 4,
-    padding: 3.5,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  nonVegBox: {
-    width: 14,
-    height: 14,
-    borderWidth: 1.5,
-    borderColor: '#DC2626',
-    borderRadius: 3,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nonVegDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#DC2626',
   },
   contentBody: {
     paddingHorizontal: 16,

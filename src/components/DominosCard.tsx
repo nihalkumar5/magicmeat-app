@@ -69,7 +69,7 @@ const DominosCardComponent: React.FC<Props> = ({
       activeOpacity={0.92}
       onPress={handleCardPress}
     >
-      {/* 1. Image Container with Non-Veg Badge */}
+      {/* 1. Image */}
       <View style={styles.imageContainer}>
         <Image
           source={{ uri: optimizeImageUrl(product.image, 360) }}
@@ -85,12 +85,6 @@ const DominosCardComponent: React.FC<Props> = ({
           </View>
         )}
 
-        {/* FSSAI Non-Veg Icon at bottom left of image */}
-        <View style={styles.nonVegBadge}>
-          <View style={styles.nonVegBox}>
-            <View style={styles.nonVegDot} />
-          </View>
-        </View>
       </View>
 
       {/* 2. Content Info */}
@@ -203,34 +197,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     fontWeight: '600',
     color: '#737373',
-  },
-  nonVegBadge: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 4,
-    padding: 3,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  nonVegBox: {
-    width: 13,
-    height: 13,
-    borderWidth: 1.2,
-    borderColor: '#DC2626',
-    borderRadius: 2.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  nonVegDot: {
-    width: 5.5,
-    height: 5.5,
-    borderRadius: 2.75,
-    backgroundColor: '#DC2626',
   },
   infoContainer: {
     padding: 10,
