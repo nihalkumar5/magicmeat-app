@@ -2,9 +2,11 @@
   "name": "magicmeat-otp",
   "private": true,
   "type": "module",
-  "engines": { "node": "22.x" },
+  "engines": {
+    "node": "22.x"
+  },
   "dependencies": {
-    "firebase-admin": "^14.5.1"
+    "firebase-admin": "^13.10.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

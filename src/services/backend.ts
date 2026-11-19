@@ -53,7 +53,9 @@ export function phoneOf(user: User | null): string {
 // Talks to the OTP server in server/ (Vercel). It texts the code through
 // Renflair and, once the code is right, returns a Firebase custom token.
 
-const OTP_API = (process.env.EXPO_PUBLIC_OTP_API_URL || '').replace(/\/$/, '');
+// Public URL (not a secret); EXPO_PUBLIC_OTP_API_URL overrides it, e.g. for a
+// local `vercel dev`.
+const OTP_API = (process.env.EXPO_PUBLIC_OTP_API_URL || 'https://magicmeat-otp.vercel.app').replace(/\/$/, '');
 
 export class OtpError extends Error {
   constructor(
