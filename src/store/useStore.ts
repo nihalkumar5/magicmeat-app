@@ -27,7 +27,6 @@ interface StoreState {
   customizerProduct: Product | null;
   orders: Order[];
   activeOrder: Order | null;
-  coldPackagingEnabled: boolean;
   orderFulfillment: 'delivery' | 'takeaway';
   wishlist: string[];
   inventory: Record<string, InventoryItem>;
@@ -52,7 +51,6 @@ interface StoreState {
   setSearchQuery: (query: string) => void;
   setSelectedCategory: (category: MeatCategory) => void;
   setCustomizerProduct: (product: Product | null) => void;
-  setColdPackagingEnabled: (enabled: boolean) => void;
   placeOrder: (paymentMethod: 'Cash on Delivery', deliveryNote?: string) => Promise<Order>;
   updateOrderStatus: (orderId: string, status: OrderStatus, temp?: number) => void;
   cancelOrder: (orderId: string) => void;
@@ -261,7 +259,8 @@ export const useStore = create<StoreState>()(
   persist(
     (set, get) => ({
       cart: preloadedState?.cart || [],
-      deliveryMode: preloadedState?.deliveryMode || 'instant',
+      // Normal is the default; Express is a paid upgrade the customer picks.
+      deliveryMode: preloadedState?.deliveryMode === 'instant' ? 'instant' : 'slot',
       selectedAddress:
         preloadedState?.selectedAddress ||
         preloadedState?.currentLocation?.fullAddress ||
@@ -274,7 +273,6 @@ export const useStore = create<StoreState>()(
       customizerProduct: null,
       orders: [],
       activeOrder: null,
-      coldPackagingEnabled: true,
       orderFulfillment: preloadedState?.orderFulfillment || 'delivery',
       wishlist: preloadedState?.wishlist || [],
       inventory: INITIAL_INVENTORY,
@@ -433,7 +431,6 @@ export const useStore = create<StoreState>()(
   setSearchQuery: (searchQuery) => set({ searchQuery }),
   setSelectedCategory: (selectedCategory) => set({ selectedCategory }),
   setCustomizerProduct: (customizerProduct) => set({ customizerProduct }),
-  setColdPackagingEnabled: (coldPackagingEnabled) => set({ coldPackagingEnabled }),
 
   getCartSubtotal: () => {
     const { cart } = get();
@@ -444,7 +441,7 @@ export const useStore = create<StoreState>()(
     const state = get();
     const subtotal = state.getCartSubtotal();
     if (subtotal === 0) return 0;
-    return feesFor(subtotal, state.orderFulfillment, state.coldPackagingEnabled).total;
+    return feesFor(subtotal, state.orderFulfillment, state.deliveryMode).total;
   },
 
   getCartItemsCount: () => {
@@ -473,10 +470,10 @@ export const useStore = create<StoreState>()(
   placeOrder: async (paymentMethod, deliveryNote) => {
     const state = get();
     const subtotal = state.getCartSubtotal();
-    const { deliveryFee, packagingFee, total } = feesFor(
+    const { deliveryFee, total } = feesFor(
       subtotal,
       state.orderFulfillment,
-      state.coldPackagingEnabled
+      state.deliveryMode
     );
     const { label: slotLabel, eta } = slotInfo(state.deliveryMode);
     const id = newOrderId();
@@ -488,7 +485,7 @@ export const useStore = create<StoreState>()(
       items: state.cart,
       subtotal,
       deliveryFee,
-      coldPackagingFee: packagingFee,
+      coldPackagingFee: 0,
       total,
       fulfillment: state.orderFulfillment,
       deliveryMode: state.deliveryMode,
@@ -507,7 +504,7 @@ export const useStore = create<StoreState>()(
       slotLabel,
       subtotal,
       deliveryFee,
-      coldPackagingFee: packagingFee,
+      coldPackagingFee: 0,
       discount: 0,
       total,
       status: 'placed',
@@ -534,12 +531,14 @@ export const useStore = create<StoreState>()(
 }),
     {
       name: 'magicmeat-store-persist',
-      version: 2,
+      version: 3,
       // v2: orders and inventory moved to Firestore; drop the local copies.
+      // v3: only Express ('instant') and Normal ('slot') remain.
       migrate: (persisted: any) => {
         if (persisted) {
           delete persisted.orders;
           delete persisted.inventory;
+          if (persisted.deliveryMode !== 'instant') persisted.deliveryMode = 'slot';
         }
         return persisted;
       },

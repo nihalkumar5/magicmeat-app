@@ -1,4 +1,4 @@
-import type { CutOption, Product } from '../types';
+import type { CutOption, DeliveryMode, Product } from '../types';
 
 // One place that decides what every sellable variant of a product costs.
 // The app uses it to price the cart, and scripts/seed-products.mjs uses it to
@@ -92,10 +92,21 @@ export function mrpFor(product: Product, cut: CutOption): number {
 // Fees. Firestore rules check the same numbers (firestore.rules totalsOk).
 export const FREE_DELIVERY_ABOVE = 499;
 export const DELIVERY_FEE = 35;
-export const COLD_PACK_FEE = 15;
+export const EXPRESS_FEE = 49;
 
-export function feesFor(subtotal: number, fulfillment: 'delivery' | 'takeaway', coldPack: boolean) {
-  const deliveryFee = fulfillment === 'delivery' && subtotal > 0 && subtotal < FREE_DELIVERY_ABOVE ? DELIVERY_FEE : 0;
-  const packagingFee = coldPack && subtotal > 0 ? COLD_PACK_FEE : 0;
-  return { deliveryFee, packagingFee, total: subtotal + deliveryFee + packagingFee };
+export function feesFor(
+  subtotal: number,
+  fulfillment: 'delivery' | 'takeaway',
+  deliveryMode: DeliveryMode = 'slot'
+) {
+  const deliveryFee = deliveryFeeFor(subtotal, fulfillment, deliveryMode);
+  return { deliveryFee, total: subtotal + deliveryFee };
+}
+
+// Express always costs EXPRESS_FEE; Normal is free from FREE_DELIVERY_ABOVE.
+// Pickup is free. firestore.rules (totalsOk) checks the same numbers.
+export function deliveryFeeFor(subtotal: number, fulfillment: 'delivery' | 'takeaway', deliveryMode: DeliveryMode) {
+  if (fulfillment !== 'delivery' || subtotal <= 0) return 0;
+  if (deliveryMode === 'instant') return EXPRESS_FEE;
+  return subtotal < FREE_DELIVERY_ABOVE ? DELIVERY_FEE : 0;
 }

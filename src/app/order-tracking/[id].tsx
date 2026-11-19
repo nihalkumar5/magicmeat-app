@@ -146,7 +146,7 @@ export default function OrderTrackingScreen() {
           <View style={styles.heroTop}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.heroEyebrow, isCancelled && { color: C.secondary }]}>
-                {isCancelled ? 'CANCELLED' : isDelivered ? 'COMPLETED' : order.deliveryMode === 'instant' ? 'EXPRESS' : 'SCHEDULED'}
+                {isCancelled ? 'CANCELLED' : isDelivered ? 'COMPLETED' : order.deliveryMode === 'instant' ? 'EXPRESS' : 'NORMAL'}
               </Text>
               <Text style={styles.heroTitle}>{headline.title}</Text>
               {!isCancelled && !isDelivered ? (

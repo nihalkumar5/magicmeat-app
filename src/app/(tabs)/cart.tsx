@@ -6,14 +6,13 @@ import {
   FlatList,
   TouchableOpacity,
   Image,
-  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
 import { slotInfo } from '../../data/slots';
-import { COLD_PACK_FEE, DELIVERY_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../../data/pricing';
+import { DELIVERY_FEE, EXPRESS_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../../data/pricing';
 import { formatGrams } from '../../utils/format';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { PRODUCTS } from '../../data/mockData';
@@ -23,14 +22,12 @@ import type { DeliveryMode } from '../../types';
 import {
   AppIcon,
   FlashIcon,
-  Calendar01Icon,
   Clock01Icon,
   Delete02Icon,
   PlusSignIcon,
   MinusSignIcon,
   ShieldCheckIcon,
   ArrowRight01Icon,
-  SnowflakeIcon,
   DeliveryTruck01Icon,
 } from '../../components/HugeIcon';
 
@@ -58,20 +55,21 @@ export default function CartScreen() {
     getCartSubtotal,
     getCartTotal,
     getCartNetWeightGrams,
-    coldPackagingEnabled,
-    setColdPackagingEnabled,
     inventory,
   } = useStore();
 
   const subtotal = getCartSubtotal();
   const netGrams = getCartNetWeightGrams();
   const grandTotal = getCartTotal();
-  const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
+  const { deliveryFee } = feesFor(subtotal, orderFulfillment, deliveryMode);
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
   const mrpTotal = cart.reduce((sum, item) => sum + mrpFor(item.product, item.selectedCut) * item.quantity, 0);
   const itemSavings = Math.max(0, mrpTotal - subtotal);
   const isDelivery = orderFulfillment === 'delivery';
-  const deliverySaved = isDelivery && deliveryFee === 0 ? DELIVERY_FEE : 0;
+  const isExpress = deliveryMode === 'instant';
+  // Only Normal delivery has a free threshold; Express is always paid.
+  const showFreeNudge = isDelivery && !isExpress;
+  const deliverySaved = showFreeNudge && deliveryFee === 0 ? DELIVERY_FEE : 0;
   const totalSavings = itemSavings + deliverySaved;
   const amountToFreeDelivery = Math.max(0, FREE_DELIVERY_ABOVE - subtotal);
   const inCart = new Set(cart.map((item) => item.product.id));
@@ -87,10 +85,10 @@ export default function CartScreen() {
     .slice(0, 6);
   const freeDeliveryProgress = Math.min(100, Math.round((subtotal / FREE_DELIVERY_ABOVE) * 100));
 
-  const slots: { mode: DeliveryMode; icon: any; title: string; time: string }[] = [
-    { mode: 'instant', icon: FlashIcon, title: 'Express', time: '30 mins' },
-    { mode: 'slot', icon: Clock01Icon, title: slotInfo('slot').title, time: '5–7 PM' },
-    { mode: 'sunday_morning', icon: Calendar01Icon, title: slotInfo('sunday_morning').title, time: '7–9 AM' },
+  const normalFee = subtotal >= FREE_DELIVERY_ABOVE ? 'Free' : `₹${DELIVERY_FEE}`;
+  const slots: { mode: DeliveryMode; icon: any; title: string; time: string; fee: string }[] = [
+    { mode: 'slot', icon: Clock01Icon, title: slotInfo('slot').title, time: slotInfo('slot').time, fee: normalFee },
+    { mode: 'instant', icon: FlashIcon, title: 'Express', time: slotInfo('instant').time, fee: `₹${EXPRESS_FEE}` },
   ];
 
   /* ------------------------------------------------------------ empty */
@@ -152,8 +150,8 @@ export default function CartScreen() {
       </View>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Free delivery progress */}
-        {isDelivery && (
+        {/* Free delivery progress (Normal delivery only) */}
+        {showFreeNudge && (
           <View style={[styles.card, styles.freeCard]}>
             <View style={styles.freeRow}>
               <AppIcon icon={DeliveryTruck01Icon} size={20} color={C.green} strokeWidth={2} />
@@ -280,32 +278,25 @@ export default function CartScreen() {
                 activeOpacity={0.8}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
-                accessibilityLabel={`${slot.title}, ${slot.time}`}
+                accessibilityLabel={isDelivery ? `${slot.title}, ${slot.time}, ${slot.fee}` : `${slot.title}, ${slot.time}`}
               >
                 <AppIcon icon={slot.icon} size={16} color={active ? '#FFFFFF' : C.text} strokeWidth={2} />
                 <Text style={[styles.slotTitle, active && styles.slotTextActive]}>{slot.title}</Text>
                 <Text style={[styles.slotTime, active && styles.slotTimeActive]}>{slot.time}</Text>
+                {isDelivery && (
+                  <Text
+                    style={[
+                      styles.slotFee,
+                      slot.fee === 'Free' && styles.slotFeeFree,
+                      active && styles.slotTextActive,
+                    ]}
+                  >
+                    {slot.fee}
+                  </Text>
+                )}
               </TouchableOpacity>
             );
           })}
-        </View>
-
-        {/* Cold pack */}
-        <View style={[styles.card, styles.toggleRow]}>
-          <View style={styles.toggleIcon}>
-            <AppIcon icon={SnowflakeIcon} size={18} color="#0284C7" strokeWidth={2} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.toggleTitle}>Cold-pack delivery · ₹{COLD_PACK_FEE}</Text>
-            <Text style={styles.toggleSub}>Insulated pouch with gel packs keeps it cold for hours.</Text>
-          </View>
-          <Switch
-            value={coldPackagingEnabled}
-            onValueChange={setColdPackagingEnabled}
-            trackColor={{ false: '#E5E5EA', true: '#34C759' }}
-            thumbColor="#FFFFFF"
-            accessibilityLabel="Cold-pack delivery"
-          />
         </View>
 
         {/* Bill */}
@@ -320,7 +311,7 @@ export default function CartScreen() {
           </View>
           {isDelivery && (
             <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Delivery fee</Text>
+              <Text style={styles.billLabel}>{isExpress ? 'Express delivery' : 'Delivery fee'}</Text>
               {deliveryFee === 0 ? (
                 <View style={styles.billValueRow}>
                   <Text style={styles.billStrike}>₹{DELIVERY_FEE}</Text>
@@ -329,12 +320,6 @@ export default function CartScreen() {
               ) : (
                 <Text style={styles.billValue}>₹{deliveryFee}</Text>
               )}
-            </View>
-          )}
-          {packagingFee > 0 && (
-            <View style={styles.billRow}>
-              <Text style={styles.billLabel}>Cold pack</Text>
-              <Text style={styles.billValue}>₹{packagingFee}</Text>
             </View>
           )}
           <View style={styles.divider} />
@@ -359,9 +344,9 @@ export default function CartScreen() {
 
       {/* Checkout bar */}
       <View style={[styles.checkoutBar, { bottom: tabInset }]}>
-        {(totalSavings > 0 || (isDelivery && amountToFreeDelivery > 0)) && (
+        {(totalSavings > 0 || (showFreeNudge && amountToFreeDelivery > 0)) && (
           <Text style={styles.checkoutHint}>
-            {isDelivery && amountToFreeDelivery > 0
+            {showFreeNudge && amountToFreeDelivery > 0
               ? `Add ₹${amountToFreeDelivery} more for free delivery`
               : `You’re saving ₹${totalSavings} on this order`}
           </Text>
@@ -572,32 +557,14 @@ const styles = StyleSheet.create({
   slotTimeActive: {
     color: '#D1D5DB',
   },
-
-  /* cold pack */
-  toggleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-  },
-  toggleIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
-    backgroundColor: '#F0F9FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleTitle: {
-    fontSize: 15,
-    fontWeight: '600',
+  slotFee: {
+    fontSize: 13,
+    fontWeight: '700',
     color: C.text,
-  },
-  toggleSub: {
-    fontSize: 12,
-    color: C.secondary,
     marginTop: 2,
-    lineHeight: 17,
+  },
+  slotFeeFree: {
+    color: C.green,
   },
 
   /* bill */

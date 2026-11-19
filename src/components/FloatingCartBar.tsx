@@ -16,6 +16,7 @@ const FloatingCartBarComponent: React.FC = () => {
   const tabInset = useTabBarInset();
   const cart = useStore((state) => state.cart);
   const fulfillment = useStore((state) => state.orderFulfillment);
+  const deliveryMode = useStore((state) => state.deliveryMode);
 
   if (cart.length === 0) return null;
 
@@ -23,7 +24,8 @@ const FloatingCartBarComponent: React.FC = () => {
   const itemTotal = cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const toFree = FREE_DELIVERY_ABOVE - itemTotal;
   const progress = Math.min(1, itemTotal / FREE_DELIVERY_ABOVE);
-  const showNudge = fulfillment === 'delivery';
+  // Free delivery applies to Normal only; Express always has a fee.
+  const showNudge = fulfillment === 'delivery' && deliveryMode !== 'instant';
   const thumbs = cart.slice(0, 3);
 
   return (

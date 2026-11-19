@@ -14,8 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useStore } from '../store/useStore';
 import { goBack } from '../utils/navigation';
 import type { DeliveryMode } from '../types';
-import { slotInfo } from '../data/slots';
-import { DELIVERY_FEE, feesFor, mrpFor } from '../data/pricing';
+import { DELIVERY_FEE, EXPRESS_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../data/pricing';
 import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
@@ -31,7 +30,6 @@ import {
   Cash01Icon,
   ShieldCheckIcon,
   FlashIcon,
-  Calendar01Icon,
   Clock01Icon,
   CheckmarkCircle02Icon,
   UserIcon,
@@ -69,7 +67,6 @@ export default function CheckoutScreen() {
     setProfile,
     getCartTotal,
     getCartSubtotal,
-    coldPackagingEnabled,
     getCartNetWeightGrams,
     placeOrder,
     setDeliveryMode,
@@ -87,11 +84,13 @@ export default function CheckoutScreen() {
 
   const grandTotal = getCartTotal();
   const subtotal = getCartSubtotal();
-  const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
+  const { deliveryFee } = feesFor(subtotal, orderFulfillment, deliveryMode);
   const netGrams = getCartNetWeightGrams();
   const isDelivery = orderFulfillment === 'delivery';
   const mrpTotal = cart.reduce((sum, item) => sum + mrpFor(item.product, item.selectedCut) * item.quantity, 0);
-  const deliverySaved = isDelivery && deliveryFee === 0 ? DELIVERY_FEE : 0;
+  const isExpress = deliveryMode === 'instant';
+  // Only Normal delivery is free above the threshold; Express is always paid.
+  const deliverySaved = isDelivery && !isExpress && deliveryFee === 0 ? DELIVERY_FEE : 0;
   const totalSavings = Math.max(0, mrpTotal - subtotal) + deliverySaved;
 
   const handlePlaceOrder = async () => {
@@ -155,10 +154,16 @@ export default function CheckoutScreen() {
     }
   };
 
-  const slots: { mode: DeliveryMode; icon: any; title: string; sub: string }[] = [
-    { mode: 'instant', icon: FlashIcon, title: 'Express', sub: 'In about 30 minutes' },
-    { mode: 'slot', icon: Clock01Icon, title: slotInfo('slot').eta, sub: 'Evening slot' },
-    { mode: 'sunday_morning', icon: Calendar01Icon, title: slotInfo('sunday_morning').eta, sub: 'Weekend morning' },
+  const normalFree = subtotal >= FREE_DELIVERY_ABOVE;
+  const slots: { mode: DeliveryMode; icon: any; title: string; sub: string; fee: string }[] = [
+    {
+      mode: 'slot',
+      icon: Clock01Icon,
+      title: 'Normal',
+      sub: normalFree ? 'In 60–90 minutes' : `In 60–90 minutes · free above ₹${FREE_DELIVERY_ABOVE}`,
+      fee: normalFree ? 'Free' : `₹${DELIVERY_FEE}`,
+    },
+    { mode: 'instant', icon: FlashIcon, title: 'Express', sub: 'In about 30 minutes', fee: `₹${EXPRESS_FEE}` },
   ];
   const showBreakdown = () => scrollRef.current?.scrollToEnd({ animated: true });
 
@@ -253,13 +258,12 @@ export default function CheckoutScreen() {
                 <AppIcon icon={option.icon} size={20} color={on ? C.red : C.text} strokeWidth={1.9} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.optionTitle}>{option.title}</Text>
-                  <Text style={styles.optionSub}>{option.sub}</Text>
+                  <Text style={styles.optionSub}>{isDelivery ? option.sub : option.sub.split(' · ')[0]}</Text>
                 </View>
-                {on ? (
-                  <AppIcon icon={CheckmarkCircle02Icon} size={22} color={C.red} strokeWidth={2} />
-                ) : (
-                  <Text style={styles.optionFree}>Free</Text>
+                {isDelivery && (
+                  <Text style={[styles.optionFee, option.fee === 'Free' && { color: C.green }]}>{option.fee}</Text>
                 )}
+                {on && <AppIcon icon={CheckmarkCircle02Icon} size={22} color={C.red} strokeWidth={2} />}
               </TouchableOpacity>
             );
           })}
@@ -327,7 +331,7 @@ export default function CheckoutScreen() {
           </View>
           {isDelivery && (
             <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Delivery fee</Text>
+              <Text style={styles.sumLabel}>{isExpress ? 'Express delivery' : 'Delivery fee'}</Text>
               {deliveryFee === 0 ? (
                 <View style={styles.sumValueRow}>
                   <Text style={styles.strike}>₹{DELIVERY_FEE}</Text>
@@ -336,12 +340,6 @@ export default function CheckoutScreen() {
               ) : (
                 <Text style={styles.sumValue}>₹{deliveryFee}</Text>
               )}
-            </View>
-          )}
-          {packagingFee > 0 && (
-            <View style={styles.sumRow}>
-              <Text style={styles.sumLabel}>Cold pack</Text>
-              <Text style={styles.sumValue}>₹{packagingFee}</Text>
             </View>
           )}
           <View style={[styles.sumRow, styles.totalRow]}>
@@ -515,10 +513,10 @@ const styles = StyleSheet.create({
     color: C.secondary,
     marginTop: 1,
   },
-  optionFree: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: C.secondary,
+  optionFee: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
   },
   contactBox: {
     borderRadius: 14,

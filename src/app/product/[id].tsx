@@ -172,7 +172,7 @@ export default function ProductDetailScreen() {
           </View>
           <View style={styles.metaRow}>
             <AppIcon icon={Clock01Icon} size={13} color={C.secondary} strokeWidth={2} />
-            <Text style={styles.meta}>Delivery in 30 mins · Incl. of all taxes</Text>
+            <Text style={styles.meta}>Express delivery in 30 mins · Incl. of all taxes</Text>
           </View>
           {isOutOfStock && <Text style={styles.soldOut}>Sold out right now. Check back soon.</Text>}
 

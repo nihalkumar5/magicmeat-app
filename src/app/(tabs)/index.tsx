@@ -803,9 +803,9 @@ export default function HomeScreen() {
 
               <View style={styles.desktopFooterColLinks}>
                 <Text style={styles.footerColTitle}>How we deliver</Text>
-                <Text style={styles.footerLink}>Cold-pack delivery</Text>
                 <Text style={styles.footerLink}>Cut to order</Text>
-                <Text style={styles.footerLink}>Delivery in 30 mins</Text>
+                <Text style={styles.footerLink}>Express in 30 mins</Text>
+                <Text style={styles.footerLink}>Normal in 60–90 mins</Text>
               </View>
 
               <View style={styles.desktopFooterColLinks}>
@@ -869,7 +869,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             accessibilityLabel={`${isPickup ? 'Pickup from' : 'Deliver to'} ${currentLocation.shortAddress}. Change address`}
           >
-            <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Delivery in'}</Text>
+            <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Express delivery in'}</Text>
             <View style={styles.mLocationRow}>
               <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color="#DC2626" strokeWidth={2.4} />
               <Text style={styles.mEta}>{isPickup ? '10 minutes' : '30 minutes'}</Text>

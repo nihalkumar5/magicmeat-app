@@ -41,22 +41,23 @@ function line(cutId: string, quantity = 1, unitPrice = prices[cutId]) {
 
 function order(uid: string, id: string, items = [line(baseCut.id, 2)], overrides: Record<string, unknown> = {}) {
   const subtotal = items.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
-  const deliveryFee = subtotal < 499 ? 35 : 0;
+  const mode = (overrides.deliveryMode as string) ?? 'slot';
+  const deliveryFee = mode === 'instant' ? 49 : subtotal < 499 ? 35 : 0;
   return {
     id,
     customerUid: uid,
     items,
     subtotal,
     deliveryFee,
-    coldPackagingFee: 15,
+    coldPackagingFee: 0,
     discount: 0,
-    total: subtotal + deliveryFee + 15,
+    total: subtotal + deliveryFee,
     status: 'placed',
     paymentMethod: 'Cash on Delivery',
     fulfillment: 'delivery',
-    deliveryMode: 'instant',
-    slotLabel: 'Instant Express (30 mins)',
-    eta: '30 mins',
+    deliveryMode: mode,
+    slotLabel: mode === 'instant' ? 'Express · about 30 mins' : 'Normal · 60–90 mins',
+    eta: mode === 'instant' ? '30 mins' : 'in 60–90 mins',
     address: 'Flat 1, Test Street, Raipur',
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
@@ -135,7 +136,18 @@ async function main() {
   await test('wrong total is rejected', () =>
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA114'), order('alice', 'MM-AAA114', undefined, { total: 10 }))));
   await test('skipped delivery fee is rejected', () =>
-    assertFails(setDoc(doc(alice, 'orders', 'MM-AAA115'), order('alice', 'MM-AAA115', [line(baseCut.id, 1)], { deliveryFee: 0, total: prices[baseCut.id] + 15 }))));
+    assertFails(setDoc(doc(alice, 'orders', 'MM-AAA115'), order('alice', 'MM-AAA115', [line(baseCut.id, 1)], { deliveryFee: 0, total: prices[baseCut.id] }))));
+  const bigOrder = [line(kgCut.id, 3)];
+  await test('express order with its fee is accepted', () =>
+    assertSucceeds(setDoc(doc(alice, 'orders', 'MM-AAA11A'), order('alice', 'MM-AAA11A', bigOrder, { deliveryMode: 'instant' }))));
+  await test('express fee waived above the threshold is rejected', () => {
+    const sub = bigOrder.reduce((n, it) => n + it.unitPrice * it.quantity, 0);
+    return assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11B'), order('alice', 'MM-AAA11B', bigOrder, { deliveryMode: 'instant', deliveryFee: 0, total: sub })));
+  });
+  await test('cold pack fee is rejected', () => {
+    const o = order('alice', 'MM-AAA11C');
+    return assertFails(setDoc(doc(alice, 'orders', 'MM-AAA11C'), { ...o, coldPackagingFee: 15, total: (o.total as number) + 15 }));
+  });
   await test('unknown cut id is rejected', () =>
     assertFails(setDoc(doc(alice, 'orders', 'MM-AAA116'), order('alice', 'MM-AAA116', [line('free-cut', 1, 0)]))));
   await test('out-of-stock product is rejected', () =>
