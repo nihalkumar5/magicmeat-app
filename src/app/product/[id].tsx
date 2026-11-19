@@ -50,7 +50,7 @@ export default function ProductDetailScreen() {
     () =>
       packVariantsFor(product).map((pack) => ({
         ...pack,
-        pieceSize: 'Approx. 40 g',
+        pieceSize: product.category === 'chicken' || product.category === 'mutton' ? 'Approx. 40 g' : '—',
         includes: product.availableCuts?.[0]?.description || product.description || '',
         inStock: !isOutOfStock,
       })),
@@ -281,7 +281,7 @@ export default function ProductDetailScreen() {
                       <Text style={styles.colValueText}>{selectedPack.netWeight}</Text>
                     </View>
                     <View style={[styles.tableCol, { width: 90 }]}>
-                      <Text style={styles.colValueText}>Curry Cut</Text>
+                      <Text style={styles.colValueText}>{product.availableCuts?.[0]?.name || '—'}</Text>
                     </View>
                     <View style={[styles.tableCol, { width: 85 }]}>
                       <Text style={styles.colValueText}>{selectedPack.pieceSize}</Text>

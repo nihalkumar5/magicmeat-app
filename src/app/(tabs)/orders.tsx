@@ -21,6 +21,16 @@ import {
   ArrowLeft01Icon,
 } from '../../components/HugeIcon';
 
+const STATUS_LABEL: Record<string, string> = {
+  placed: 'Placed',
+  butcher_prepping: 'Preparing',
+  cold_packed: 'Packed',
+  rider_assigned: 'Rider assigned',
+  out_for_delivery: 'On the way',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
 export default function OrdersScreen() {
   const { orders, activeOrder } = useStore();
 
@@ -130,7 +140,7 @@ export default function OrdersScreen() {
               </View>
               <View style={styles.statusBadge}>
                 <AppIcon icon={Clock01Icon} size={11} color="#15803D" strokeWidth={2} />
-                <Text style={styles.statusText}>Processed</Text>
+                <Text style={styles.statusText}>{STATUS_LABEL[order.status] || order.status}</Text>
               </View>
             </View>
 

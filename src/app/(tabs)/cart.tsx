@@ -150,7 +150,7 @@ export default function CartScreen() {
           <View style={styles.headerTextCol}>
             <Text style={styles.headerTitle}>Butcher Basket</Text>
             <Text style={styles.headerSubtitle}>
-              {cart.length} item{cart.length > 1 ? 's' : ''} • {netGrams}g Net Cooking Yield
+              {cart.length} item{cart.length > 1 ? 's' : ''}{netGrams > 0 ? ` • ${netGrams}g Net Cooking Yield` : ''}
             </Text>
           </View>
         </View>
@@ -256,9 +256,11 @@ export default function CartScreen() {
                 <Text style={styles.cartItemName}>{item.product.name}</Text>
                 <View style={styles.cutBadgeRow}>
                   <Text style={styles.cutBadge}>{item.selectedCut.name}</Text>
-                  <Text style={styles.skinBadge}>
-                    {item.isSkinless ? 'Skinless' : 'With Skin'}
-                  </Text>
+                  {item.selectedCut.allowsSkinOption && (
+                    <Text style={styles.skinBadge}>
+                      {item.isSkinless ? 'Skinless' : 'With Skin'}
+                    </Text>
+                  )}
                 </View>
                 <Text style={styles.cartItemYield}>
                   Net: {item.selectedCut.netWeight} • ⚡ {item.product.macros.proteinGrams}g Protein/100g
@@ -290,26 +292,30 @@ export default function CartScreen() {
           ))}
         </View>
 
-        {/* Weight Pan Yield Breakdown */}
-        <View style={styles.weightSummaryCard}>
-          <View style={styles.weightSummaryHeader}>
-            <AppIcon icon={ScaleIcon} size={15} color="#000000" />
-            <Text style={styles.weightSummaryTitle}>Pan Yield Transparency</Text>
-          </View>
-          <View style={styles.weightCompareRow}>
-            <View style={styles.weightCol}>
-              <Text style={styles.weightColLabel}>Pre-Cut Gross</Text>
-              <Text style={styles.weightColGross}>{grossGrams}g</Text>
-              <Text style={styles.weightColSub}>With bone & trim</Text>
+        {netGrams > 0 && (
+          <>
+          {/* Weight Pan Yield Breakdown */}
+          <View style={styles.weightSummaryCard}>
+            <View style={styles.weightSummaryHeader}>
+              <AppIcon icon={ScaleIcon} size={15} color="#000000" />
+              <Text style={styles.weightSummaryTitle}>Pan Yield Transparency</Text>
             </View>
-            <Text style={styles.weightSeparator}>→</Text>
-            <View style={[styles.weightCol, styles.weightColActive]}>
-              <Text style={styles.weightColLabelActive}>100% Net Meat</Text>
-              <Text style={styles.weightColNet}>{netGrams}g</Text>
-              <Text style={styles.weightColSubActive}>Zero Waste in Cooking</Text>
+            <View style={styles.weightCompareRow}>
+              <View style={styles.weightCol}>
+                <Text style={styles.weightColLabel}>Pre-Cut Gross</Text>
+                <Text style={styles.weightColGross}>{grossGrams}g</Text>
+                <Text style={styles.weightColSub}>With bone & trim</Text>
+              </View>
+              <Text style={styles.weightSeparator}>→</Text>
+              <View style={[styles.weightCol, styles.weightColActive]}>
+                <Text style={styles.weightColLabelActive}>100% Net Meat</Text>
+                <Text style={styles.weightColNet}>{netGrams}g</Text>
+                <Text style={styles.weightColSubActive}>Zero Waste in Cooking</Text>
+              </View>
             </View>
           </View>
-        </View>
+          </>
+        )}
 
         {/* Cold-Chain Packaging Option */}
         <TouchableOpacity
@@ -383,7 +389,7 @@ export default function CartScreen() {
         <View>
           <Text style={styles.checkoutTotalLabel}>Total</Text>
           <Text style={styles.checkoutTotalPrice}>₹{grandTotal}</Text>
-          <Text style={styles.checkoutWeightNote}>{netGrams}g Net Meat</Text>
+          {netGrams > 0 && <Text style={styles.checkoutWeightNote}>{netGrams}g Net Meat</Text>}
         </View>
 
         <TouchableOpacity

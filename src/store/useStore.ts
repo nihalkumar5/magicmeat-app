@@ -433,7 +433,7 @@ export const useStore = create<StoreState>()(
     const { cart } = get();
     return cart.reduce((sum, item) => {
       const match = item.selectedCut.netWeight.match(/(\d+)g/);
-      const grams = match ? parseInt(match[1], 10) : 500;
+      const grams = match ? parseInt(match[1], 10) : 0; // packs/pieces have no gram weight
       return sum + grams * item.quantity;
     }, 0);
   },
@@ -442,7 +442,7 @@ export const useStore = create<StoreState>()(
     const { cart } = get();
     return cart.reduce((sum, item) => {
       const match = item.selectedCut.grossWeight.match(/(\d+)g/);
-      const grams = match ? parseInt(match[1], 10) : 600;
+      const grams = match ? parseInt(match[1], 10) : 0;
       return sum + grams * item.quantity;
     }, 0);
   },

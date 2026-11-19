@@ -6,6 +6,8 @@ import {
   TouchableOpacity,
   Linking,
   Image,
+  Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -54,7 +56,22 @@ const STAGES = [
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { activeOrder, orders } = useStore();
+  const { activeOrder, orders, cancelOrder } = useStore();
+
+  // Customers can cancel only before the butcher starts (Firestore rules
+  // enforce the same).
+  const confirmCancel = () => {
+    if (!order) return;
+    const doCancel = () => cancelOrder(order.id);
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      if (window.confirm('Cancel this order?')) doCancel();
+      return;
+    }
+    Alert.alert('Cancel this order?', 'The store has not started preparing it yet.', [
+      { text: 'Keep order', style: 'cancel' },
+      { text: 'Cancel order', style: 'destructive', onPress: doCancel },
+    ]);
+  };
 
   const order = orders.find((o) => o.id === id) || (activeOrder && activeOrder.id === id ? activeOrder : null);
 
@@ -115,13 +132,28 @@ export default function OrderTrackingScreen() {
             <View style={styles.etaHeader}>
               <View style={styles.liveTag}>
                 <View style={styles.liveDot} />
-                <Text style={styles.liveTagText}>EXPRESS COLD-CHAIN</Text>
+                <Text style={styles.liveTagText}>
+                  {order.status === 'cancelled'
+                    ? 'CANCELLED'
+                    : order.deliveryMode === 'instant'
+                    ? 'EXPRESS COLD-CHAIN'
+                    : 'SCHEDULED DELIVERY'}
+                </Text>
               </View>
               <Text style={styles.slotLabelText}>{order.slotLabel}</Text>
             </View>
 
             <Text style={styles.etaTime}>
-              Arriving in <Text style={{ color: '#DC2626', fontWeight: '900' }}>{order.eta}</Text>
+              {order.status === 'cancelled' ? (
+                'Order cancelled'
+              ) : order.status === 'delivered' ? (
+                'Delivered'
+              ) : (
+                <>
+                  {order.deliveryMode === 'instant' ? 'Arriving in ' : 'Arriving '}
+                  <Text style={{ color: '#DC2626', fontWeight: '900' }}>{order.eta}</Text>
+                </>
+              )}
             </Text>
             <Text style={styles.etaSub}>
               Packed in sealed thermal foil pouches with sub-zero gel chillers.
@@ -221,7 +253,9 @@ export default function OrderTrackingScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.riderName}>{order.riderName || 'Rider not assigned yet'}</Text>
-            <Text style={styles.riderRole}>Contact details will appear after dispatch.</Text>
+            <Text style={styles.riderRole}>
+              {order.riderPhone ? `Delivery partner · ${order.riderPhone}` : 'Contact details will appear after dispatch.'}
+            </Text>
           </View>
 
           {order.riderPhone ? (
@@ -236,6 +270,12 @@ export default function OrderTrackingScreen() {
           ) : null}
         </View>
 
+        {order.status === 'placed' && (
+          <TouchableOpacity style={styles.cancelOrderBtn} onPress={confirmCancel} activeOpacity={0.8}>
+            <Text style={styles.cancelOrderText}>Cancel order</Text>
+          </TouchableOpacity>
+        )}
+
         {/* Order Details & Cut Specs */}
         <View style={styles.detailsCard}>
           <Text style={styles.detailsTitle}>Your Butchered Items</Text>
@@ -246,7 +286,7 @@ export default function OrderTrackingScreen() {
                   {item.quantity}x {item.product.name}
                 </Text>
                 <Text style={styles.itemCutSpecs}>
-                  Cut: {item.selectedCut.name} • {item.isSkinless ? 'Skinless' : 'With Skin'} • Net: {item.selectedCut.netWeight}
+                  Cut: {item.selectedCut.name}{item.selectedCut.allowsSkinOption ? ` • ${item.isSkinless ? 'Skinless' : 'With Skin'}` : ''} • Net: {item.selectedCut.netWeight}
                 </Text>
               </View>
               <Text style={styles.itemPrice}>₹{item.unitPrice * item.quantity}</Text>
@@ -284,6 +324,17 @@ export default function OrderTrackingScreen() {
 }
 
 const styles = StyleSheet.create({
+  cancelOrderBtn: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    borderColor: '#DC2626',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+  },
+  cancelOrderText: { color: '#DC2626', fontWeight: '800', fontSize: 15 },
   safeArea: {
     flex: 1,
     backgroundColor: THEME.colors.background,

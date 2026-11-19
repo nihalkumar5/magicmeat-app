@@ -207,14 +207,16 @@ export default function CheckoutScreen() {
         {/* Order Basket Summary */}
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Order Summary</Text>
-          <Text style={styles.orderYieldSub}>
-            Total Net Cooking Yield: <Text style={{ color: '#15803D', fontWeight: '800' }}>{netGrams}g</Text>
-          </Text>
+          {netGrams > 0 && (
+            <Text style={styles.orderYieldSub}>
+              Total Net Cooking Yield: <Text style={{ color: '#15803D', fontWeight: '800' }}>{netGrams}g</Text>
+            </Text>
+          )}
 
           {cart.map((item) => (
             <View key={item.cartItemId} style={styles.miniItemRow}>
               <Text style={styles.miniItemTitle} numberOfLines={1}>
-                {item.quantity}x {item.product.name}
+                {item.quantity}x {item.product.name} · {item.selectedCut.name}
               </Text>
               <Text style={styles.miniItemPrice}>₹{item.unitPrice * item.quantity}</Text>
             </View>
