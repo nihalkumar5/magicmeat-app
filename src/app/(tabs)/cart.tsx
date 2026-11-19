@@ -31,7 +31,6 @@ import {
   ShieldCheckIcon,
   ArrowRight01Icon,
   SnowflakeIcon,
-  WeightScaleIcon,
   DeliveryTruck01Icon,
 } from '../../components/HugeIcon';
 
@@ -59,7 +58,6 @@ export default function CartScreen() {
     getCartSubtotal,
     getCartTotal,
     getCartNetWeightGrams,
-    getCartGrossWeightGrams,
     coldPackagingEnabled,
     setColdPackagingEnabled,
     inventory,
@@ -67,7 +65,6 @@ export default function CartScreen() {
 
   const subtotal = getCartSubtotal();
   const netGrams = getCartNetWeightGrams();
-  const grossGrams = getCartGrossWeightGrams();
   const grandTotal = getCartTotal();
   const { deliveryFee, packagingFee } = feesFor(subtotal, orderFulfillment, coldPackagingEnabled);
   const itemCount = cart.reduce((n, item) => n + item.quantity, 0);
@@ -268,17 +265,6 @@ export default function CartScreen() {
               style={{ marginHorizontal: -16, paddingLeft: 16 }}
             />
           </>
-        )}
-
-        {/* Clean meat */}
-        {netGrams > 0 && grossGrams > netGrams && (
-          <View style={[styles.card, styles.yieldCard]}>
-            <AppIcon icon={WeightScaleIcon} size={20} color={C.green} strokeWidth={2} />
-            <Text style={styles.yieldText}>
-              You pay only for clean meat: about {formatGrams(grossGrams)} before cleaning,{' '}
-              <Text style={{ fontWeight: '800' }}>{formatGrams(netGrams)} you get</Text>.
-            </Text>
-          </View>
         )}
 
         {/* Delivery time */}
@@ -552,19 +538,6 @@ const styles = StyleSheet.create({
   },
 
   /* yield */
-  yieldCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 14,
-    backgroundColor: C.greenBg,
-  },
-  yieldText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#166534',
-  },
 
   /* slots */
   slotRow: {

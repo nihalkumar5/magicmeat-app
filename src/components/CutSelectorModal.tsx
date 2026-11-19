@@ -16,7 +16,6 @@ import {
   AppIcon,
   Cancel01Icon,
   CheckmarkCircle01Icon,
-  WeightScaleIcon,
   ShieldCheckIcon,
 } from './HugeIcon';
 
@@ -85,37 +84,6 @@ export const CutSelectorModal: React.FC = () => {
                 <View style={styles.jhatkaBadge}>
                   <AppIcon icon={ShieldCheckIcon} size={13} color="#00A082" />
                   <Text style={styles.jhatkaText}>100% Jhatka</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Glovo Net Weight Pan Yield Transparency Meter */}
-            <View style={styles.transparencyCard}>
-              <View style={styles.transparencyHeader}>
-                <View style={styles.scaleIconCircle}>
-                  <AppIcon icon={WeightScaleIcon} size={16} color="#111111" strokeWidth={2} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.transparencyTitle}>You pay only for clean meat</Text>
-                  <Text style={styles.transparencyDesc}>
-                    Local markets weigh before cleaning. We deliver 100% clean cooking yield.
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.weightMeterRow}>
-                <View style={styles.weightBox}>
-                  <Text style={styles.weightLabel}>Before cleaning</Text>
-                  <Text style={styles.weightValueMuted}>{selectedCut.grossWeight}</Text>
-                  <Text style={styles.weightNote}>with skin & trim</Text>
-                </View>
-                <View style={styles.arrowBox}>
-                  <Text style={styles.arrowText}>→</Text>
-                </View>
-                <View style={[styles.weightBox, styles.weightBoxHighlight]}>
-                  <Text style={styles.weightLabelHighlight}>You get</Text>
-                  <Text style={styles.weightValueHighlight}>{selectedCut.netWeight}</Text>
-                  <Text style={styles.weightNoteHighlight}>{selectedCut.pieces}</Text>
                 </View>
               </View>
             </View>
@@ -311,95 +279,6 @@ const styles = StyleSheet.create({
   jhatkaText: {
     color: '#00A082',
     fontSize: 11,
-    fontWeight: '700',
-  },
-  transparencyCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: THEME.spacing.md,
-    marginTop: THEME.spacing.md,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    ...THEME.shadow.card,
-  },
-  transparencyHeader: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
-  },
-  scaleIconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#F0F1F5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  transparencyTitle: {
-    color: '#111111',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  transparencyDesc: {
-    color: '#6B7280',
-    fontSize: 11,
-    marginTop: 2,
-    lineHeight: 15,
-  },
-  weightMeterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: THEME.spacing.sm,
-  },
-  weightBox: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  weightBoxHighlight: {
-    backgroundColor: '#E6F6F2',
-    borderRadius: 10,
-    paddingVertical: 4,
-  },
-  weightLabel: {
-    color: '#9CA3AF',
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  weightLabelHighlight: {
-    color: '#00A082',
-    fontSize: 10,
-    fontWeight: '800',
-  },
-  weightValueMuted: {
-    color: '#6B7280',
-    fontSize: 16,
-    fontWeight: '700',
-    marginVertical: 2,
-  },
-  weightValueHighlight: {
-    color: '#111111',
-    fontSize: 17,
-    fontWeight: '900',
-    marginVertical: 2,
-  },
-  weightNote: {
-    color: '#9CA3AF',
-    fontSize: 9,
-  },
-  weightNoteHighlight: {
-    color: '#00A082',
-    fontSize: 10,
-    fontWeight: '700',
-  },
-  arrowBox: {
-    paddingHorizontal: 8,
-  },
-  arrowText: {
-    color: '#9CA3AF',
-    fontSize: 18,
     fontWeight: '700',
   },
   sectionContainer: {

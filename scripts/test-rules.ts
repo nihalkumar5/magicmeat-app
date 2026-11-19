@@ -41,7 +41,7 @@ function line(cutId: string, quantity = 1, unitPrice = prices[cutId]) {
 
 function order(uid: string, id: string, items = [line(baseCut.id, 2)], overrides: Record<string, unknown> = {}) {
   const subtotal = items.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
-  const deliveryFee = subtotal < 299 ? 35 : 0;
+  const deliveryFee = subtotal < 499 ? 35 : 0;
   return {
     id,
     customerUid: uid,

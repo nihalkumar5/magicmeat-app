@@ -89,7 +89,7 @@ service cloud.firestore {
     // cached, so re-using a computed subtotal would recompute it).
     function totalsOk(o) {
       return o.subtotal is int
-        && o.deliveryFee == ((o.fulfillment == 'delivery' && o.subtotal < 299) ? 35 : 0)
+        && o.deliveryFee == ((o.fulfillment == 'delivery' && o.subtotal < 499) ? 35 : 0)
         && o.coldPackagingFee in [0, 15]
         && o.discount == 0
         && o.total == o.subtotal + o.deliveryFee + o.coldPackagingFee

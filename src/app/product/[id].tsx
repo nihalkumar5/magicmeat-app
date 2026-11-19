@@ -8,7 +8,6 @@ import { useStore } from '../../store/useStore';
 import { packVariantsFor, cutForPack } from '../../data/pricing';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { goBack } from '../../utils/navigation';
-import { formatGrams } from '../../utils/format';
 import {
   AppIcon,
   ArrowLeft01Icon,
@@ -16,7 +15,6 @@ import {
   PlusSignIcon,
   MinusSignIcon,
   FavouriteIcon,
-  WeightScaleIcon,
   ShieldCheckIcon,
   SnowflakeIcon,
   Cash01Icon,
@@ -89,8 +87,6 @@ export default function ProductDetailScreen() {
   const price = pack.price;
   const mrp = pack.originalPrice > price ? pack.originalPrice : 0;
   const off = mrp ? Math.round(((mrp - price) / mrp) * 100) : 0;
-  const netGrams = parseInt(packCut.netWeight, 10) || 0;
-  const grossGrams = parseInt(packCut.grossWeight, 10) || 0;
   const macros = product.availableCuts?.[0]?.macros || product.macros;
 
   if (!foundProduct) {
@@ -214,17 +210,6 @@ export default function ProductDetailScreen() {
               );
             })}
           </View>
-
-          {/* Clean meat */}
-          {grossGrams > netGrams && netGrams > 0 && (
-            <View style={styles.yield}>
-              <AppIcon icon={WeightScaleIcon} size={18} color={C.green} strokeWidth={2} />
-              <Text style={styles.yieldText}>
-                You pay only for clean meat: about {formatGrams(grossGrams)} before cleaning,{' '}
-                <Text style={{ fontWeight: '800' }}>{formatGrams(netGrams)} you get</Text>.
-              </Text>
-            </View>
-          )}
 
           {/* Details */}
           <Text style={styles.sectionTitle}>Details</Text>
@@ -582,21 +567,6 @@ const styles = StyleSheet.create({
   },
 
   /* yield */
-  yield: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 16,
-    padding: 12,
-    borderRadius: 14,
-    backgroundColor: C.greenBg,
-  },
-  yieldText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#166534',
-  },
 
   /* details */
   table: {
