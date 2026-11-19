@@ -207,9 +207,6 @@ export default function ProductDetailScreen() {
 
             {/* Product Title */}
             <Text style={styles.productTitle}>{product.name}</Text>
-            {product.hindiTitle && (
-              <Text style={styles.hindiTitle}>{product.hindiTitle}</Text>
-            )}
 
             {/* Pack Size / Weight Selector Cards (Lazizia 3-Card Layout) */}
             <View style={styles.packSelectorRow}>
@@ -561,12 +558,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: -0.4,
     marginBottom: 3,
-  },
-  hindiTitle: {
-    color: '#737373',
-    fontSize: 14,
-    fontWeight: '500',
-    marginBottom: 14,
   },
   packSelectorRow: {
     flexDirection: 'row',

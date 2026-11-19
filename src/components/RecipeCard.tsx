@@ -63,7 +63,6 @@ export const RecipeCard: React.FC<Props> = ({ kit }) => {
       {/* Details */}
       <View style={styles.content}>
         <Text style={styles.title}>{kit.title}</Text>
-        <Text style={styles.hindiSubtitle}>{kit.hindiSubtitle}</Text>
 
         {/* Cal AI Macro Breakdown Bar for Meal Kit */}
         <View style={styles.macroRowCard}>
@@ -181,12 +180,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     letterSpacing: -0.3,
-  },
-  hindiSubtitle: {
-    color: THEME.colors.textSecondary,
-    fontSize: 12,
-    marginTop: 2,
-    marginBottom: 8,
   },
   macroRowCard: {
     backgroundColor: '#F7F7F9',

@@ -82,9 +82,6 @@ export const CutSelectorModal: React.FC = () => {
               />
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{customizerProduct.name}</Text>
-                {customizerProduct.hindiTitle && (
-                  <Text style={styles.productHindi}>{customizerProduct.hindiTitle}</Text>
-                )}
                 <View style={styles.jhatkaBadge}>
                   <AppIcon icon={ShieldCheckIcon} size={13} color="#00A082" />
                   <Text style={styles.jhatkaText}>100% Jhatka</Text>
@@ -305,12 +302,6 @@ const styles = StyleSheet.create({
     color: '#111111',
     fontSize: 15,
     fontWeight: '800',
-  },
-  productHindi: {
-    color: '#6B7280',
-    fontSize: 11,
-    marginTop: 2,
-    marginBottom: 4,
   },
   jhatkaBadge: {
     flexDirection: 'row',

@@ -47,7 +47,6 @@ import {
   Restaurant01Icon,
   WeightScaleIcon,
   FlashIcon,
-  PlayIcon,
   ArrowRight01Icon,
   Knife01Icon,
   RefreshIcon,
@@ -56,27 +55,6 @@ import {
   Home01Icon,
 } from '../../components/HugeIcon';
 
-const VIDEO_RECIPES = [
-  {
-    id: 'vr1',
-    title: "Kerala's Popular Biryani",
-    subtitle: 'Thalassery dum chicken recipe',
-    image: 'https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=600&q=80',
-  },
-  {
-    id: 'vr2',
-    title: 'Tandoori Chicken',
-    subtitle: 'Oven roasted tangdi kebab',
-    // Our own chicken leg & thigh photo (the old stock photo showed fish).
-    image: 'https://cdn.shopify.com/s/files/1/0729/4897/3645/files/IMG-20260429-WA0002.jpg?v=1789242743',
-  },
-  {
-    id: 'vr3',
-    title: 'Chicken 65',
-    subtitle: 'Crispy spicy street style fry',
-    image: 'https://images.unsplash.com/photo-1610057099443-fde8c4d50f91?auto=format&fit=crop&w=600&q=80',
-  },
-];
 
 // Final 6 Essential Craving Categories (3-Column Circular Grid)
 const CRAVING_CATEGORIES = [
@@ -1055,48 +1033,6 @@ export default function HomeScreen() {
         />
         <ProductShelf data={top10Products} keyPrefix="best" />
 
-        {/* Recipes */}
-        <SectionHeader
-          title="Cook something new"
-          subtitle="Easy dishes, step by step"
-          onSeeAll={() => router.push('/(tabs)/recipes')}
-        />
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ maxWidth: '100%' }}
-          contentContainerStyle={styles.shelfCardsScroll}
-          data={VIDEO_RECIPES}
-          keyExtractor={(recipe) => recipe.id}
-          renderItem={({ item: recipe }) => (
-            <TouchableOpacity
-              style={styles.recipeVideoCard}
-              onPress={() => router.push('/(tabs)/recipes')}
-              activeOpacity={0.9}
-              accessibilityRole="button"
-              accessibilityLabel={recipe.title}
-            >
-              <Image
-                source={{ uri: optimizeImageUrl(recipe.image, 360) }}
-                style={styles.recipeVideoImage}
-                resizeMode="cover"
-                fadeDuration={0}
-              />
-              <View style={styles.recipePlayOverlay}>
-                <View style={styles.recipePlayCircle}>
-                  <AppIcon icon={PlayIcon} size={15} color="#FFFFFF" strokeWidth={2.5} />
-                </View>
-              </View>
-              <View style={styles.recipeVideoGradient}>
-                <Text style={styles.recipeVideoTitle} numberOfLines={1}>{recipe.title}</Text>
-                <Text style={styles.recipeVideoSub} numberOfLines={1}>{recipe.subtitle}</Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          initialNumToRender={3}
-          overScrollMode="never"
-        />
-
         {/* Jhatka promise (Target-style editorial card; opens a DoorDash-style sheet) */}
         <TouchableOpacity
           style={styles.promiseCard}
@@ -1106,8 +1042,6 @@ export default function HomeScreen() {
           accessibilityLabel="Our jhatka promise. Learn more"
         >
           <View style={styles.promiseBadge}>
-            <Text style={styles.promiseBadgeHindi}>झटका</Text>
-            <View style={styles.promiseBadgeDot} />
             <Text style={styles.promiseBadgeText}>100% Jhatka</Text>
           </View>
           <Text style={styles.promiseTitle}>Jhatka, the way{'\n'}you trust.</Text>
@@ -1162,10 +1096,9 @@ export default function HomeScreen() {
 
         {/* Brand sign-off */}
         <View style={styles.signoff}>
-          <Text style={styles.signoffLine}>Har bite mein</Text>
-          <Text style={styles.signoffLine}>mohabbat,</Text>
+          <Text style={styles.signoffLine}>Fresh meat.</Text>
           <Text style={styles.signoffLine}>
-            zaban pe <Text style={styles.signoffAccent}>lazzat.</Text>
+            Better <Text style={styles.signoffAccent}>meals.</Text>
           </Text>
           <Text style={styles.signoffSub}>
             Fresh jhatka meat, cut to order and at your door in about 30 minutes.
@@ -1189,8 +1122,7 @@ export default function HomeScreen() {
               MAGIC<Text style={{ color: '#DC2626' }}>MEAT</Text>
             </Text>
             <View style={styles.jhatkaSeal}>
-              <Text style={styles.jhatkaSealHindi}>झटका</Text>
-              <View style={styles.jhatkaSealDivider} />
+              <AppIcon icon={ShieldCheckIcon} size={14} color="#DC2626" strokeWidth={2.2} />
               <Text style={styles.jhatkaSealEnglish}>JHATKA</Text>
             </View>
           </View>
@@ -2773,57 +2705,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  recipeVideoCard: {
-    width: 156,
-    height: 210,
-    borderRadius: 14,
-    backgroundColor: '#1E293B',
-    overflow: 'hidden',
-    marginRight: 12,
-    position: 'relative',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  recipeVideoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  recipePlayOverlay: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-  },
-  recipePlayCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: 'rgba(0, 0, 0, 0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  recipeVideoGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-  },
-  recipeVideoTitle: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  recipeVideoSub: {
-    color: '#D1D5DB',
-    fontSize: 11,
-    fontWeight: '400',
-    marginTop: 2,
-  },
   /* Jhatka promise card */
   promiseCard: {
     marginHorizontal: 16,
@@ -2843,17 +2724,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     borderRadius: 14,
     backgroundColor: '#FFFFFF',
-  },
-  promiseBadgeHindi: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: '#B91C1C',
-  },
-  promiseBadgeDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 2,
-    backgroundColor: '#B91C1C',
   },
   promiseBadgeText: {
     fontSize: 12,
@@ -3032,16 +2902,6 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#DC2626',
     backgroundColor: '#FFFFFF',
-  },
-  jhatkaSealHindi: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#DC2626',
-  },
-  jhatkaSealDivider: {
-    width: 1,
-    height: 12,
-    backgroundColor: 'rgba(220,38,38,0.35)',
   },
   jhatkaSealEnglish: {
     fontSize: 11,
