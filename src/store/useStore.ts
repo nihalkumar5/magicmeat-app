@@ -101,7 +101,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bilaspur Butchery Hub (Sarkanda)',
     distanceKm: 0.8,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
   {
@@ -115,7 +115,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 15,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Work',
   },
   {
@@ -142,7 +142,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 0.4,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Work',
   },
   {
@@ -155,7 +155,7 @@ const INITIAL_SAVED_ADDRESSES: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bengaluru East Express Hub',
     distanceKm: 1.8,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
 ];

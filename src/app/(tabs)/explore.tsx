@@ -100,7 +100,7 @@ export default function ShopScreen() {
             <Text style={styles.subtitle} numberOfLines={1}>
               {isPickup ? 'Pickup from ' : 'Delivering to '}
               <Text style={{ color: C.text, fontWeight: '600' }}>{location.shortAddress}</Text>
-              {isPickup ? ' · ready in 10 mins' : ' · 30 mins'}
+              {isPickup ? ' · ready in 10 mins' : ' · 15–20 mins'}
             </Text>
           </TouchableOpacity>
         </View>

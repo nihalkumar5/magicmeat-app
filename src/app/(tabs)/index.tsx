@@ -452,7 +452,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <Text style={styles.desktopBlueSub}>
-                Delivery in about 30 mins · {currentLocation.distanceKm} km away
+                Express in 15–20 mins · {currentLocation.distanceKm} km away
               </Text>
             </View>
           </View>
@@ -499,7 +499,7 @@ export default function HomeScreen() {
                   >
                     Delivery
                   </Text>
-                  <Text style={styles.desktopSegmentPillSub}>Delivery in 30 mins</Text>
+                  <Text style={styles.desktopSegmentPillSub}>Express in 15–20 mins</Text>
                 </View>
               </TouchableOpacity>
 
@@ -765,7 +765,7 @@ export default function HomeScreen() {
                 <View style={[styles.promiseIconCircle, { backgroundColor: '#FFFBEB' }]}>
                   <AppIcon icon={FlashIcon} size={22} color="#D97706" />
                 </View>
-                <Text style={styles.promiseCardTitle}>At your door in 30 mins</Text>
+                <Text style={styles.promiseCardTitle}>At your door in 15–20 mins</Text>
                 <Text style={styles.promiseCardText}>
                   Packed in an insulated pouch with gel packs and sent straight from our nearest store.
                 </Text>
@@ -790,7 +790,7 @@ export default function HomeScreen() {
                   </View>
                 </View>
                 <Text style={styles.desktopFooterAbout}>
-                  Fresh jhatka chicken and mutton, plus fish, cleaned and cut to order and delivered chilled in about 30 minutes.
+                  Fresh jhatka chicken and mutton, plus fish, cleaned and cut to order and delivered chilled in as little as 15 minutes.
                 </Text>
               </View>
 
@@ -805,8 +805,8 @@ export default function HomeScreen() {
               <View style={styles.desktopFooterColLinks}>
                 <Text style={styles.footerColTitle}>How we deliver</Text>
                 <Text style={styles.footerLink}>Cut to order</Text>
-                <Text style={styles.footerLink}>Express in 30 mins</Text>
-                <Text style={styles.footerLink}>Normal in 60–90 mins</Text>
+                <Text style={styles.footerLink}>Express in 15–20 mins</Text>
+                <Text style={styles.footerLink}>Normal in 45–60 mins</Text>
               </View>
 
               <View style={styles.desktopFooterColLinks}>
@@ -873,7 +873,7 @@ export default function HomeScreen() {
             <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Express delivery in'}</Text>
             <View style={styles.mLocationRow}>
               <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color="#DC2626" strokeWidth={2.4} />
-              <Text style={styles.mEta}>{isPickup ? '10 minutes' : '30 minutes'}</Text>
+              <Text style={styles.mEta}>{isPickup ? '10 minutes' : '15–20 minutes'}</Text>
             </View>
             <View style={styles.mAddressRow}>
               <Text style={styles.mLocationSub} numberOfLines={1}>
@@ -1106,7 +1106,7 @@ export default function HomeScreen() {
             Better <Text style={styles.signoffAccent}>meals.</Text>
           </Text>
           <Text style={styles.signoffSub}>
-            Fresh jhatka meat, cut to order and at your door in about 30 minutes.
+            Fresh jhatka meat, cut to order and at your door in as little as 15 minutes.
           </Text>
 
           <View style={styles.signoffChips}>
@@ -1218,7 +1218,7 @@ const LIVE_STEPS = [
 ];
 
 const TRUST_POINTS = [
-  { title: '30 mins', sub: 'Fast delivery', icon: FlashIcon },
+  { title: '15–20 mins', sub: 'Express delivery', icon: FlashIcon },
   { title: '100% Jhatka', sub: 'Traditional cut', icon: ShieldCheckIcon },
   { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
 ];

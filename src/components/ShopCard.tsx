@@ -104,7 +104,7 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
         </Text>
         <View style={styles.metaRow}>
           <AppIcon icon={Clock01Icon} size={11} color="#6B7280" strokeWidth={2} />
-          <Text style={styles.meta}>30 mins</Text>
+          <Text style={styles.meta}>15–20 mins</Text>
           {!!lowStock && <Text style={styles.low}>· Only {lowStock} kg left</Text>}
         </View>
       </View>

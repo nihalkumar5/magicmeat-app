@@ -109,7 +109,7 @@ export default function CartScreen() {
             />
             <Text style={styles.emptyTitle}>Your basket is empty</Text>
             <Text style={styles.emptySubtitle}>
-              Fresh, hand-cut chicken, mutton and fish, cleaned and packed cold, at your door in about 30 minutes.
+              Fresh, hand-cut chicken, mutton and fish, cleaned and packed cold, at your door in as little as 15 minutes.
             </Text>
             <TouchableOpacity
               style={styles.primaryButton}

@@ -10,6 +10,8 @@ import {
   Switch,
   Linking,
   ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -21,10 +23,12 @@ import { cleanPhone, isValidPhone } from '../utils/validation';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { adminSignIn, adminSignOut } from '../services/backend';
 import { PRODUCTS } from '../data/mockData';
-import type { Order, OrderStatus } from '../types';
+import type { Order } from '../types';
 import {
   AppIcon,
   ArrowLeft01Icon,
+  ArrowDown01Icon,
+  ArrowUp01Icon,
   Search01Icon,
   DeliveryTruck01Icon,
   PlusSignIcon,
@@ -32,48 +36,71 @@ import {
   Call02Icon,
   Location01Icon,
   Note01Icon,
-  BeefIcon,
+  Logout01Icon,
+  Store01Icon,
 } from '../components/HugeIcon';
 
+// Store admin, modelled on the Shopify mobile admin: a dark header with
+// today's numbers, then a white sheet with a scannable order list. Each
+// order opens in place, and one dark button moves it to the next step.
+
 const C = {
-  bg: '#F2F2F7',
-  card: '#FFFFFF',
+  ink: '#0B0B0C',
+  bg: '#FFFFFF',
+  soft: '#F4F4F5',
   text: '#111111',
   secondary: '#6B7280',
   placeholder: '#9CA3AF',
-  hairline: 'rgba(60, 60, 67, 0.14)',
+  hairline: '#ECECEF',
   red: '#DC2626',
-  redBg: '#FEF2F2',
-  green: '#16A34A',
-  greenDark: '#15803D',
-  greenBg: '#F0FDF4',
-  amber: '#B45309',
-  amberBg: '#FFFBEB',
+  green: '#15803D',
+  greenBg: '#ECFDF3',
 };
 
-const STATUS: Record<string, { label: string; color: string; bg: string; next?: string }> = {
-  placed: { label: 'New', color: C.amber, bg: '#FEF3C7', next: 'Accept & start preparing' },
-  butcher_prepping: { label: 'Preparing', color: '#1D4ED8', bg: '#EFF6FF', next: 'Mark packed' },
-  cold_packed: { label: 'Packed', color: '#0F766E', bg: '#F0FDFA', next: 'Dispatch with rider' },
-  rider_assigned: { label: 'Rider assigned', color: '#7E22CE', bg: '#FAF5FF', next: 'Mark delivered' },
-  out_for_delivery: { label: 'On the way', color: '#7E22CE', bg: '#FAF5FF', next: 'Mark delivered' },
-  delivered: { label: 'Delivered', color: C.greenDark, bg: C.greenBg },
-  cancelled: { label: 'Cancelled', color: '#B91C1C', bg: C.redBg },
+type Stage = 'new' | 'preparing' | 'packed' | 'on_way' | 'delivered' | 'cancelled';
+
+const STAGE: Record<Stage, { label: string; color: string; bg: string; next?: string }> = {
+  new: { label: 'New', color: '#B45309', bg: '#FEF3C7', next: 'Accept and start preparing' },
+  preparing: { label: 'Preparing', color: '#1D4ED8', bg: '#EFF6FF', next: 'Mark as packed' },
+  packed: { label: 'Packed', color: '#0F766E', bg: '#F0FDFA', next: 'Send with rider' },
+  on_way: { label: 'On the way', color: '#7E22CE', bg: '#FAF5FF', next: 'Mark as delivered' },
+  delivered: { label: 'Delivered', color: C.green, bg: C.greenBg },
+  cancelled: { label: 'Cancelled', color: '#6B7280', bg: '#F3F4F6' },
 };
 
-type Filter = 'active' | OrderStatus | 'all';
+function stageOf(o: Order): Stage {
+  switch (o.status) {
+    case 'placed':
+      return 'new';
+    case 'butcher_prepping':
+      return 'preparing';
+    case 'cold_packed':
+      return 'packed';
+    case 'rider_assigned':
+    case 'out_for_delivery':
+      return 'on_way';
+    case 'delivered':
+      return 'delivered';
+    default:
+      return 'cancelled';
+  }
+}
+
+type Filter = 'todo' | Stage | 'all';
 const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'active', label: 'Active' },
-  { key: 'placed', label: 'New' },
-  { key: 'butcher_prepping', label: 'Preparing' },
-  { key: 'cold_packed', label: 'Packed' },
-  { key: 'out_for_delivery', label: 'On the way' },
+  { key: 'todo', label: 'To do' },
+  { key: 'new', label: 'New' },
+  { key: 'preparing', label: 'Preparing' },
+  { key: 'packed', label: 'Packed' },
+  { key: 'on_way', label: 'On the way' },
   { key: 'delivered', label: 'Delivered' },
   { key: 'cancelled', label: 'Cancelled' },
   { key: 'all', label: 'All' },
 ];
 
 const isActive = (o: Order) => o.status !== 'delivered' && o.status !== 'cancelled';
+const itemCount = (o: Order) => o.items.reduce((n, i) => n + i.quantity, 0);
+const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
 
 function timeAgo(ms?: number): string {
   if (!ms) return '';
@@ -114,7 +141,7 @@ function AdminLogin() {
       setError(
         code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found'
           ? 'Wrong email or password.'
-          : 'Could not sign in. Check your connection.'
+          : 'Could not sign in. Check your connection.',
       );
     } finally {
       setBusy(false);
@@ -122,30 +149,31 @@ function AdminLogin() {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.loginSafe} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
-      <View style={styles.navBar}>
+      <View style={styles.loginNav}>
         <TouchableOpacity
-          style={styles.navBtn}
+          style={styles.circleBtn}
           onPress={() => goBack('/profile-menu')}
           accessibilityRole="button"
           accessibilityLabel="Back"
         >
-          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
+          <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.2} />
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.loginContent} keyboardShouldPersistTaps="handled">
-        <View style={styles.loginBadge}>
-          <AppIcon icon={BeefIcon} size={28} color="#FFFFFF" strokeWidth={2} />
-        </View>
-        <Text style={styles.loginTitle}>Store admin</Text>
-        <Text style={styles.loginSub}>Sign in with your MagicMeat staff account.</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView contentContainerStyle={styles.loginContent} keyboardShouldPersistTaps="handled">
+          <View style={styles.loginBadge}>
+            <AppIcon icon={Store01Icon} size={26} color="#FFFFFF" strokeWidth={2} />
+          </View>
+          <Text style={styles.loginTitle}>Store admin</Text>
+          <Text style={styles.loginSub}>Sign in with your MagicMeat staff account to manage orders and stock.</Text>
 
-        <View style={[styles.card, { alignSelf: 'stretch', marginTop: 24 }]}>
+          <Text style={styles.fieldLabel}>Email</Text>
           <TextInput
-            style={styles.loginInput}
-            placeholder="Email"
+            style={styles.field}
+            placeholder="you@magicmeat.in"
             placeholderTextColor={C.placeholder}
             autoCapitalize="none"
             autoCorrect={false}
@@ -156,9 +184,9 @@ function AdminLogin() {
             onChangeText={setEmail}
             returnKeyType="next"
           />
-          <View style={styles.divider} />
+          <Text style={styles.fieldLabel}>Password</Text>
           <TextInput
-            style={styles.loginInput}
+            style={styles.field}
             placeholder="Password"
             placeholderTextColor={C.placeholder}
             secureTextEntry
@@ -169,24 +197,24 @@ function AdminLogin() {
             onSubmitEditing={submit}
             returnKeyType="go"
           />
-        </View>
 
-        {!!error && <Text style={styles.loginError}>{error}</Text>}
+          {!!error && <Text style={styles.loginError}>{error}</Text>}
 
-        <TouchableOpacity
-          style={[styles.primaryBtn, { alignSelf: 'stretch', marginTop: 20 }, busy && { opacity: 0.7 }]}
-          onPress={submit}
-          disabled={busy}
-          activeOpacity={0.85}
-          accessibilityRole="button"
-        >
-          {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.primaryBtnText}>Sign in</Text>}
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.darkBtn, { marginTop: 22 }, busy && { opacity: 0.7 }]}
+            onPress={submit}
+            disabled={busy}
+            activeOpacity={0.85}
+            accessibilityRole="button"
+          >
+            {busy ? <ActivityIndicator color="#FFFFFF" /> : <Text style={styles.darkBtnText}>Sign in</Text>}
+          </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={{ marginTop: 18 }}>
-          <Text style={styles.link}>Back to the shop</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <TouchableOpacity onPress={() => router.replace('/(tabs)')} style={{ marginTop: 18, alignSelf: 'center' }}>
+            <Text style={styles.mutedLink}>Back to the shop</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -198,7 +226,8 @@ export default function AdminScreen() {
     useStore();
 
   const [tab, setTab] = useState<'orders' | 'stock' | 'riders'>('orders');
-  const [filter, setFilter] = useState<Filter>('active');
+  const [filter, setFilter] = useState<Filter>('todo');
+  const [openId, setOpenId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [stockCat, setStockCat] = useState<'all' | 'chicken' | 'mutton' | 'fish' | 'eggs' | 'out'>('all');
   const [riderDrafts, setRiderDrafts] = useState<Record<string, { name: string; phone: string }>>({});
@@ -213,7 +242,8 @@ export default function AdminScreen() {
   const todaysOrders = orders.filter((o) => o.status !== 'cancelled' && (o.createdAtMs ?? 0) >= startOfToday.getTime());
   const todayRevenue = todaysOrders.reduce((sum, o) => sum + (o.total || 0), 0);
   const deliveredToday = todaysOrders.filter((o) => o.status === 'delivered').length;
-  const ridersOnRoad = orders.filter((o) => o.status === 'out_for_delivery' && o.riderName);
+  const newCount = orders.filter((o) => o.status === 'placed').length;
+  const ridersOnRoad = orders.filter((o) => stageOf(o) === 'on_way' && o.riderName);
   const isOut = (id: string) => {
     const inv = inventory[id];
     return inv ? !inv.inStock || inv.stockKg <= 0 : false;
@@ -221,14 +251,18 @@ export default function AdminScreen() {
   const outOfStockCount = PRODUCTS.filter((p) => isOut(p.id)).length;
 
   const countFor = (key: Filter) =>
-    key === 'all' ? orders.length : key === 'active' ? activeOrders.length : orders.filter((o) => o.status === key).length;
+    key === 'all'
+      ? orders.length
+      : key === 'todo'
+        ? activeOrders.length
+        : orders.filter((o) => stageOf(o) === key).length;
 
-  // Active work is shown oldest first so the earliest order goes out first.
+  // Work still to do is shown oldest first, so the earliest order goes out first.
   const visibleOrders = (() => {
     if (filter === 'all') return orders;
-    if (filter === 'active') return [...activeOrders].reverse();
-    const list = orders.filter((o) => o.status === filter);
-    return isActive({ status: filter } as Order) ? [...list].reverse() : list;
+    if (filter === 'todo') return [...activeOrders].reverse();
+    const list = orders.filter((o) => stageOf(o) === filter);
+    return filter === 'delivered' || filter === 'cancelled' ? list : [...list].reverse();
   })();
 
   const query = search.trim().toLowerCase();
@@ -241,332 +275,433 @@ export default function AdminScreen() {
   if (!isAdmin) return <AdminLogin />;
 
   const advance = (order: Order) => {
-    if (order.status === 'placed') updateOrderStatus(order.id, 'butcher_prepping');
-    else if (order.status === 'butcher_prepping') updateOrderStatus(order.id, 'cold_packed');
-    else if (order.status === 'cold_packed') {
+    const stage = stageOf(order);
+    if (stage === 'new') updateOrderStatus(order.id, 'butcher_prepping');
+    else if (stage === 'preparing') updateOrderStatus(order.id, 'cold_packed');
+    else if (stage === 'packed') {
       const draft = riderDraft(order.id);
-      if (!draft.name.trim()) return notify('Rider needed', 'Enter the rider name before dispatching.');
-      if (!isValidPhone(draft.phone))
+      if (!draft.name.trim()) {
+        setOpenId(order.id);
+        return notify('Rider needed', 'Enter the rider name before sending the order.');
+      }
+      if (!isValidPhone(draft.phone)) {
+        setOpenId(order.id);
         return notify('Rider needed', "Enter the rider's 10-digit mobile number so the customer can call.");
+      }
       assignRider(order.id, draft.name.trim(), cleanPhone(draft.phone));
-    } else if (order.status === 'out_for_delivery' || order.status === 'rider_assigned') {
+    } else if (stage === 'on_way') {
       updateOrderStatus(order.id, 'delivered');
     }
   };
 
   const signOut = () =>
     confirmAction('Sign out?', 'You’ll need your password to sign in again.', 'Sign out', () => {
-      adminSignOut().finally(() => router.replace('/(tabs)'));
+      adminSignOut().finally(() => router.replace('/login'));
     });
 
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
-      <StatusBar style="dark" />
+  const stats = [
+    { label: 'To do', value: String(activeOrders.length), hint: newCount ? `${newCount} new` : 'All caught up' },
+    { label: 'Sales today', value: `₹${todayRevenue.toLocaleString('en-IN')}`, hint: `${todaysOrders.length} orders` },
+    { label: 'Delivered', value: String(deliveredToday), hint: 'today' },
+    {
+      label: 'Out of stock',
+      value: String(outOfStockCount),
+      hint: outOfStockCount ? 'needs restock' : 'all in stock',
+    },
+  ];
 
-      {/* Header */}
-      <View style={styles.header}>
+  return (
+    <View style={styles.root}>
+      <StatusBar style="light" />
+
+      {/* Dark header (Shopify / eBay seller style) */}
+      <SafeAreaView edges={['top']} style={styles.header}>
         <View style={styles.headerRow}>
           <TouchableOpacity
-            style={styles.navBtn}
+            style={styles.headerBtn}
             onPress={() => goBack('/profile-menu')}
             accessibilityRole="button"
             accessibilityLabel="Back"
           >
-            <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.4} />
+            <AppIcon icon={ArrowLeft01Icon} size={20} color="#FFFFFF" strokeWidth={2.2} />
           </TouchableOpacity>
-          <TouchableOpacity onPress={signOut} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Text style={styles.link}>Sign out</Text>
-          </TouchableOpacity>
-        </View>
-        <View style={styles.titleRow}>
-          <Text style={styles.largeTitle}>Store</Text>
-          <View style={styles.livePill}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>Live</Text>
-          </View>
-        </View>
-
-        {/* Segmented control */}
-        <View style={styles.segmented}>
-          {(
-            [
-              { key: 'orders', label: `Orders${activeOrders.length ? ` · ${activeOrders.length}` : ''}` },
-              { key: 'stock', label: `Stock${outOfStockCount ? ` · ${outOfStockCount} out` : ''}` },
-              { key: 'riders', label: 'Riders' },
-            ] as const
-          ).map((s) => (
-            <TouchableOpacity
-              key={s.key}
-              style={[styles.segment, tab === s.key && styles.segmentActive]}
-              onPress={() => setTab(s.key)}
-              activeOpacity={0.8}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: tab === s.key }}
-            >
-              <Text style={[styles.segmentText, tab === s.key && styles.segmentTextActive]} numberOfLines={1}>
-                {s.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        {/* ============================================================ orders */}
-        {tab === 'orders' && (
-          <>
-            <View style={styles.kpiRow}>
-              <View style={styles.kpi}>
-                <Text style={styles.kpiValue}>{activeOrders.length}</Text>
-                <Text style={styles.kpiLabel}>To do</Text>
-              </View>
-              <View style={styles.kpi}>
-                <Text style={styles.kpiValue}>₹{todayRevenue}</Text>
-                <Text style={styles.kpiLabel}>Today · {todaysOrders.length} orders</Text>
-              </View>
-              <View style={styles.kpi}>
-                <Text style={[styles.kpiValue, { color: C.greenDark }]}>{deliveredToday}</Text>
-                <Text style={styles.kpiLabel}>Delivered today</Text>
+          <View style={styles.storeId}>
+            <View style={styles.storeAvatar}>
+              <Text style={styles.storeAvatarText}>MM</Text>
+            </View>
+            <View>
+              <Text style={styles.storeName}>MagicMeat Store</Text>
+              <View style={styles.liveRow}>
+                <View style={styles.liveDot} />
+                <Text style={styles.liveText}>Live · orders update instantly</Text>
               </View>
             </View>
+          </View>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={signOut}
+            accessibilityRole="button"
+            accessibilityLabel="Sign out"
+          >
+            <AppIcon icon={Logout01Icon} size={19} color="#FFFFFF" strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {FILTERS.map((f) => {
-                const active = filter === f.key;
-                const n = countFor(f.key);
-                return (
-                  <TouchableOpacity
-                    key={f.key}
-                    style={[styles.chip, active && styles.chipActive]}
-                    onPress={() => setFilter(f.key)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                      {f.label}
-                      {n ? ` ${n}` : ''}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.stats}>
+          {stats.map((s) => (
+            <View key={s.label} style={styles.stat}>
+              <Text style={styles.statLabel}>{s.label.toUpperCase()}</Text>
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statHint}>{s.hint}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
 
-            {visibleOrders.length === 0 ? (
-              <View style={[styles.card, styles.empty]}>
-                <Text style={styles.emptyTitle}>{filter === 'active' ? 'All caught up' : 'No orders here'}</Text>
-                <Text style={styles.emptySub}>New orders appear here instantly.</Text>
-              </View>
-            ) : (
-              visibleOrders.map((order) => {
-                const st = STATUS[order.status] || STATUS.placed;
-                const draft = riderDraft(order.id);
-                const active = isActive(order);
-                return (
-                  <View key={order.id} style={[styles.card, styles.orderCard]}>
-                    {/* top */}
-                    <View style={styles.orderTop}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.orderId}>#{order.id.replace('MM-', '')}</Text>
-                        <Text style={styles.orderMeta}>
-                          {timeAgo(order.createdAtMs) || order.placedAt} ·{' '}
-                          {order.deliveryMode === 'instant' ? 'Express' : order.eta}
-                        </Text>
-                      </View>
-                      <View style={[styles.pill, { backgroundColor: st.bg }]}>
-                        <Text style={[styles.pillText, { color: st.color }]}>{st.label}</Text>
-                      </View>
-                    </View>
+      {/* White sheet */}
+      <View style={styles.sheet}>
+        <View style={styles.tabs}>
+          {(
+            [
+              { key: 'orders', label: 'Orders', badge: activeOrders.length },
+              { key: 'stock', label: 'Stock', badge: outOfStockCount },
+              { key: 'riders', label: 'Riders', badge: ridersOnRoad.length },
+            ] as const
+          ).map((t) => {
+            const on = tab === t.key;
+            return (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.tab, on && styles.tabOn]}
+                onPress={() => setTab(t.key)}
+                activeOpacity={0.8}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: on }}
+              >
+                <Text style={[styles.tabText, on && styles.tabTextOn]}>{t.label}</Text>
+                {t.badge > 0 && (
+                  <View style={[styles.tabBadge, on && styles.tabBadgeOn]}>
+                    <Text style={[styles.tabBadgeText, on && styles.tabBadgeTextOn]}>{t.badge}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-                    {/* customer */}
-                    <View style={styles.customerRow}>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text style={styles.customerName} numberOfLines={1}>
-                          {order.customerName || 'Guest customer'}
-                        </Text>
-                        <View style={styles.addressRow}>
-                          <AppIcon icon={Location01Icon} size={13} color={C.secondary} strokeWidth={2} />
-                          <Text style={styles.addressText} numberOfLines={2}>
-                            {order.address}
-                          </Text>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* ============================================================ orders */}
+          {tab === 'orders' && (
+            <>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                {FILTERS.map((f) => {
+                  const on = filter === f.key;
+                  const n = countFor(f.key);
+                  return (
+                    <TouchableOpacity
+                      key={f.key}
+                      style={[styles.chip, on && styles.chipOn]}
+                      onPress={() => setFilter(f.key)}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.chipText, on && styles.chipTextOn]}>
+                        {f.label}
+                        {n ? ` ${n}` : ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+
+              {visibleOrders.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>{filter === 'todo' ? 'All caught up' : 'No orders here'}</Text>
+                  <Text style={styles.emptySub}>New orders appear here the moment a customer places them.</Text>
+                </View>
+              ) : (
+                visibleOrders.map((order, idx) => {
+                  const stage = stageOf(order);
+                  const st = STAGE[stage];
+                  const open = openId === order.id;
+                  const active = isActive(order);
+                  const draft = riderDraft(order.id);
+                  const items = order.items.map((i) => `${i.quantity}× ${shortName(i.product.name)}`).join(', ');
+                  return (
+                    <View key={order.id}>
+                      {idx > 0 && <View style={styles.divider} />}
+
+                      {/* Row */}
+                      <TouchableOpacity
+                        style={styles.orderRow}
+                        onPress={() => setOpenId(open ? null : order.id)}
+                        activeOpacity={0.6}
+                        accessibilityRole="button"
+                        accessibilityState={{ expanded: open }}
+                        accessibilityLabel={`Order ${order.id}, ${st.label}, ₹${order.total}`}
+                      >
+                        <View style={styles.orderHead}>
+                          <Text style={styles.orderId}>#{order.id.replace('MM-', '')}</Text>
+                          <Text style={styles.orderTotal}>₹{order.total}</Text>
                         </View>
-                      </View>
-                      {!!order.customerPhone && (
+                        <Text style={styles.orderMeta} numberOfLines={1}>
+                          {order.customerName || 'Customer'} • {itemCount(order)} item
+                          {itemCount(order) === 1 ? '' : 's'} • {timeAgo(order.createdAtMs) || order.placedAt}
+                        </Text>
+                        <Text style={styles.orderItems} numberOfLines={open ? undefined : 1}>
+                          {items}
+                        </Text>
+                        <View style={styles.badges}>
+                          <View style={[styles.badge, { backgroundColor: st.bg }]}>
+                            <View style={[styles.badgeDot, { backgroundColor: st.color }]} />
+                            <Text style={[styles.badgeText, { color: st.color }]}>{st.label}</Text>
+                          </View>
+                          <View style={[styles.badge, order.deliveryMode === 'instant' && styles.badgeExpress]}>
+                            <Text
+                              style={[
+                                styles.badgeText,
+                                { color: order.deliveryMode === 'instant' ? C.red : C.secondary },
+                              ]}
+                            >
+                              {order.deliveryMode === 'instant' ? 'Express' : 'Normal'}
+                            </Text>
+                          </View>
+                          <View style={styles.badge}>
+                            <Text style={[styles.badgeText, { color: C.secondary }]}>
+                              {order.status === 'delivered' ? 'Paid' : 'Cash / UPI on delivery'}
+                            </Text>
+                          </View>
+                          <View style={{ flex: 1 }} />
+                          <AppIcon
+                            icon={open ? ArrowUp01Icon : ArrowDown01Icon}
+                            size={16}
+                            color={C.placeholder}
+                            strokeWidth={2.2}
+                          />
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Details */}
+                      {open && (
+                        <View style={styles.detail}>
+                          <View style={styles.detailBlock}>
+                            <View style={{ flex: 1, minWidth: 0 }}>
+                              <Text style={styles.detailLabel}>DELIVER TO</Text>
+                              <Text style={styles.detailName}>{order.customerName || 'Customer'}</Text>
+                              <View style={styles.addressRow}>
+                                <AppIcon icon={Location01Icon} size={13} color={C.secondary} strokeWidth={2} />
+                                <Text style={styles.addressText}>{order.address}</Text>
+                              </View>
+                              {!!order.customerPhone && (
+                                <Text style={styles.detailPhone}>+91 {order.customerPhone}</Text>
+                              )}
+                            </View>
+                            {!!order.customerPhone && (
+                              <TouchableOpacity
+                                style={styles.callBtn}
+                                onPress={() => Linking.openURL(`tel:+91${order.customerPhone}`)}
+                                accessibilityLabel={`Call ${order.customerName || 'customer'}`}
+                              >
+                                <AppIcon icon={Call02Icon} size={17} color={C.text} strokeWidth={2} />
+                              </TouchableOpacity>
+                            )}
+                          </View>
+
+                          {!!order.deliveryNote && (
+                            <View style={styles.noteBox}>
+                              <AppIcon icon={Note01Icon} size={14} color="#B45309" strokeWidth={2} />
+                              <Text style={styles.noteText}>{order.deliveryNote}</Text>
+                            </View>
+                          )}
+
+                          <Text style={[styles.detailLabel, { marginTop: 14 }]}>ITEMS</Text>
+                          {order.items.map((item, i) => (
+                            <View key={`${item.cartItemId}-${i}`} style={styles.itemRow}>
+                              <Image
+                                source={{ uri: optimizeImageUrl(item.product.image, 100) }}
+                                style={styles.itemThumb}
+                              />
+                              <View style={{ flex: 1, minWidth: 0 }}>
+                                <Text style={styles.itemName} numberOfLines={1}>
+                                  {item.product.name}
+                                </Text>
+                                <Text style={styles.itemCut} numberOfLines={1}>
+                                  {item.selectedCut.name}
+                                  {item.selectedCut.allowsSkinOption
+                                    ? ` · ${item.isSkinless ? 'Skinless' : 'With skin'}`
+                                    : ''}
+                                </Text>
+                              </View>
+                              <Text style={styles.itemQty}>× {item.quantity}</Text>
+                            </View>
+                          ))}
+
+                          <View style={styles.moneyBox}>
+                            <View style={styles.moneyRow}>
+                              <Text style={styles.moneyLabel}>Items</Text>
+                              <Text style={styles.moneyValue}>₹{order.subtotal}</Text>
+                            </View>
+                            <View style={styles.moneyRow}>
+                              <Text style={styles.moneyLabel}>
+                                {order.deliveryMode === 'instant' ? 'Express delivery' : 'Delivery'}
+                              </Text>
+                              <Text style={styles.moneyValue}>
+                                {order.deliveryFee ? `₹${order.deliveryFee}` : 'Free'}
+                              </Text>
+                            </View>
+                            <View style={[styles.moneyRow, styles.moneyTotalRow]}>
+                              <Text style={styles.moneyTotalLabel}>
+                                {order.status === 'delivered' ? 'Collected' : 'Collect on delivery'}
+                              </Text>
+                              <Text style={styles.moneyTotal}>₹{order.total}</Text>
+                            </View>
+                          </View>
+
+                          {!!order.riderName && (
+                            <View style={styles.riderLine}>
+                              <AppIcon icon={DeliveryTruck01Icon} size={15} color={C.secondary} strokeWidth={2} />
+                              <Text style={styles.riderLineText}>
+                                {order.riderName}
+                                {order.riderPhone ? ` · +91 ${order.riderPhone}` : ''}
+                              </Text>
+                            </View>
+                          )}
+
+                          {stage === 'packed' && (
+                            <>
+                              <Text style={[styles.detailLabel, { marginTop: 14 }]}>RIDER</Text>
+                              <View style={styles.riderForm}>
+                                <TextInput
+                                  style={[styles.field, { flex: 1 }]}
+                                  placeholder="Rider name"
+                                  placeholderTextColor={C.placeholder}
+                                  value={draft.name}
+                                  onChangeText={(name) => setRiderDraft(order.id, { name })}
+                                  maxLength={60}
+                                />
+                                <TextInput
+                                  style={[styles.field, { flex: 1 }]}
+                                  placeholder="Mobile"
+                                  placeholderTextColor={C.placeholder}
+                                  keyboardType="phone-pad"
+                                  value={draft.phone}
+                                  onChangeText={(phone) => setRiderDraft(order.id, { phone })}
+                                  maxLength={14}
+                                />
+                              </View>
+                            </>
+                          )}
+
+                          {active && (
+                            <TouchableOpacity
+                              style={styles.cancelLink}
+                              onPress={() =>
+                                confirmAction(
+                                  'Cancel this order?',
+                                  `Order #${order.id} will be cancelled and the customer will see it.`,
+                                  'Cancel order',
+                                  () => cancelOrder(order.id),
+                                  'Keep',
+                                )
+                              }
+                              accessibilityRole="button"
+                              accessibilityLabel={`Cancel order ${order.id}`}
+                            >
+                              <Text style={styles.cancelText}>Cancel order</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      )}
+
+                      {/* Next step: always one tap away */}
+                      {active && !!st.next && (
                         <TouchableOpacity
-                          style={styles.callBtn}
-                          onPress={() => Linking.openURL(`tel:+91${order.customerPhone}`)}
-                          accessibilityLabel={`Call ${order.customerName || 'customer'}`}
+                          style={styles.nextBtn}
+                          onPress={() => advance(order)}
+                          activeOpacity={0.85}
+                          accessibilityRole="button"
                         >
-                          <AppIcon icon={Call02Icon} size={18} color="#FFFFFF" strokeWidth={2} />
+                          <Text style={styles.nextBtnText}>{st.next}</Text>
                         </TouchableOpacity>
                       )}
                     </View>
-
-                    {!!order.deliveryNote && (
-                      <View style={styles.noteBox}>
-                        <AppIcon icon={Note01Icon} size={14} color={C.amber} strokeWidth={2} />
-                        <Text style={styles.noteText}>{order.deliveryNote}</Text>
-                      </View>
-                    )}
-
-                    {/* items */}
-                    <View style={styles.itemsBox}>
-                      {order.items.map((item, idx) => (
-                        <View key={`${item.cartItemId}-${idx}`} style={styles.itemRow}>
-                          <Text style={styles.itemQty}>{item.quantity}×</Text>
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={styles.itemName} numberOfLines={1}>
-                              {item.product.name}
-                            </Text>
-                            <Text style={styles.itemCut} numberOfLines={1}>
-                              {item.selectedCut.name}
-                              {item.selectedCut.allowsSkinOption ? ` · ${item.isSkinless ? 'Skinless' : 'With skin'}` : ''}
-                            </Text>
-                          </View>
-                          <Text style={styles.itemPrice}>₹{item.unitPrice * item.quantity}</Text>
-                        </View>
-                      ))}
-                      {order.coldPackagingFee > 0 && <Text style={styles.coldTag}>Cold pack requested</Text>}
-                    </View>
-
-                    {/* money + rider */}
-                    <View style={styles.moneyRow}>
-                      <Text style={styles.moneyLabel}>
-                        {order.status === 'cancelled' ? 'Cancelled' : order.status === 'delivered' ? 'Collected' : 'Collect on delivery'}
-                      </Text>
-                      <Text style={styles.moneyValue}>₹{order.total}</Text>
-                    </View>
-                    {!!order.riderName && (
-                      <View style={styles.riderLine}>
-                        <AppIcon icon={DeliveryTruck01Icon} size={14} color={C.secondary} strokeWidth={2} />
-                        <Text style={styles.riderLineText}>
-                          {order.riderName}
-                          {order.riderPhone ? ` · ${order.riderPhone}` : ''}
-                        </Text>
-                      </View>
-                    )}
-
-                    {/* dispatch form */}
-                    {order.status === 'cold_packed' && (
-                      <View style={styles.riderForm}>
-                        <TextInput
-                          style={styles.riderInput}
-                          placeholder="Rider name"
-                          placeholderTextColor={C.placeholder}
-                          value={draft.name}
-                          onChangeText={(name) => setRiderDraft(order.id, { name })}
-                          maxLength={60}
-                        />
-                        <TextInput
-                          style={styles.riderInput}
-                          placeholder="Rider mobile"
-                          placeholderTextColor={C.placeholder}
-                          keyboardType="phone-pad"
-                          value={draft.phone}
-                          onChangeText={(phone) => setRiderDraft(order.id, { phone })}
-                          maxLength={14}
-                        />
-                      </View>
-                    )}
-
-                    {/* actions */}
-                    {active && (
-                      <View style={styles.actions}>
-                        {!!st.next && (
-                          <TouchableOpacity
-                            style={[styles.primaryBtn, { flex: 1 }]}
-                            onPress={() => advance(order)}
-                            activeOpacity={0.85}
-                            accessibilityRole="button"
-                          >
-                            <Text style={styles.primaryBtnText}>{st.next}</Text>
-                          </TouchableOpacity>
-                        )}
-                        <TouchableOpacity
-                          style={styles.secondaryBtn}
-                          onPress={() =>
-                            confirmAction(
-                              'Cancel this order?',
-                              `Order #${order.id} will be cancelled and the customer will see it.`,
-                              'Cancel order',
-                              () => cancelOrder(order.id),
-                              'Keep'
-                            )
-                          }
-                          activeOpacity={0.7}
-                          accessibilityRole="button"
-                          accessibilityLabel={`Cancel order ${order.id}`}
-                        >
-                          <Text style={styles.secondaryBtnText}>Cancel</Text>
-                        </TouchableOpacity>
-                      </View>
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </>
-        )}
-
-        {/* ============================================================ stock */}
-        {tab === 'stock' && (
-          <>
-            <View style={styles.searchField}>
-              <AppIcon icon={Search01Icon} size={17} color="#8E8E93" strokeWidth={2.2} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search products"
-                placeholderTextColor="#8E8E93"
-                value={search}
-                onChangeText={setSearch}
-                autoCorrect={false}
-              />
-              {!!search && (
-                <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={styles.clearText}>Clear</Text>
-                </TouchableOpacity>
+                  );
+                })
               )}
-            </View>
+            </>
+          )}
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-              {(
-                [
-                  { key: 'all', label: 'All' },
-                  { key: 'out', label: `Out of stock${outOfStockCount ? ` ${outOfStockCount}` : ''}` },
-                  { key: 'chicken', label: 'Chicken' },
-                  { key: 'mutton', label: 'Mutton' },
-                  { key: 'fish', label: 'Fish' },
-                  { key: 'eggs', label: 'Eggs' },
-                ] as const
-              ).map((c) => (
-                <TouchableOpacity
-                  key={c.key}
-                  style={[styles.chip, stockCat === c.key && styles.chipActive]}
-                  onPress={() => setStockCat(c.key)}
-                  activeOpacity={0.8}
-                >
-                  <Text style={[styles.chipText, stockCat === c.key && styles.chipTextActive]}>{c.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            {visibleProducts.length === 0 ? (
-              <View style={[styles.card, styles.empty]}>
-                <Text style={styles.emptyTitle}>{stockCat === 'out' ? 'Everything is in stock' : 'No products found'}</Text>
+          {/* ============================================================ stock */}
+          {tab === 'stock' && (
+            <>
+              <View style={styles.searchField}>
+                <AppIcon icon={Search01Icon} size={17} color={C.placeholder} strokeWidth={2.2} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search products"
+                  placeholderTextColor={C.placeholder}
+                  value={search}
+                  onChangeText={setSearch}
+                  autoCorrect={false}
+                />
+                {!!search && (
+                  <TouchableOpacity
+                    onPress={() => setSearch('')}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Text style={styles.mutedLink}>Clear</Text>
+                  </TouchableOpacity>
+                )}
               </View>
-            ) : (
-              <View style={styles.card}>
-                {visibleProducts.map((p, idx) => {
+
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
+                {(
+                  [
+                    { key: 'all', label: 'All' },
+                    { key: 'out', label: `Out of stock${outOfStockCount ? ` ${outOfStockCount}` : ''}` },
+                    { key: 'chicken', label: 'Chicken' },
+                    { key: 'mutton', label: 'Mutton' },
+                    { key: 'fish', label: 'Fish' },
+                    { key: 'eggs', label: 'Eggs' },
+                  ] as const
+                ).map((c) => (
+                  <TouchableOpacity
+                    key={c.key}
+                    style={[styles.chip, stockCat === c.key && styles.chipOn]}
+                    onPress={() => setStockCat(c.key)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={[styles.chipText, stockCat === c.key && styles.chipTextOn]}>{c.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+
+              {visibleProducts.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>
+                    {stockCat === 'out' ? 'Everything is in stock' : 'No products found'}
+                  </Text>
+                </View>
+              ) : (
+                visibleProducts.map((p, idx) => {
                   const inv = inventory[p.id] || { productId: p.id, inStock: true, stockKg: 0, availableCutIds: [] };
                   const out = isOut(p.id);
                   return (
                     <View key={p.id}>
-                      {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
+                      {idx > 0 && <View style={[styles.divider, { marginLeft: 64 }]} />}
                       <View style={styles.stockRow}>
-                        <Image source={{ uri: optimizeImageUrl(p.image, 100) }} style={[styles.stockThumb, out && { opacity: 0.4 }]} />
+                        <Image
+                          source={{ uri: optimizeImageUrl(p.image, 100) }}
+                          style={[styles.stockThumb, out && { opacity: 0.4 }]}
+                        />
                         <View style={{ flex: 1, minWidth: 0 }}>
                           <Text style={styles.stockName} numberOfLines={1}>
                             {p.name}
                           </Text>
-                          <Text style={[styles.stockMeta, out && { color: C.red, fontWeight: '600' }]}>
+                          <Text style={[styles.stockMeta, out && styles.stockMetaOut]}>
                             {out ? 'Out of stock' : `₹${p.basePrice} · ${p.netWeight}`}
                           </Text>
                           <View style={styles.kgStepper}>
@@ -598,27 +733,25 @@ export default function AdminScreen() {
                       </View>
                     </View>
                   );
-                })}
-              </View>
-            )}
-            <Text style={styles.footnote}>Turning an item on with 0 kg adds 5 kg so customers can order it.</Text>
-          </>
-        )}
+                })
+              )}
+              <Text style={styles.footnote}>Turning an item on with 0 kg adds 5 kg so customers can order it.</Text>
+            </>
+          )}
 
-        {/* ============================================================ riders */}
-        {tab === 'riders' && (
-          <>
-            <Text style={styles.sectionLabel}>ON DELIVERY ({ridersOnRoad.length})</Text>
-            {ridersOnRoad.length === 0 ? (
-              <View style={[styles.card, styles.empty]}>
-                <Text style={styles.emptyTitle}>No rider is out</Text>
-                <Text style={styles.emptySub}>Riders show up here when you dispatch a packed order.</Text>
-              </View>
-            ) : (
-              <View style={styles.card}>
-                {ridersOnRoad.map((o, idx) => (
+          {/* ============================================================ riders */}
+          {tab === 'riders' && (
+            <>
+              <Text style={styles.sectionTitle}>On delivery</Text>
+              {ridersOnRoad.length === 0 ? (
+                <View style={styles.empty}>
+                  <Text style={styles.emptyTitle}>No rider is out</Text>
+                  <Text style={styles.emptySub}>Riders show up here when you send a packed order.</Text>
+                </View>
+              ) : (
+                ridersOnRoad.map((o, idx) => (
                   <View key={o.id}>
-                    {idx > 0 && <View style={[styles.divider, { marginLeft: 56 }]} />}
+                    {idx > 0 && <View style={[styles.divider, { marginLeft: 58 }]} />}
                     <View style={styles.riderRow}>
                       <View style={styles.riderAvatar}>
                         <Text style={styles.riderInitial}>{(o.riderName || '?')[0].toUpperCase()}</Text>
@@ -626,7 +759,7 @@ export default function AdminScreen() {
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={styles.stockName}>{o.riderName}</Text>
                         <Text style={styles.stockMeta} numberOfLines={1}>
-                          #{o.id.replace('MM-', '')} · {o.customerName || 'Customer'}
+                          #{o.id.replace('MM-', '')} · {o.customerName || 'Customer'} · ₹{o.total}
                         </Text>
                       </View>
                       {!!o.riderPhone && (
@@ -635,370 +768,366 @@ export default function AdminScreen() {
                           onPress={() => Linking.openURL(`tel:+91${o.riderPhone}`)}
                           accessibilityLabel={`Call ${o.riderName}`}
                         >
-                          <AppIcon icon={Call02Icon} size={18} color="#FFFFFF" strokeWidth={2} />
+                          <AppIcon icon={Call02Icon} size={17} color={C.text} strokeWidth={2} />
                         </TouchableOpacity>
                       )}
                     </View>
                   </View>
-                ))}
-              </View>
-            )}
-          </>
-        )}
+                ))
+              )}
+            </>
+          )}
 
-        <View style={{ height: 40 }} />
-      </ScrollView>
-    </SafeAreaView>
+          <View style={{ height: 40 }} />
+        </ScrollView>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  root: {
     flex: 1,
-    backgroundColor: C.bg,
-  },
-  navBar: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  navBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: C.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  link: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: C.red,
-  },
-  card: {
-    backgroundColor: C.card,
-    borderRadius: 16,
-    paddingHorizontal: 14,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: C.hairline,
-  },
-  primaryBtn: {
-    backgroundColor: C.red,
-    height: 48,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  secondaryBtn: {
-    height: 48,
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: C.bg,
-  },
-  secondaryBtnText: {
-    color: C.red,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-
-  /* login */
-  loginContent: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingTop: 24,
-  },
-  loginBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 18,
-    backgroundColor: C.red,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  loginTitle: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: C.text,
-    marginTop: 16,
-    letterSpacing: -0.5,
-  },
-  loginSub: {
-    fontSize: 15,
-    color: C.secondary,
-    marginTop: 6,
-    textAlign: 'center',
-  },
-  loginInput: {
-    fontSize: 16,
-    color: C.text,
-    paddingVertical: 14,
-  },
-  loginError: {
-    alignSelf: 'stretch',
-    color: C.red,
-    fontSize: 14,
-    fontWeight: '600',
-    marginTop: 12,
-    marginLeft: 6,
+    backgroundColor: C.ink,
   },
 
   /* header */
   header: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 10,
-    backgroundColor: C.bg,
+    backgroundColor: C.ink,
+    paddingBottom: 18,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 6,
   },
-  titleRow: {
+  headerBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storeId: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginTop: 8,
   },
-  largeTitle: {
-    fontSize: 32,
+  storeAvatar: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: C.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  storeAvatarText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  storeName: {
+    color: '#FFFFFF',
+    fontSize: 16,
     fontWeight: '800',
-    color: C.text,
-    letterSpacing: -0.6,
   },
-  livePill: {
+  liveRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: C.greenBg,
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 10,
+    marginTop: 1,
   },
   liveDot: {
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: C.green,
+    backgroundColor: '#22C55E',
   },
   liveText: {
+    color: '#A1A1AA',
     fontSize: 12,
+  },
+  stats: {
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+  },
+  stat: {
+    width: 132,
+    borderRadius: 16,
+    padding: 14,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+  },
+  statLabel: {
+    color: '#A1A1AA',
+    fontSize: 11,
     fontWeight: '700',
-    color: C.greenDark,
+    letterSpacing: 0.6,
   },
-  segmented: {
-    flexDirection: 'row',
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 10,
-    padding: 2,
-    marginTop: 12,
+  statValue: {
+    color: '#FFFFFF',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginTop: 6,
   },
-  segment: {
+  statHint: {
+    color: '#A1A1AA',
+    fontSize: 12,
+    marginTop: 2,
+  },
+
+  /* sheet */
+  sheet: {
     flex: 1,
-    height: 34,
-    borderRadius: 8,
+    backgroundColor: C.bg,
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    overflow: 'hidden',
+  },
+  tabs: {
+    flexDirection: 'row',
+    gap: 6,
+    margin: 14,
+    marginBottom: 6,
+    padding: 4,
+    borderRadius: 14,
+    backgroundColor: C.soft,
+  },
+  tab: {
+    flex: 1,
+    height: 38,
+    borderRadius: 10,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 4,
+    gap: 6,
   },
-  segmentActive: {
-    backgroundColor: C.card,
+  tabOn: {
+    backgroundColor: C.bg,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
     elevation: 2,
   },
-  segmentText: {
-    fontSize: 13,
+  tabText: {
+    fontSize: 14,
     fontWeight: '600',
-    color: C.text,
+    color: C.secondary,
   },
-  segmentTextActive: {
+  tabTextOn: {
+    color: C.text,
     fontWeight: '700',
+  },
+  tabBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    backgroundColor: '#E4E4E7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeOn: {
+    backgroundColor: C.ink,
+  },
+  tabBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: C.secondary,
+  },
+  tabBadgeTextOn: {
+    color: '#FFFFFF',
   },
   content: {
     paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-  sectionLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: C.secondary,
-    letterSpacing: 0.4,
-    marginTop: 8,
-    marginBottom: 8,
-    marginLeft: 6,
-  },
-  footnote: {
-    fontSize: 12,
-    color: C.secondary,
-    marginTop: 10,
-    marginLeft: 6,
-  },
-
-  /* kpis + chips */
-  kpiRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  kpi: {
-    flex: 1,
-    backgroundColor: C.card,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  kpiValue: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: C.text,
-  },
-  kpiLabel: {
-    fontSize: 11,
-    color: C.secondary,
-    marginTop: 2,
   },
   chips: {
     gap: 8,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   chip: {
     height: 34,
     paddingHorizontal: 14,
     borderRadius: 17,
-    backgroundColor: C.card,
+    backgroundColor: C.soft,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  chipActive: {
-    backgroundColor: C.text,
+  chipOn: {
+    backgroundColor: C.ink,
   },
   chipText: {
     fontSize: 13,
     fontWeight: '600',
-    color: C.text,
+    color: '#3F3F46',
   },
-  chipTextActive: {
+  chipTextOn: {
     color: '#FFFFFF',
   },
-  empty: {
-    paddingVertical: 28,
-    alignItems: 'center',
-  },
-  emptyTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: C.text,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: C.secondary,
-    marginTop: 4,
-    textAlign: 'center',
+  divider: {
+    height: 1,
+    backgroundColor: C.hairline,
   },
 
-  /* order card */
-  orderCard: {
-    paddingVertical: 14,
-    marginBottom: 12,
+  /* order row */
+  orderRow: {
+    paddingTop: 14,
+    paddingBottom: 10,
   },
-  orderTop: {
+  orderHead: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
   },
   orderId: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.2,
+  },
+  orderTotal: {
+    fontSize: 16,
+    fontWeight: '700',
     color: C.text,
   },
   orderMeta: {
-    fontSize: 12,
+    fontSize: 13,
     color: C.secondary,
-    marginTop: 2,
+    marginTop: 3,
   },
-  pill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+  orderItems: {
+    fontSize: 14,
+    color: C.text,
+    marginTop: 4,
+    lineHeight: 20,
   },
-  pillText: {
+  badges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 8,
+  },
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    height: 24,
+    paddingHorizontal: 9,
+    borderRadius: 7,
+    backgroundColor: C.soft,
+  },
+  badgeExpress: {
+    backgroundColor: '#FEF2F2',
+  },
+  badgeDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  badgeText: {
     fontSize: 12,
     fontWeight: '700',
   },
-  customerRow: {
-    flexDirection: 'row',
+  nextBtn: {
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: C.ink,
     alignItems: 'center',
-    gap: 12,
-    marginTop: 12,
+    justifyContent: 'center',
+    marginBottom: 14,
   },
-  customerName: {
+  nextBtnText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+
+  /* order detail */
+  detail: {
+    borderRadius: 14,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1,
+    borderColor: C.hairline,
+    padding: 14,
+    marginBottom: 10,
+  },
+  detailBlock: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: C.placeholder,
+    letterSpacing: 0.6,
+    marginBottom: 6,
+  },
+  detailName: {
     fontSize: 15,
     fontWeight: '700',
     color: C.text,
   },
+  detailPhone: {
+    fontSize: 13,
+    color: C.secondary,
+    marginTop: 3,
+  },
   addressRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: 5,
     marginTop: 3,
   },
   addressText: {
     flex: 1,
     fontSize: 13,
-    lineHeight: 18,
     color: C.secondary,
+    lineHeight: 18,
   },
   callBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: C.green,
+    backgroundColor: C.bg,
+    borderWidth: 1,
+    borderColor: C.hairline,
     alignItems: 'center',
     justifyContent: 'center',
   },
   noteBox: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: C.amberBg,
-    borderRadius: 10,
+    marginTop: 12,
     padding: 10,
-    marginTop: 10,
+    borderRadius: 10,
+    backgroundColor: '#FFFBEB',
   },
   noteText: {
     flex: 1,
     fontSize: 13,
+    color: '#92400E',
     lineHeight: 18,
-    color: '#78350F',
-  },
-  itemsBox: {
-    backgroundColor: C.bg,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    marginTop: 12,
   },
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
     paddingVertical: 6,
   },
-  itemQty: {
-    width: 26,
-    fontSize: 14,
-    fontWeight: '800',
-    color: C.red,
+  itemThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: C.soft,
   },
   itemName: {
     fontSize: 14,
@@ -1010,29 +1139,41 @@ const styles = StyleSheet.create({
     color: C.secondary,
     marginTop: 1,
   },
-  itemPrice: {
-    fontSize: 14,
-    fontWeight: '600',
+  itemQty: {
+    fontSize: 15,
+    fontWeight: '800',
     color: C.text,
   },
-  coldTag: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#0369A1',
-    paddingVertical: 4,
+  moneyBox: {
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: C.hairline,
+    gap: 6,
   },
   moneyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 12,
   },
   moneyLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: C.secondary,
   },
   moneyValue: {
-    fontSize: 18,
+    fontSize: 13,
+    color: C.text,
+    fontWeight: '600',
+  },
+  moneyTotalRow: {
+    marginTop: 2,
+  },
+  moneyTotalLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.text,
+  },
+  moneyTotal: {
+    fontSize: 15,
     fontWeight: '800',
     color: C.text,
   },
@@ -1040,31 +1181,54 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginTop: 6,
+    marginTop: 12,
   },
   riderLineText: {
     fontSize: 13,
     color: C.secondary,
+    fontWeight: '600',
   },
   riderForm: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: 12,
   },
-  riderInput: {
-    flex: 1,
-    minWidth: 0,
+  cancelLink: {
+    alignSelf: 'flex-start',
+    marginTop: 14,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: C.red,
+  },
+
+  /* shared fields and buttons */
+  field: {
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#E5E7EB',
     backgroundColor: C.bg,
-    borderRadius: 10,
     paddingHorizontal: 12,
-    paddingVertical: 11,
     fontSize: 15,
     color: C.text,
   },
-  actions: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
+  darkBtn: {
+    height: 52,
+    borderRadius: 14,
+    backgroundColor: C.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  darkBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  mutedLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.secondary,
   },
 
   /* stock */
@@ -1072,21 +1236,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(118, 118, 128, 0.12)',
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    height: 40,
+    height: 44,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    backgroundColor: C.soft,
+    marginTop: 8,
   },
   searchInput: {
     flex: 1,
-    minWidth: 0,
-    fontSize: 16,
+    height: '100%',
+    fontSize: 15,
     color: C.text,
-  },
-  clearText: {
-    fontSize: 14,
-    color: C.red,
-    fontWeight: '600',
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as object) : {}),
   },
   stockRow: {
     flexDirection: 'row',
@@ -1095,44 +1256,66 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   stockThumb: {
-    width: 46,
-    height: 46,
-    borderRadius: 10,
-    backgroundColor: C.bg,
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: C.soft,
   },
   stockName: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     color: C.text,
   },
   stockMeta: {
-    fontSize: 12,
+    fontSize: 13,
     color: C.secondary,
     marginTop: 2,
+  },
+  stockMetaOut: {
+    color: C.red,
+    fontWeight: '700',
   },
   kgStepper: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: C.bg,
-    borderRadius: 14,
-    marginTop: 6,
+    gap: 10,
+    marginTop: 8,
+    paddingHorizontal: 4,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: C.soft,
   },
   kgBtn: {
-    width: 32,
-    height: 28,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: C.bg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   kgText: {
-    minWidth: 44,
-    textAlign: 'center',
     fontSize: 13,
     fontWeight: '700',
     color: C.text,
+    minWidth: 40,
+    textAlign: 'center',
+  },
+  footnote: {
+    fontSize: 12,
+    color: C.placeholder,
+    marginTop: 14,
+    textAlign: 'center',
   },
 
   /* riders */
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: C.text,
+    marginTop: 12,
+    marginBottom: 4,
+  },
   riderRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1140,16 +1323,92 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   riderAvatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: C.text,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: '#F3E8FF',
     alignItems: 'center',
     justifyContent: 'center',
   },
   riderInitial: {
-    color: '#FFFFFF',
     fontSize: 17,
     fontWeight: '800',
+    color: '#7E22CE',
+  },
+
+  /* empty */
+  empty: {
+    alignItems: 'center',
+    paddingVertical: 48,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: C.text,
+  },
+  emptySub: {
+    fontSize: 14,
+    color: C.secondary,
+    textAlign: 'center',
+    marginTop: 6,
+  },
+
+  /* login */
+  loginSafe: {
+    flex: 1,
+    backgroundColor: C.bg,
+  },
+  loginNav: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  circleBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: C.soft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginContent: {
+    paddingHorizontal: 22,
+    paddingTop: 12,
+    paddingBottom: 40,
+  },
+  loginBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
+    backgroundColor: C.ink,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loginTitle: {
+    fontSize: 28,
+    fontWeight: '800',
+    color: C.text,
+    letterSpacing: -0.6,
+    marginTop: 18,
+  },
+  loginSub: {
+    fontSize: 15,
+    color: C.secondary,
+    lineHeight: 21,
+    marginTop: 6,
+    marginBottom: 20,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: C.text,
+    marginTop: 12,
+    marginBottom: 6,
+  },
+  loginError: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: C.red,
+    marginTop: 12,
   },
 });

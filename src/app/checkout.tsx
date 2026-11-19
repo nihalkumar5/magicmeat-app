@@ -176,14 +176,14 @@ export default function CheckoutScreen() {
       mode: 'slot',
       icon: Clock01Icon,
       title: 'Normal',
-      sub: normalFree ? 'In 60–90 minutes' : `In 60–90 minutes · free above ₹${FREE_DELIVERY_ABOVE}`,
+      sub: normalFree ? 'In 45–60 minutes' : `In 45–60 minutes · free above ₹${FREE_DELIVERY_ABOVE}`,
       fee: normalFree ? 'Free' : `₹${DELIVERY_FEE}`,
     },
     {
       mode: 'instant',
       icon: FlashIcon,
       title: 'Express',
-      sub: 'In about 30 minutes',
+      sub: 'In 15–20 minutes',
       fee: `₹${EXPRESS_FEE}`,
     },
   ];

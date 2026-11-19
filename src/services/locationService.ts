@@ -38,7 +38,7 @@ export function evaluateHubServiceability(coords: Coordinates) {
     distanceKm: minDistance,
     isServiceable: true,
     deliveryEta: isExpress
-      ? '30 mins'
+      ? '15–20 mins'
       : isStandard
       ? '30-45 Mins (Standard Slot)'
       : '45-60 Mins (Special Cold Delivery)',
@@ -265,7 +265,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bilaspur Butchery Hub (Sarkanda)',
     distanceKm: 0.6,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
   {
@@ -278,7 +278,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Naya Raipur Express Hub (Atal Nagar)',
     distanceKm: 1.2,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Work',
   },
   {
@@ -291,7 +291,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 0.4,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Work',
   },
   {
@@ -304,7 +304,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bengaluru East Express Hub (Indiranagar / Bellandur)',
     distanceKm: 1.8,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
   {
@@ -317,7 +317,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
     distanceKm: 2.1,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Other',
   },
   {
@@ -330,7 +330,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Bengaluru East Express Hub (Indiranagar / Bellandur)',
     distanceKm: 1.2,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Work',
   },
   {
@@ -343,7 +343,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Mumbai Coastal Butchery Hub (Bandra BKC)',
     distanceKm: 1.4,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
   {
@@ -356,7 +356,7 @@ export const POPULAR_LOCATIONS: LocationData[] = [
     isServiceable: true,
     nearestHubName: 'Pune Green Pastures Hub (Koregaon Park)',
     distanceKm: 0.9,
-    deliveryEta: '30 mins',
+    deliveryEta: '15–20 mins',
     tag: 'Home',
   },
 ];

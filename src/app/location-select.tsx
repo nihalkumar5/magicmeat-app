@@ -134,7 +134,7 @@ export default function LocationSelectScreen() {
       isServiceable: true,
       nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
       distanceKm: 2.5,
-      deliveryEta: '30 mins',
+      deliveryEta: '15–20 mins',
       tag: newTag,
     };
 
