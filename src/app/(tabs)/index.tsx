@@ -53,6 +53,12 @@ import {
   Tick02Icon,
   Scooter01Icon,
   Home01Icon,
+  DrumstickIcon,
+  CookingPotIcon,
+  EggsIcon,
+  CarrotIcon,
+  GridViewIcon,
+  FishIcon,
 } from '../../components/HugeIcon';
 
 
@@ -987,15 +993,13 @@ export default function HomeScreen() {
               accessibilityRole="button"
               accessibilityLabel={cat.label}
             >
-              <View style={styles.mCategoryTile}>
-                {!!cat.image && (
-                  <Image
-                    source={{ uri: optimizeImageUrl(cat.image, 200) }}
-                    style={styles.mCategoryImg}
-                    resizeMode="cover"
-                    fadeDuration={0}
-                  />
-                )}
+              <View style={[styles.mCategoryTile, cat.id === 'all' && styles.mCategoryTileAll]}>
+                <AppIcon
+                  icon={cat.icon}
+                  size={30}
+                  color={cat.id === 'all' ? '#111111' : '#DC2626'}
+                  strokeWidth={1.6}
+                />
               </View>
               <Text style={styles.mCategoryLabel} numberOfLines={2}>
                 {cat.label}
@@ -1184,21 +1188,17 @@ const PROMISES = [
 // Our own mutton curry cut photo for the jhatka story card.
 const JHATKA_IMAGE = PRODUCTS.find((p) => p.id === 'm1')?.image || '';
 
-// 4 x 2 category grid, each tile showing a photo of one of its products.
-const HOME_CATEGORIES: { id: MeatCategory; label: string; image: string }[] = (
-  [
-    { id: 'chicken', label: 'Chicken' },
-    { id: 'mutton', label: 'Mutton' },
-    { id: 'fish', label: 'Fish' },
-    { id: 'curry-cuts', label: 'Curry cuts', from: 'm1' },
-    { id: 'eggs', label: 'Eggs' },
-    { id: 'fresh-produce', label: 'Veggies & fruits' },
-    { id: 'all', label: 'See all', from: 'c4' },
-  ] as { id: MeatCategory; label: string; from?: string }[]
-).map((c) => ({
-  ...c,
-  image: (c.from ? PRODUCTS.find((p) => p.id === c.from) : PRODUCTS.find((p) => p.category === c.id))?.image || '',
-}));
+// Category grid with line icons (talabat / Uber style tiles): one icon
+// set, one brand colour, so the row reads as a calm menu, not a collage.
+const HOME_CATEGORIES: { id: MeatCategory; label: string; icon: any }[] = [
+  { id: 'chicken', label: 'Chicken', icon: DrumstickIcon },
+  { id: 'mutton', label: 'Mutton', icon: BeefIcon },
+  { id: 'fish', label: 'Fish', icon: FishIcon },
+  { id: 'curry-cuts', label: 'Curry cuts', icon: CookingPotIcon },
+  { id: 'eggs', label: 'Eggs', icon: EggsIcon },
+  { id: 'fresh-produce', label: 'Veggies & fruits', icon: CarrotIcon },
+  { id: 'all', label: 'See all', icon: GridViewIcon },
+];
 
 const LIVE_STATUS_TEXT: Record<string, string> = {
   placed: 'Order placed, starting soon',
@@ -1604,13 +1604,16 @@ const styles = StyleSheet.create({
   mCategoryTile: {
     width: '100%',
     aspectRatio: 1,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: '#F4F4F6',
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF4F4',
+    borderWidth: 1,
+    borderColor: '#FDE4E4',
   },
-  mCategoryImg: {
-    width: '100%',
-    height: '100%',
+  mCategoryTileAll: {
+    backgroundColor: '#F4F4F6',
+    borderColor: '#ECECEF',
   },
   mCategoryLabel: {
     marginTop: 6,
