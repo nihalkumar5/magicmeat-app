@@ -74,7 +74,7 @@ export default function OrdersScreen() {
             <View style={styles.activeHeaderRow}>
               <View style={styles.activeBadge}>
                 <View style={styles.livePulse} />
-                <Text style={styles.activeBadgeText}>ACTIVE • IN TRANSIT</Text>
+                <Text style={styles.activeBadgeText}>ACTIVE • {(STATUS_LABEL[activeOrder.status] || activeOrder.status).toUpperCase()}</Text>
               </View>
               <ColdChainBadge
                 temp={
