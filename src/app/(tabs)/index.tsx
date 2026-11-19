@@ -43,6 +43,7 @@ import {
   WeightScaleIcon,
   FlashIcon,
   PlayIcon,
+  ArrowRight01Icon,
 } from '../../components/HugeIcon';
 
 const VIDEO_RECIPES = [
@@ -194,7 +195,7 @@ const AnimatedSearchCapsule = React.memo(function AnimatedSearchCapsule() {
       onPress={() => router.push('/search')}
       accessibilityRole="button"
     >
-      <AppIcon icon={Search01Icon} size={22} color="#DC2626" strokeWidth={2.2} />
+      <AppIcon icon={Search01Icon} size={18} color="#8E8E93" strokeWidth={2.2} />
       <View style={styles.searchPlaceholderRow}>
         <Text style={styles.searchStaticPrefix}>Search for </Text>
         <Animated.View
@@ -216,105 +217,71 @@ AnimatedSearchCapsule.displayName = 'AnimatedSearchCapsule';
 
 interface HeroProps {
   width: number;
-  heroBannerHeight: number;
   onSelectSlide: (targetCategory: MeatCategory, productId: string) => void;
 }
 
-const HeroBannerCarousel = React.memo<HeroProps>(function HeroBannerCarousel({
-  width,
-  heroBannerHeight,
-  onSelectSlide,
-}) {
+const HERO_GUTTER = 16;
+
+// Rounded, inset hero card with small page dots, like the App Store's
+// featured cards. Swipe or wait; tapping a slide opens its product.
+const HeroBannerCarousel = React.memo<HeroProps>(function HeroBannerCarousel({ width, onSelectSlide }) {
   const heroScrollRef = useRef<any>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const cardWidth = width - HERO_GUTTER * 2;
+  const cardHeight = Math.round(cardWidth * 0.82);
+  const step = cardWidth + 10;
 
   useEffect(() => {
     const interval = setInterval(() => {
       setCurrentSlide((prev) => {
         const next = (prev + 1) % HERO_SLIDES.length;
-        heroScrollRef.current?.scrollTo({
-          x: next * width,
-          animated: true,
-        });
+        heroScrollRef.current?.scrollTo({ x: next * step, animated: true });
         return next;
       });
-    }, 4500);
-
+    }, 5000);
     return () => clearInterval(interval);
-  }, [width]);
+  }, [step]);
 
   const handleHeroScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / width);
+    const slideIndex = Math.round(event.nativeEvent.contentOffset.x / step);
     if (slideIndex !== currentSlide && slideIndex >= 0 && slideIndex < HERO_SLIDES.length) {
       setCurrentSlide(slideIndex);
     }
   };
 
   return (
-    <>
-      <View style={[styles.heroCarouselContainer, { height: heroBannerHeight }]}>
-        <ScrollView
-          ref={heroScrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={handleHeroScroll}
-          scrollEventThrottle={32}
-          style={[styles.heroScrollView, { maxWidth: '100%' }]}
-        >
-          {HERO_SLIDES.map((slide) => (
-            <TouchableOpacity
-              key={slide.id}
-              style={[styles.heroSlideItem, { width, height: heroBannerHeight }]}
-              activeOpacity={0.95}
-              onPress={() => onSelectSlide(slide.targetCategory, slide.productId)}
-            >
-              <Image
-                source={slide.image}
-                style={styles.heroSlideImage}
-                resizeMode="cover"
-                fadeDuration={0}
-              />
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
+    <View style={styles.mHeroWrap}>
+      <ScrollView
+        ref={heroScrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        snapToInterval={step}
+        decelerationRate="fast"
+        onMomentumScrollEnd={handleHeroScroll}
+        scrollEventThrottle={32}
+        contentContainerStyle={{ paddingHorizontal: HERO_GUTTER, gap: 10 }}
+        style={{ maxWidth: '100%' }}
+      >
+        {HERO_SLIDES.map((slide, idx) => (
+          <TouchableOpacity
+            key={slide.id}
+            style={[styles.mHeroCard, { width: cardWidth, height: cardHeight }]}
+            activeOpacity={0.92}
+            onPress={() => onSelectSlide(slide.targetCategory, slide.productId)}
+            accessibilityRole="button"
+            accessibilityLabel={`Offer ${idx + 1} of ${HERO_SLIDES.length}`}
+          >
+            <Image source={slide.image} style={styles.heroSlideImage} resizeMode="cover" fadeDuration={0} />
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      <View style={styles.heroTickerStrip}>
-        <Text style={styles.heroTickerText}>
-          FREE DELIVERY ABOVE ₹299  ·  100% HALAL  ·  CLEANED & CHILLED
-        </Text>
+      <View style={styles.mDots}>
+        {HERO_SLIDES.map((slide, idx) => (
+          <View key={`dot-${slide.id}`} style={[styles.mDot, idx === currentSlide && styles.mDotActive]} />
+        ))}
       </View>
-
-      <View style={styles.heroPaginationRow}>
-        {HERO_SLIDES.map((_, idx) => {
-          const isActive = currentSlide === idx;
-          if (isActive) {
-            return (
-              <View key={`hero-dot-${idx}`} style={styles.paginationActivePill}>
-                <Text style={styles.paginationActivePillText}>
-                  {idx + 1}/{HERO_SLIDES.length}
-                </Text>
-              </View>
-            );
-          }
-          return (
-            <TouchableOpacity
-              key={`hero-dot-${idx}`}
-              onPress={() => {
-                setCurrentSlide(idx);
-                heroScrollRef.current?.scrollTo({
-                  x: idx * width,
-                  animated: true,
-                });
-              }}
-              activeOpacity={0.7}
-              style={styles.paginationInactiveDot}
-            />
-          );
-        })}
-      </View>
-    </>
+    </View>
   );
 });
 HeroBannerCarousel.displayName = 'HeroBannerCarousel';
@@ -324,13 +291,13 @@ export default function HomeScreen() {
   const currentLocation = useStore((state) => state.currentLocation);
   const setLocationModalOpen = useStore((state) => state.setLocationModalOpen);
   const orderFulfillment = useStore((state) => state.orderFulfillment);
+  const activeOrder = useStore((state) => state.activeOrder);
   const cartCount = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
   const cartTotal = useStore((state) => state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
 
   const [activeOrderType, setActiveOrderType] = useState<OrderType>('takeaway');
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
-  const heroBannerHeight = isDesktop ? 480 : Math.round(width * 1.25);
 
   const popularDelights = useMemo(() => PRODUCTS.slice(0, 5), []);
   const top10Products = useMemo(() => PRODUCTS.slice(0, 10), []);
@@ -869,211 +836,171 @@ export default function HomeScreen() {
   }
 
   /* ================================================================= */
-  /* MOBILE VIEW (MATCHES APPROVED DOMINO'S MOBILE THEME)              */
+  /* MOBILE VIEW                                                        */
   /* ================================================================= */
+  const isPickup = orderFulfillment === 'takeaway';
+  const etaLabel = isPickup ? 'Ready in 10 mins' : 'Delivery in 30 mins';
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <StatusBar style="light" />
+    <SafeAreaView style={styles.mSafeArea} edges={['top']}>
+      <StatusBar style="dark" />
       <ScrollView
-        style={styles.container}
+        style={styles.mScroll}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        bounces={false}
         removeClippedSubviews={Platform.OS === 'android'}
         overScrollMode="never"
         scrollEventThrottle={32}
+        stickyHeaderIndices={[1]}
       >
-        {/* Top Dark Header */}
-        <View style={styles.darkHeader}>
-          {/* Row 1: Compact ETA Badge (54x54) + Delivery Location + Profile Button */}
-          <View style={styles.topNavRow}>
-            {/* Left: Compact Delivery Badge (54x54px) */}
-            <View style={styles.etaContainer}>
-              <Text style={styles.etaNumber}>
-                {orderFulfillment === 'takeaway'
-                  ? '10'
-                  : Math.max(30, parseInt(currentLocation.deliveryEta?.match(/\d+/)?.[0] || '30', 10))}
-              </Text>
-              <Text style={styles.etaLabel}>MINS</Text>
+        {/* Location + profile */}
+        <View style={styles.mTopBar}>
+          <TouchableOpacity
+            style={styles.mLocationBlock}
+            onPress={handleOpenLocationModal}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={`${isPickup ? 'Pickup from' : 'Deliver to'} ${currentLocation.shortAddress}. Change address`}
+          >
+            <View style={styles.mEyebrowRow}>
+              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={13} color="#DC2626" strokeWidth={2.4} />
+              <Text style={styles.mEyebrow}>{etaLabel}</Text>
             </View>
-
-            {/* Center: Location Info (DELIVERING TO -> Primary Atal Nagar, Raipur ⌄ -> Subtitle) */}
-            <TouchableOpacity
-              style={styles.locationBlock}
-              onPress={handleOpenLocationModal}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.deliveringToEyebrow}>
-                {orderFulfillment === 'takeaway' ? 'PICKUP FROM' : 'DELIVERING TO'}
+            <View style={styles.mLocationRow}>
+              <Text style={styles.mLocationTitle} numberOfLines={1}>
+                {currentLocation.shortAddress || 'Choose address'}
               </Text>
-              <View style={styles.locationTitleRow}>
-                <Text style={styles.locationNameBold} numberOfLines={1} ellipsizeMode="tail">
-                  {currentLocation.shortAddress || 'Atal Nagar, Raipur'}
-                </Text>
-                <AppIcon icon={ChevronDownIcon} size={15} color="#FFFFFF" strokeWidth={2.5} />
+              <AppIcon icon={ChevronDownIcon} size={18} color="#111111" strokeWidth={2.4} />
+            </View>
+            <Text style={styles.mLocationSub} numberOfLines={1}>
+              {currentLocation.fullAddress}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.mProfileBtn}
+            onPress={() => router.push('/profile-menu')}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel="Profile"
+          >
+            <AppIcon icon={UserIcon} size={20} color="#111111" strokeWidth={2} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Search (sticks to the top while scrolling) */}
+        <View style={styles.mSearchWrap}>
+          <AnimatedSearchCapsule />
+        </View>
+
+        {/* Live order */}
+        {activeOrder && (
+          <TouchableOpacity
+            style={styles.mLiveOrder}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
+            accessibilityRole="button"
+          >
+            <View style={styles.mLiveDot} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.mLiveTitle}>{LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}</Text>
+              <Text style={styles.mLiveSub} numberOfLines={1}>
+                {activeOrder.deliveryMode === 'instant' ? `Arriving in ${activeOrder.eta}` : `Arriving ${activeOrder.eta}`}
+              </Text>
+            </View>
+            <Text style={styles.mLiveAction}>Track</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Hero */}
+        <HeroBannerCarousel width={width} onSelectSlide={handleSlideSelect} />
+
+        {/* Why MagicMeat */}
+        <View style={styles.mTrustRow}>
+          {TRUST_POINTS.map((point) => (
+            <View key={point.title} style={styles.mTrustItem}>
+              <View style={styles.mTrustIcon}>
+                <AppIcon icon={point.icon} size={18} color="#DC2626" strokeWidth={2} />
               </View>
-              <Text style={styles.addressSubText} numberOfLines={1} ellipsizeMode="tail">
-                {currentLocation.fullAddress || 'IIIT Naya Raipur, Chhattisgarh'}
-              </Text>
-            </TouchableOpacity>
+              <Text style={styles.mTrustTitle}>{point.title}</Text>
+              <Text style={styles.mTrustSub}>{point.sub}</Text>
+            </View>
+          ))}
+        </View>
 
-            {/* Right: User Profile Button (42x42px) */}
+        {/* Categories */}
+        <SectionHeader title="Shop by category" />
+        <View style={styles.mCategoryGrid}>
+          {CRAVING_CATEGORIES.map((cat) => (
             <TouchableOpacity
-              style={styles.profileCircle}
-              onPress={() => router.push('/profile-menu')}
+              key={`cat-${cat.name}`}
+              style={styles.mCategoryItem}
+              onPress={() => openCategory(cat.id)}
               activeOpacity={0.8}
               accessibilityRole="button"
+              accessibilityLabel={cat.name}
             >
-              <AppIcon icon={UserIcon} size={20} color="#FFFFFF" strokeWidth={2} />
+              <View style={styles.mCategoryTile}>
+                <Image source={{ uri: cat.image }} style={styles.mCategoryImg} resizeMode="cover" fadeDuration={0} />
+              </View>
+              <Text style={styles.mCategoryLabel} numberOfLines={1}>
+                {cat.name}
+              </Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Row 2: Dynamic Search Bar (Primary) */}
-          <View style={styles.searchRow}>
-            <AnimatedSearchCapsule />
-          </View>
+          ))}
         </View>
 
-        {/* Hero Banner Carousel (4 Custom Images from Downloads) */}
-        <HeroBannerCarousel
-          width={width}
-          heroBannerHeight={heroBannerHeight}
-          onSelectSlide={handleSlideSelect}
+        {/* Bestsellers */}
+        <SectionHeader
+          title="Bestsellers"
+          subtitle="What our customers order most"
+          onSeeAll={() => openCategory('all')}
+        />
+        <ProductShelf data={top10Products} keyPrefix="best" />
+
+        {/* Recipes */}
+        <SectionHeader
+          title="Cook something new"
+          subtitle="Easy dishes, step by step"
+          onSeeAll={() => router.push('/(tabs)/recipes')}
+        />
+        <FlatList
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ maxWidth: '100%' }}
+          contentContainerStyle={styles.shelfCardsScroll}
+          data={VIDEO_RECIPES}
+          keyExtractor={(recipe) => recipe.id}
+          renderItem={({ item: recipe }) => (
+            <TouchableOpacity
+              style={styles.recipeVideoCard}
+              onPress={() => router.push('/(tabs)/recipes')}
+              activeOpacity={0.9}
+              accessibilityRole="button"
+              accessibilityLabel={recipe.title}
+            >
+              <Image
+                source={{ uri: optimizeImageUrl(recipe.image, 360) }}
+                style={styles.recipeVideoImage}
+                resizeMode="cover"
+                fadeDuration={0}
+              />
+              <View style={styles.recipePlayOverlay}>
+                <View style={styles.recipePlayCircle}>
+                  <AppIcon icon={PlayIcon} size={15} color="#FFFFFF" strokeWidth={2.5} />
+                </View>
+              </View>
+              <View style={styles.recipeVideoGradient}>
+                <Text style={styles.recipeVideoTitle} numberOfLines={1}>{recipe.title}</Text>
+                <Text style={styles.recipeVideoSub} numberOfLines={1}>{recipe.subtitle}</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          initialNumToRender={3}
+          overScrollMode="never"
         />
 
-        {/* "What are you craving?" 3-Column Circular Grid */}
-        <View style={styles.cravingSection}>
-          <Text style={styles.cravingTitle}>What are you craving?</Text>
-
-          <View style={styles.cravingGrid}>
-            {CRAVING_CATEGORIES.map((cat, idx) => (
-              <TouchableOpacity
-                key={`cat-${cat.name}-${idx}`}
-                style={styles.cravingGridItem}
-                onPress={() => openCategory(cat.id)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.cravingCircleWrapper}>
-                  <Image
-                    source={{ uri: cat.image }}
-                    style={styles.cravingCircleImg}
-                    resizeMode="cover"
-                    fadeDuration={0}
-                  />
-                  {cat.badge && (
-                    <View style={styles.cravingRedBadge}>
-                      <Text style={styles.cravingRedBadgeText}>{cat.badge}</Text>
-                    </View>
-                  )}
-                </View>
-                <Text style={styles.cravingGridLabel} numberOfLines={1}>
-                  {cat.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Best Sellers Section (Lazizia Style Minimal Carousel) */}
-        <View style={styles.mobileTop10Container}>
-          <View style={styles.mobileTop10HeaderRow}>
-            <View>
-              <Text style={styles.mobileTop10Heading}>Bestsellers</Text>
-              <Text style={styles.mobileTop10Subtitle}>Our customers&apos; all-time favourites</Text>
-            </View>
-            <TouchableOpacity
-              onPress={() => openCategory('all')}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <Text style={styles.seeAllText}>See all &gt;</Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ maxWidth: '100%' }}
-            contentContainerStyle={styles.mobileTop10Scroll}
-            data={top10Products}
-            keyExtractor={(item) => `m-top10-${item.id}`}
-            renderItem={({ item, index }) => (
-              <DominosCard
-                product={item}
-                cardWidth={170}
-                isTop10={true}
-                rank={index + 1}
-              />
-            )}
-            getItemLayout={(_, index) => ({
-              length: 182,
-              offset: 182 * index,
-              index,
-            })}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={3}
-            removeClippedSubviews={Platform.OS === 'android'}
-            overScrollMode="never"
-          />
-        </View>
-
-        {/* Recipes Section (Watch & Cook) */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionHeading}>Recipes</Text>
-              <Text style={styles.sectionSubtitle}>Easy dishes, step by step</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/recipes')} activeOpacity={0.7}>
-              <Text style={styles.seeAllText}>See all &gt;</Text>
-            </TouchableOpacity>
-          </View>
-
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ maxWidth: '100%' }}
-            contentContainerStyle={styles.shelfCardsScroll}
-            data={VIDEO_RECIPES}
-            keyExtractor={(recipe) => recipe.id}
-            renderItem={({ item: recipe }) => (
-              <TouchableOpacity
-                style={styles.recipeVideoCard}
-                onPress={() => router.push('/(tabs)/recipes')}
-                activeOpacity={0.9}
-              >
-                <Image
-                  source={{ uri: optimizeImageUrl(recipe.image, 360) }}
-                  style={styles.recipeVideoImage}
-                  resizeMode="cover"
-                  fadeDuration={0}
-                />
-                <View style={styles.recipePlayOverlay}>
-                  <View style={styles.recipePlayCircle}>
-                    <AppIcon icon={PlayIcon} size={15} color="#FFFFFF" strokeWidth={2.5} />
-                  </View>
-                </View>
-                <View style={styles.recipeVideoGradient}>
-                  <Text style={styles.recipeVideoTitle} numberOfLines={1}>{recipe.title}</Text>
-                  <Text style={styles.recipeVideoSub} numberOfLines={1}>{recipe.subtitle}</Text>
-                </View>
-              </TouchableOpacity>
-            )}
-            getItemLayout={(_, index) => ({
-              length: 168,
-              offset: 168 * index,
-              index,
-            })}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={3}
-            removeClippedSubviews={Platform.OS === 'android'}
-            overScrollMode="never"
-          />
-        </View>
-
-        {/* Traditional Zabiha & Master Butcher Banner with Senior UI/UX Art */}
+        {/* Halal story */}
         <View style={styles.zabihaBannerContainer}>
           <View style={styles.zabihaBanner}>
             <View style={styles.zabihaInnerFrame}>
@@ -1095,102 +1022,44 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Premium Fish & Seafood Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionHeading}>Premium Fish &amp; Seafood</Text>
-              <Text style={styles.sectionSubtitle}>Same-day catch: fresh and flavourful</Text>
-            </View>
-            <TouchableOpacity onPress={() => openCategory('fish')} activeOpacity={0.7}>
-              <Text style={styles.seeAllText}>See all &gt;</Text>
-            </TouchableOpacity>
-          </View>
+        {/* Fish */}
+        <SectionHeader
+          title="Fresh fish"
+          subtitle="Cleaned and cut into curry steaks"
+          onSeeAll={() => openCategory('fish')}
+        />
+        <ProductShelf data={seafoodProducts} keyPrefix="fish" />
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ maxWidth: '100%' }}
-            contentContainerStyle={styles.shelfCardsScroll}
-            data={seafoodProducts}
-            keyExtractor={(product) => `seafood-${product.id}`}
-            renderItem={({ item: product }) => (
-              <DominosCard product={product} cardWidth={170} />
-            )}
-            getItemLayout={(_, index) => ({
-              length: 182,
-              offset: 182 * index,
-              index,
-            })}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={3}
-            removeClippedSubviews={Platform.OS === 'android'}
-            overScrollMode="never"
-          />
+        {/* Mutton */}
+        <SectionHeader
+          title="Mutton"
+          subtitle="Tender goat meat, cut to order"
+          onSeeAll={() => openCategory('mutton')}
+        />
+        <ProductShelf data={muttonProducts} keyPrefix="mutton" />
+
+        {/* Picks */}
+        <SectionHeader title="Picked for you" subtitle={`Popular in ${currentLocation.city || 'your area'}`} />
+        <View style={styles.productList}>
+          {nearYouProducts.slice(0, 4).map((product) => (
+            <ProductCard key={`near-you-${product.id}`} product={product} />
+          ))}
         </View>
 
-        {/* Best of Mutton Section */}
-        <View style={styles.sectionContainer}>
-          <View style={styles.sectionHeaderRow}>
-            <View>
-              <Text style={styles.sectionHeading}>Best of Mutton</Text>
-              <Text style={styles.sectionSubtitle}>Our most tender mutton cuts</Text>
-            </View>
-            <TouchableOpacity onPress={() => openCategory('mutton')} activeOpacity={0.7}>
-              <Text style={styles.seeAllText}>See all &gt;</Text>
-            </TouchableOpacity>
-          </View>
+        <TouchableOpacity
+          style={styles.mBrowseAll}
+          onPress={() => openCategory('all')}
+          activeOpacity={0.85}
+          accessibilityRole="button"
+        >
+          <Text style={styles.mBrowseAllText}>Browse all products</Text>
+          <AppIcon icon={ArrowRight01Icon} size={16} color="#111111" strokeWidth={2.4} />
+        </TouchableOpacity>
 
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ maxWidth: '100%' }}
-            contentContainerStyle={styles.shelfCardsScroll}
-            data={muttonProducts}
-            keyExtractor={(product) => `mutton-${product.id}`}
-            renderItem={({ item: product }) => (
-              <DominosCard product={product} cardWidth={170} />
-            )}
-            getItemLayout={(_, index) => ({
-              length: 182,
-              offset: 182 * index,
-              index,
-            })}
-            initialNumToRender={3}
-            maxToRenderPerBatch={3}
-            windowSize={3}
-            removeClippedSubviews={Platform.OS === 'android'}
-            overScrollMode="never"
-          />
-        </View>
-
-        {/* Popular near you Section (Vertical Feed of Large Cards) */}
-        <View style={styles.popularNearYouSection}>
-          <View style={styles.popularNearYouHeader}>
-            <Text style={styles.popularNearYouTitle}>Popular near you</Text>
-            <Text style={styles.popularNearYouSub}>
-              Fresh picks available in your area
-            </Text>
-            <View style={styles.popularNearYouLocationRow}>
-              <AppIcon icon={Location01Icon} size={13} color="#DC2626" strokeWidth={2.5} />
-              <Text style={styles.popularNearYouLocationText}>
-                {currentLocation.shortAddress?.split(',')?.[0]?.trim() || currentLocation.city || 'Abhanpur'}, {currentLocation.state || 'Chhattisgarh'}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.productList}>
-            {nearYouProducts.map((product) => (
-              <ProductCard key={`near-you-${product.id}`} product={product} />
-            ))}
-          </View>
-        </View>
-
-        {/* Lazizia Style Poetic Brand Footer */}
+        {/* Brand sign-off */}
         <View style={styles.brandPoeticFooter}>
           <Text style={styles.poeticQuoteLine}>Har bite mein,</Text>
-          <Text style={styles.poeticQuoteLine}>mohabbat ❤️,</Text>
+          <Text style={styles.poeticQuoteLine}>mohabbat,</Text>
           <Text style={styles.poeticQuoteLine}>zaban pe lazzat.</Text>
 
           <View style={styles.footerBrandRow}>
@@ -1210,7 +1079,295 @@ export default function HomeScreen() {
   );
 }
 
+const LIVE_STATUS_TEXT: Record<string, string> = {
+  placed: 'Order placed',
+  butcher_prepping: 'Your order is being prepared',
+  cold_packed: 'Your order is packed',
+  rider_assigned: 'Rider assigned',
+  out_for_delivery: 'Your order is on the way',
+};
+
+const TRUST_POINTS = [
+  { title: '30 mins', sub: 'Fast delivery', icon: FlashIcon },
+  { title: '100% Halal', sub: 'Zabiha cut', icon: ShieldCheckIcon },
+  { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
+];
+
+function SectionHeader({
+  title,
+  subtitle,
+  onSeeAll,
+}: {
+  title: string;
+  subtitle?: string;
+  onSeeAll?: () => void;
+}) {
+  return (
+    <View style={styles.mSectionHeader}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.mSectionTitle}>{title}</Text>
+        {!!subtitle && <Text style={styles.mSectionSub}>{subtitle}</Text>}
+      </View>
+      {onSeeAll && (
+        <TouchableOpacity
+          onPress={onSeeAll}
+          activeOpacity={0.6}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={`See all ${title}`}
+        >
+          <Text style={styles.mSeeAll}>See all</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+function ProductShelf({ data, keyPrefix }: { data: Product[]; keyPrefix: string }) {
+  return (
+    <FlatList
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ maxWidth: '100%' }}
+      contentContainerStyle={styles.shelfCardsScroll}
+      data={data}
+      keyExtractor={(item) => `${keyPrefix}-${item.id}`}
+      renderItem={({ item }) => <DominosCard product={item} cardWidth={164} />}
+      getItemLayout={(_, index) => ({ length: 176, offset: 176 * index, index })}
+      initialNumToRender={3}
+      maxToRenderPerBatch={3}
+      windowSize={3}
+      removeClippedSubviews={Platform.OS === 'android'}
+      overScrollMode="never"
+    />
+  );
+}
+
 const styles = StyleSheet.create({
+  /* ============================================================= */
+  /* MOBILE (redesign)                                              */
+  /* ============================================================= */
+  mSafeArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mScroll: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  mTopBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 6,
+    gap: 12,
+    backgroundColor: '#FFFFFF',
+  },
+  mLocationBlock: {
+    flex: 1,
+    minWidth: 0,
+  },
+  mEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  mEyebrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#DC2626',
+  },
+  mLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  mLocationTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.4,
+    flexShrink: 1,
+  },
+  mLocationSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  mProfileBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F2F2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mSearchWrap: {
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
+    backgroundColor: '#FFFFFF',
+  },
+  mLiveOrder: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#111111',
+    borderRadius: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  mLiveDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  mLiveTitle: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  mLiveSub: {
+    color: '#A1A1AA',
+    fontSize: 13,
+    marginTop: 2,
+  },
+  mLiveAction: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  mHeroWrap: {
+    marginTop: 2,
+  },
+  mHeroCard: {
+    borderRadius: 20,
+    overflow: 'hidden',
+    backgroundColor: '#F2F2F7',
+  },
+  mDots: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 10,
+  },
+  mDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+  },
+  mDotActive: {
+    width: 18,
+    backgroundColor: '#111111',
+  },
+  mTrustRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    marginTop: 18,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    paddingVertical: 14,
+  },
+  mTrustItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  mTrustIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  mTrustTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111111',
+  },
+  mTrustSub: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginTop: 1,
+  },
+  mSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 16,
+    marginTop: 28,
+    marginBottom: 12,
+    gap: 12,
+  },
+  mSectionTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#111111',
+    letterSpacing: -0.3,
+  },
+  mSectionSub: {
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  mSeeAll: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#DC2626',
+  },
+  mCategoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    paddingHorizontal: 10,
+  },
+  mCategoryItem: {
+    width: '33.333%',
+    paddingHorizontal: 6,
+    marginBottom: 14,
+    alignItems: 'center',
+  },
+  mCategoryTile: {
+    width: '100%',
+    aspectRatio: 1,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: '#F2F2F7',
+  },
+  mCategoryImg: {
+    width: '100%',
+    height: '100%',
+  },
+  mCategoryLabel: {
+    marginTop: 7,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#111111',
+  },
+  mBrowseAll: {
+    marginHorizontal: 16,
+    marginTop: 4,
+    height: 50,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  mBrowseAllText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#111111',
+  },
+
   /* ============================================================= */
   /* DESKTOP STYLES (FULL WIDTH - NO MAX WIDTH RESTRICTION)        */
   /* ============================================================= */
@@ -1970,21 +2127,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   searchCapsule: {
-    flex: 1,
     minWidth: 0,
-    height: 54,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    height: 46,
+    backgroundColor: '#F2F2F7',
+    borderRadius: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     gap: 8,
     overflow: 'hidden',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 3,
-    elevation: 2,
   },
   searchPlaceholderRow: {
     flexDirection: 'row',
@@ -1994,15 +2145,15 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   searchStaticPrefix: {
-    color: '#6B7280',
+    color: '#8E8E93',
     fontSize: 16,
     fontWeight: '400',
     flexShrink: 0,
   },
   searchDynamicWord: {
-    color: '#111827',
+    color: '#3C3C43',
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   offlineStoreCard: {
     width: 54,

@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { goBack } from '../utils/navigation';
 import { SUPPORT_EMAIL, SUPPORT_PHONE } from '../constants/support';
 import { notify } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
@@ -109,7 +110,7 @@ export default function ProfileMenuScreen() {
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={12} style={styles.headerButton}>
+        <TouchableOpacity onPress={() => goBack()} hitSlop={12} style={styles.headerButton}>
           <AppIcon icon={ArrowLeft02Icon} size={20} color="#111827" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>

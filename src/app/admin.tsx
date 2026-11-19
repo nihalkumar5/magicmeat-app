@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { goBack } from '../utils/navigation';
 import { notify, confirmAction } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { adminSignIn, adminSignOut } from '../services/backend';
@@ -208,7 +209,7 @@ export default function AdminScreen() {
         <View style={styles.headerLeft}>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => goBack('/profile-menu')}
             activeOpacity={0.7}
             hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >

@@ -10,6 +10,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { useStore } from '../store/useStore';
+import { goBack } from '../utils/navigation';
 import { slotInfo } from '../data/slots';
 import { feesFor } from '../data/pricing';
 import { formatGrams } from '../utils/format';
@@ -142,7 +143,7 @@ export default function CheckoutScreen() {
       <View style={styles.navBar}>
         <TouchableOpacity
           style={styles.backBtn}
-          onPress={() => router.back()}
+          onPress={() => goBack('/(tabs)/cart')}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
           <AppIcon icon={ArrowLeft01Icon} size={18} color="#000000" strokeWidth={2.5} />

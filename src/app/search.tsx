@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { goBack } from '../utils/navigation';
 import { PRODUCTS } from '../data/mockData';
 import { Product } from '../types';
 import { FloatingCartBar } from '../components/FloatingCartBar';
@@ -160,7 +161,7 @@ export default function SearchScreen() {
         <View style={styles.headerBar}>
           <TouchableOpacity
             style={styles.backBtn}
-            onPress={() => router.back()}
+            onPress={() => goBack()}
             activeOpacity={0.7}
             accessibilityRole="button"
           >
