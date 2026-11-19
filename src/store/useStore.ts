@@ -32,6 +32,8 @@ interface StoreState {
   inventory: Record<string, InventoryItem>;
   profile: { name: string; phone: string; email: string };
   uid: string | null;
+  /** 'loading' until Firebase reports the session; 'out' shows the login screen. */
+  authState: 'loading' | 'out' | 'in';
   isAdmin: boolean;
 
   // Actions
@@ -284,6 +286,7 @@ export const useStore = create<StoreState>()(
       profilePhoto: preloadedState?.profilePhoto || '',
       setProfilePhoto: (profilePhoto) => set({ profilePhoto }),
       uid: null,
+      authState: 'loading',
       isAdmin: false,
       // Admin actions write to Firestore; the products/orders listeners in
       // app/_layout.tsx bring the change back into this store.

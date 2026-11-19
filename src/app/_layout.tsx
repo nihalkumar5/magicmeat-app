@@ -1,14 +1,16 @@
 import { useEffect } from 'react';
-import { Stack, usePathname } from 'expo-router';
+import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import {
-  ensureGuestSession,
+  fetchProfile,
   isAdmin,
+  isPhoneUser,
+  phoneOf,
   subscribeAllOrders,
   subscribeMyOrders,
   subscribeProducts,
@@ -23,11 +25,7 @@ export default function RootLayout() {
   const isDesktop = Platform.OS === 'web' && width >= 768;
 
   const isDarkScreen =
-    !pathname ||
-    pathname === '/' ||
-    pathname === '/(tabs)' ||
-    pathname === '/(tabs)/' ||
-    pathname === '/(tabs)/index';
+    !pathname || pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/' || pathname === '/(tabs)/index';
 
   useEffect(() => {
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -56,12 +54,15 @@ export default function RootLayout() {
   // Live prices and stock for everyone.
   useEffect(() => {
     return subscribeProducts((inventory) => {
-      useStore.setState((state) => ({ inventory: { ...state.inventory, ...inventory } }));
+      useStore.setState((state) => ({
+        inventory: { ...state.inventory, ...inventory },
+      }));
     });
   }, []);
 
-  // Sign every visitor in as a guest, then follow their orders. An admin who
-  // signs in with email follows every order instead.
+  // Customers log in with their mobile number (OTP); then follow their
+  // orders. An admin who signs in with email follows every order instead.
+  // Old guest (anonymous) sessions count as logged out.
   useEffect(() => {
     let stopOrders: (() => void) | null = null;
 
@@ -74,14 +75,34 @@ export default function RootLayout() {
       stopOrders?.();
       stopOrders = null;
 
-      if (!user) {
-        useStore.setState({ uid: null, isAdmin: false, orders: [], activeOrder: null });
-        ensureGuestSession().catch((e) => console.warn('[auth] guest sign-in failed', e?.code || e));
+      if (!user || user.isAnonymous) {
+        useStore.setState({
+          uid: null,
+          isAdmin: false,
+          orders: [],
+          activeOrder: null,
+          authState: 'out',
+        });
         return;
       }
 
-      const admin = user.isAnonymous ? false : await isAdmin(user.uid);
-      useStore.setState({ uid: user.uid, isAdmin: admin });
+      const admin = isPhoneUser(user) ? false : await isAdmin(user.uid);
+      useStore.setState({ uid: user.uid, isAdmin: admin, authState: 'in' });
+      if (isPhoneUser(user)) {
+        // The verified number is the account's number; keep any saved name.
+        const phone = phoneOf(user);
+        const { profile, setProfile } = useStore.getState();
+        if (profile.phone !== phone) setProfile({ ...profile, phone });
+        fetchProfile().then((saved) => {
+          const current = useStore.getState().profile;
+          if (saved?.name && !current.name)
+            setProfile({
+              ...current,
+              name: saved.name,
+              email: saved.email || current.email,
+            });
+        });
+      }
       stopOrders = admin ? subscribeAllOrders(applyOrders) : subscribeMyOrders(user.uid, applyOrders);
     });
 
@@ -90,6 +111,26 @@ export default function RootLayout() {
       stopAuth();
     };
   }, []);
+
+  const authState = useStore((s) => s.authState);
+  const signedIn = authState === 'in';
+
+  // Logged out: always land on the login screen.
+  useEffect(() => {
+    if (authState === 'out' && pathname !== '/login') {
+      router.replace('/login');
+    }
+  }, [authState, pathname]);
+
+  if (authState === 'loading') {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.boot}>
+          <ActivityIndicator color="#DC2626" />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   return (
     <SafeAreaProvider>
@@ -103,49 +144,56 @@ export default function RootLayout() {
               animation: 'slide_from_right',
             }}
           >
-            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="product/[id]"
-              options={{
-                headerShown: false,
-                presentation: 'card',
-              }}
-            />
-            <Stack.Screen
-              name="checkout"
-              options={{
-                headerShown: false,
-                presentation: 'modal',
-              }}
-            />
-            <Stack.Screen
-              name="order-tracking/[id]"
-              options={{
-                headerShown: false,
-                presentation: 'card',
-              }}
-            />
-            <Stack.Screen
-              name="location-select"
-              options={{
-                headerShown: false,
-                animation: 'slide_from_right',
-              }}
-            />
-            <Stack.Screen
-              name="profile-menu"
-              options={{
-                headerShown: false,
-                animation: 'slide_from_right',
-              }}
-            />
-            <Stack.Screen
-              name="search"
-              options={{
-                headerShown: false,
-                animation: 'fade',
-              }}
-            />
+            <Stack.Protected guard={!signedIn}>
+              <Stack.Screen name="login" options={{ headerShown: false, animation: 'fade' }} />
+            </Stack.Protected>
+            <Stack.Protected guard={signedIn}>
+              <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="product/[id]"
+                options={{
+                  headerShown: false,
+                  presentation: 'card',
+                }}
+              />
+              <Stack.Screen
+                name="checkout"
+                options={{
+                  headerShown: false,
+                  presentation: 'modal',
+                }}
+              />
+              <Stack.Screen
+                name="order-tracking/[id]"
+                options={{
+                  headerShown: false,
+                  presentation: 'card',
+                }}
+              />
+              <Stack.Screen
+                name="location-select"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="profile-menu"
+                options={{
+                  headerShown: false,
+                  animation: 'slide_from_right',
+                }}
+              />
+              <Stack.Screen
+                name="search"
+                options={{
+                  headerShown: false,
+                  animation: 'fade',
+                }}
+              />
+            {/* Staff open /admin after logging in, then sign in with their email there. */}
+            <Stack.Screen name="admin" options={{ headerShown: false }} />
+          </Stack.Protected>
           </Stack>
 
           {/* Global Cut Customizer Modal */}
@@ -160,6 +208,12 @@ export default function RootLayout() {
 }
 
 const styles = StyleSheet.create({
+  boot: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+  },
   outerContainer: {
     flex: 1,
     width: '100%',

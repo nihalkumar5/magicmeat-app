@@ -14,7 +14,7 @@ import {
 } from 'firebase/firestore';
 import {
   onAuthStateChanged,
-  signInAnonymously,
+  signInWithCustomToken,
   signInWithEmailAndPassword,
   signOut,
   type User,
@@ -33,13 +33,74 @@ export function watchAuth(cb: (user: User | null) => void): Unsubscribe {
   return onAuthStateChanged(auth, cb);
 }
 
-// Every customer gets a Firebase guest account so their orders and profile
-// belong to them and the rules can tell users apart.
-export async function ensureGuestSession(): Promise<User | null> {
-  if (!auth) return null;
-  if (auth.currentUser) return auth.currentUser;
-  const cred = await signInAnonymously(auth);
+// Customers sign in with their mobile number (OTP); the signed-in account
+// owns their orders and profile.
+function currentUser(): User | null {
+  return auth?.currentUser ?? null;
+}
+
+/** True for a customer who logged in with OTP (not a guest or email admin). */
+export function isPhoneUser(user: User | null): boolean {
+  return !!user && user.uid.startsWith('phone_91');
+}
+
+/** 10-digit number from a phone account's uid ('phone_91XXXXXXXXXX'). */
+export function phoneOf(user: User | null): string {
+  return isPhoneUser(user) ? user!.uid.slice('phone_91'.length) : '';
+}
+
+// ------------------------------------------------------------- OTP login
+// Talks to the OTP server in server/ (Vercel). It texts the code through
+// Renflair and, once the code is right, returns a Firebase custom token.
+
+const OTP_API = (process.env.EXPO_PUBLIC_OTP_API_URL || '').replace(/\/$/, '');
+
+export class OtpError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public retryIn?: number,
+  ) {
+    super(message);
+  }
+}
+
+async function callOtp(path: string, body: Record<string, string>): Promise<any> {
+  if (!OTP_API) throw new OtpError('Login is not set up yet. Please try again later.', 'not_configured');
+  let res: Response;
+  try {
+    res = await fetch(`${OTP_API}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new OtpError('No internet connection. Please check and try again.', 'network');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new OtpError(data.message || 'Something went wrong. Please try again.', data.error || 'error', data.retryIn);
+  }
+  return data;
+}
+
+/** Texts a login code. Resolves with seconds until a resend is allowed. */
+export async function requestOtp(phone: string): Promise<number> {
+  const data = await callOtp('/api/otp/send', { phone });
+  return typeof data.resendIn === 'number' ? data.resendIn : 30;
+}
+
+/** Checks the code and signs in. */
+export async function verifyOtp(phone: string, code: string): Promise<User> {
+  if (!auth) throw new OtpError('Firebase is not configured.', 'not_configured');
+  const data = await callOtp('/api/otp/verify', { phone, code });
+  const cred = await signInWithCustomToken(auth, data.token);
   return cred.user;
+}
+
+export async function logOut(): Promise<void> {
+  if (!auth) return;
+  await signOut(auth);
 }
 
 export async function adminSignIn(email: string, password: string): Promise<boolean> {
@@ -51,7 +112,6 @@ export async function adminSignIn(email: string, password: string): Promise<bool
 export async function adminSignOut(): Promise<void> {
   if (!auth) return;
   await signOut(auth);
-  await ensureGuestSession();
 }
 
 export async function isAdmin(uid: string): Promise<boolean> {
@@ -91,11 +151,14 @@ export function subscribeProducts(cb: (inventory: Record<string, InventoryItem>)
       });
       cb(inventory);
     },
-    (err) => console.warn('[backend] products listener', err.code)
+    (err) => console.warn('[backend] products listener', err.code),
   );
 }
 
-export async function adminUpdateProduct(productId: string, patch: Partial<Pick<ProductDoc, 'inStock' | 'stockKg' | 'availableCutIds'>>) {
+export async function adminUpdateProduct(
+  productId: string,
+  patch: Partial<Pick<ProductDoc, 'inStock' | 'stockKg' | 'availableCutIds'>>,
+) {
   if (!db) return;
   await updateDoc(doc(db, 'products', productId), patch);
 }
@@ -197,7 +260,12 @@ function fromOrderDoc(d: OrderDoc): Order {
     riderName: d.riderName,
     riderPhone: d.riderPhone,
     placedAt: created
-      ? created.toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
+      ? created.toLocaleString([], {
+          day: 'numeric',
+          month: 'short',
+          hour: '2-digit',
+          minute: '2-digit',
+        })
       : 'Just now',
     createdAtMs: created ? created.getTime() : Date.now(),
     eta: d.eta,
@@ -213,7 +281,7 @@ function subscribeOrderQuery(q: ReturnType<typeof query>, cb: (orders: Order[]) 
   return onSnapshot(
     q,
     (snap) => cb(snap.docs.map((d) => fromOrderDoc(d.data() as OrderDoc))),
-    (err) => console.warn('[backend] orders listener', err.code)
+    (err) => console.warn('[backend] orders listener', err.code),
   );
 }
 
@@ -221,7 +289,7 @@ export function subscribeMyOrders(uid: string, cb: (orders: Order[]) => void): U
   if (!db) return () => {};
   return subscribeOrderQuery(
     query(collection(db, 'orders'), where('customerUid', '==', uid), orderBy('createdAt', 'desc')),
-    cb
+    cb,
   );
 }
 
@@ -255,8 +323,8 @@ export interface NewOrderInput {
 // Firestore rules re-check every price, fee and total in this document.
 export async function createOrder(input: NewOrderInput): Promise<void> {
   if (!db) throw new Error('Firebase is not configured.');
-  const user = await ensureGuestSession();
-  if (!user) throw new Error('Could not start a session. Check your connection.');
+  const user = currentUser();
+  if (!user) throw new Error('Please log in again to place your order.');
   const data: Record<string, unknown> = {
     id: input.id,
     customerUid: user.uid,
@@ -284,16 +352,27 @@ export async function createOrder(input: NewOrderInput): Promise<void> {
 
 export async function cancelMyOrder(orderId: string): Promise<void> {
   if (!db) return;
-  await updateDoc(doc(db, 'orders', orderId), { status: 'cancelled', updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, 'orders', orderId), {
+    status: 'cancelled',
+    updatedAt: serverTimestamp(),
+  });
 }
 
 export async function adminUpdateOrder(
   orderId: string,
-  patch: { status?: OrderStatus; riderName?: string; riderPhone?: string; currentTempCelsius?: number }
+  patch: {
+    status?: OrderStatus;
+    riderName?: string;
+    riderPhone?: string;
+    currentTempCelsius?: number;
+  },
 ): Promise<void> {
   if (!db) return;
   const clean = Object.fromEntries(Object.entries(patch).filter(([, v]) => v !== undefined));
-  await updateDoc(doc(db, 'orders', orderId), { ...clean, updatedAt: serverTimestamp() });
+  await updateDoc(doc(db, 'orders', orderId), {
+    ...clean,
+    updatedAt: serverTimestamp(),
+  });
 }
 
 // -------------------------------------------------------------- profile
@@ -306,7 +385,7 @@ export interface UserProfile {
 
 export async function saveProfile(profile: UserProfile): Promise<void> {
   if (!db) return;
-  const user = await ensureGuestSession();
+  const user = currentUser();
   if (!user) return;
   const data: Record<string, unknown> = {
     name: profile.name.slice(0, 80),
