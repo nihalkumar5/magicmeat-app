@@ -1290,7 +1290,7 @@ function HeaderDoodles({ height }: { height: number }) {
           <AppIcon
             icon={DOODLE_ICONS[(k + r) % DOODLE_ICONS.length]}
             size={20}
-            color="rgba(255,255,255,0.09)"
+            color="rgba(255,255,255,0.18)"
             strokeWidth={1.7}
           />
         </View>,
