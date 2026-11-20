@@ -26,6 +26,7 @@ import {
 } from '../services/backend';
 import type { Order } from '../types';
 import { useStore } from '../store/useStore';
+import { installWebBrandFont } from '../utils/webFonts';
 
 export default function RootLayout() {
   const pathname = usePathname();
@@ -36,6 +37,7 @@ export default function RootLayout() {
     !pathname || pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/' || pathname === '/(tabs)/index';
 
   useEffect(() => {
+    installWebBrandFont();
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'magicmeat-web-root-styles';
       if (!document.getElementById(styleId)) {

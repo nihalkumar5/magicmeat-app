@@ -1340,7 +1340,7 @@ const styles = StyleSheet.create({
   },
   mModeText: {
     fontSize: 10.5,
-    fontWeight: '800',
+    fontFamily: FONT.heavy,
     letterSpacing: 1,
     color: HEADER_ACCENT,
   },
@@ -1376,7 +1376,7 @@ const styles = StyleSheet.create({
   mAddressChipText: {
     flexShrink: 1,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
     color: '#FFFFFF',
     letterSpacing: -0.1,
   },
@@ -1394,16 +1394,17 @@ const styles = StyleSheet.create({
   },
   mEyebrow: {
     fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1.4,
+    fontFamily: FONT.heavy,
+    letterSpacing: 1.6,
     color: 'rgba(255,255,255,0.8)',
   },
+  // Display face for the one number that matters on this screen.
   mEta: {
     fontSize: TYPE.display,
     lineHeight: 38,
-    fontWeight: '900',
+    fontFamily: FONT.display,
     color: '#FFFFFF',
-    letterSpacing: -1.2,
+    letterSpacing: -1.1,
   },
   mAddressRow: {
     flexDirection: 'row',
@@ -2565,13 +2566,13 @@ const styles = StyleSheet.create({
   searchStaticPrefix: {
     color: '#6B7280',
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: FONT.medium,
     flexShrink: 0,
   },
   searchDynamicWord: {
     color: '#111111',
     fontSize: 15,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
   },
   offlineStoreCard: {
     width: 54,

@@ -64,7 +64,8 @@
           "color": "#BE1E2D",
           "defaultChannel": "orders"
         }
-      ]
+      ],
+      "expo-asset"
     ],
     "extra": {
       "router": {
