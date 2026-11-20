@@ -11,7 +11,9 @@ import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { PRODUCTS } from '../../data/mockData';
 import { DominosCard } from '../../components/DominosCard';
 import { useTabBarInset } from '../../components/FloatingTabBar';
-import { FadeInUp } from '../../components/motion';
+import { FadeInUp, PopIn, PressableScale } from '../../components/motion';
+import { haptic } from '../../utils/haptics';
+import { FONT } from '../../constants/fonts';
 import { CouponSheet } from '../../components/CouponSheet';
 import type { DeliveryMode } from '../../types';
 import {
@@ -25,6 +27,7 @@ import {
   ArrowRight01Icon,
   DeliveryTruck01Icon,
   DiscountTag01Icon,
+  Tick02Icon,
 } from '../../components/HugeIcon';
 
 const ADD_ON_IDS = ['v2', 'v3', 'v5', 'v4', 'v6', 'v1', 'e1'];
@@ -271,29 +274,56 @@ export default function CartScreen() {
         <View style={styles.slotRow}>
           {slots.map((slot) => {
             const active = deliveryMode === slot.mode;
+            const express = slot.mode === 'instant';
+            const free = slot.fee === 'Free';
             return (
-              <TouchableOpacity
+              <PressableScale
                 key={slot.mode}
+                containerStyle={{ flex: 1 }}
                 style={[styles.slot, active && styles.slotActive]}
-                onPress={() => setDeliveryMode(slot.mode)}
-                activeOpacity={0.8}
+                scaleTo={0.97}
+                onPress={() => {
+                  if (!active) haptic.select();
+                  setDeliveryMode(slot.mode);
+                }}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={
                   isDelivery ? `${slot.title}, ${slot.time}, ${slot.fee}` : `${slot.title}, ${slot.time}`
                 }
               >
-                <AppIcon icon={slot.icon} size={16} color={active ? '#FFFFFF' : C.text} strokeWidth={2} />
-                <Text style={[styles.slotTitle, active && styles.slotTextActive]}>{slot.title}</Text>
-                <Text style={[styles.slotTime, active && styles.slotTimeActive]}>{slot.time}</Text>
+                <View style={styles.slotTop}>
+                  <View style={[styles.slotIcon, active && styles.slotIconActive]}>
+                    <AppIcon
+                      icon={slot.icon}
+                      size={17}
+                      color={active ? '#FFFFFF' : express ? '#B45309' : C.text}
+                      strokeWidth={2.2}
+                    />
+                  </View>
+                  {active ? (
+                    <PopIn key="on" style={styles.slotCheck}>
+                      <AppIcon icon={Tick02Icon} size={11} color="#FFFFFF" strokeWidth={3.2} />
+                    </PopIn>
+                  ) : (
+                    <View style={styles.slotRadio} />
+                  )}
+                </View>
+                <View style={styles.slotTitleRow}>
+                  <Text style={styles.slotTitle}>{slot.title}</Text>
+                  {express && (
+                    <View style={styles.fastTag}>
+                      <Text style={styles.fastTagText}>FASTEST</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.slotTime}>{slot.time}</Text>
                 {isDelivery && (
-                  <Text
-                    style={[styles.slotFee, slot.fee === 'Free' && styles.slotFeeFree, active && styles.slotTextActive]}
-                  >
-                    {slot.fee}
-                  </Text>
+                  <View style={[styles.feePill, free && styles.feePillFree]}>
+                    <Text style={[styles.feeText, free && styles.feeTextFree]}>{slot.fee}</Text>
+                  </View>
                 )}
-              </TouchableOpacity>
+              </PressableScale>
             );
           })}
         </View>
@@ -551,43 +581,108 @@ const styles = StyleSheet.create({
   /* slots */
   slotRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 12,
+    gap: 13,
+    marginBottom: 13,
   },
   slot: {
-    flex: 1,
+    borderRadius: 21,
+    padding: 13,
     backgroundColor: C.card,
-    borderRadius: 14,
-    paddingVertical: 12,
-    alignItems: 'center',
-    gap: 3,
+    borderWidth: 1.5,
+    borderColor: 'transparent',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 13,
+    elevation: 1,
   },
   slotActive: {
-    backgroundColor: C.text,
+    borderColor: C.red,
+    backgroundColor: '#FFF7F7',
+    shadowColor: C.red,
+    shadowOpacity: 0.14,
+    shadowRadius: 16,
+  },
+  slotTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+  },
+  slotIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: '#F4F4F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotIconActive: {
+    backgroundColor: C.red,
+  },
+  slotCheck: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    backgroundColor: C.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  slotRadio: {
+    width: 21,
+    height: 21,
+    borderRadius: 11,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+  },
+  slotTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 13,
   },
   slotTitle: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 17,
+    fontFamily: FONT.display,
+    letterSpacing: -0.3,
     color: C.text,
-    marginTop: 2,
   },
-  slotTextActive: {
-    color: '#FFFFFF',
+  fastTag: {
+    paddingHorizontal: 6,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    backgroundColor: '#FFF4D6',
+  },
+  fastTagText: {
+    fontSize: 9.5,
+    fontFamily: FONT.heavy,
+    letterSpacing: 0.8,
+    color: '#B45309',
   },
   slotTime: {
-    fontSize: 12,
-    color: C.secondary,
-  },
-  slotTimeActive: {
-    color: '#D1D5DB',
-  },
-  slotFee: {
     fontSize: 13,
-    fontWeight: '700',
-    color: C.text,
+    fontFamily: FONT.medium,
+    color: C.secondary,
     marginTop: 2,
   },
-  slotFeeFree: {
+  feePill: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 9,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: '#F4F4F6',
+  },
+  feePillFree: {
+    backgroundColor: '#E8F7EE',
+  },
+  feeText: {
+    fontSize: 13,
+    fontFamily: FONT.heavy,
+    color: C.text,
+  },
+  feeTextFree: {
     color: C.green,
   },
 
