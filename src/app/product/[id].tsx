@@ -65,7 +65,20 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { addToCart, cart, updateQuantity, inventory } = useStore();
   const { width } = useWindowDimensions();
-  const foundProduct = useMemo(() => PRODUCTS.find((p) => p.id === id), [id]);
+  // Old magicmeat.in links used name-based handles (/product/chicken-curry-cut),
+  // so fall back to matching the product name.
+  const foundProduct = useMemo(() => {
+    const byId = PRODUCTS.find((p) => p.id === id);
+    if (byId || !id) return byId;
+    const slug = (t: string) =>
+      t
+        .toLowerCase()
+        .replace(/\(.*?\)/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '');
+    const want = slug(String(id));
+    return PRODUCTS.find((p) => slug(p.name) === want) || PRODUCTS.find((p) => want.startsWith(slug(p.name)));
+  }, [id]);
   const product = foundProduct || PRODUCTS[0];
 
   const invItem = inventory[product.id];

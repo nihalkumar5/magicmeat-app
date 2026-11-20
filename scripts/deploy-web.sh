@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Builds the web app and publishes it to Vercel (magicmeat-web).
+# Old magicmeat.in links (/shop, /profile, /tracking) are redirected to the
+# matching screens of this app.
 # Vercel never uploads folders named node_modules, and Expo's export keeps
 # fonts and router images under assets/node_modules, so they are renamed to
 # assets/nm and every reference is rewritten before upload.
@@ -20,6 +22,13 @@ cat > "$OUT/vercel.json" <<'JSON'
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "regions": ["bom1"],
+  "redirects": [
+    { "source": "/shop", "destination": "/explore", "permanent": true },
+    { "source": "/shop/:category", "destination": "/explore", "permanent": true },
+    { "source": "/profile", "destination": "/profile-menu", "permanent": true },
+    { "source": "/tracking", "destination": "/orders", "permanent": true },
+    { "source": "/tracking/:path*", "destination": "/orders", "permanent": true }
+  ],
   "rewrites": [{ "source": "/((?!_expo/|assets/|favicon).*)", "destination": "/index.html" }],
   "headers": [{ "source": "/_expo/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] }]
 }
