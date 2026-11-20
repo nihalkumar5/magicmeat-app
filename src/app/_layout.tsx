@@ -7,6 +7,7 @@ import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
+import { DialogHost } from '../components/DialogHost';
 import { useFonts } from 'expo-font';
 import { FONT_ASSETS } from '../constants/fonts';
 import {
@@ -236,6 +237,7 @@ export default function RootLayout() {
           <LocationSelectorModal />
         </View>
       </View>
+      <DialogHost />
       <AnimatedSplash ready={fontsReady} />
     </SafeAreaProvider>
   );
