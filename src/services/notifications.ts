@@ -117,7 +117,7 @@ export function triggerLocalOrderNotification(order: Order, oldStatus?: OrderSta
         vibrate: [0, 400, 200, 400],
         data: { orderId: order.id },
       },
-      trigger: null,
+      trigger: { channelId: ORDER_CHANNEL } as any,
     }).catch((err) => console.warn('[local-notif] failed', err));
 
     try {

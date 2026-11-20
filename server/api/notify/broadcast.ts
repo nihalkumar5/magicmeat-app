@@ -2,7 +2,7 @@ import { FieldValue } from 'firebase-admin/firestore';
 import { adminDb } from '../../lib/firebase.js';
 import { json, preflight, readJson } from '../../lib/http.js';
 import { adminFrom } from '../../lib/admin.js';
-import { isExpoToken, sendPush, type PushMessage } from '../../lib/push.js';
+import { isExpoToken, sendPushDetailed, type PushMessage } from '../../lib/push.js';
 import { withEmoji } from '../../lib/emoji.js';
 
 export const OPTIONS = preflight;
@@ -34,10 +34,11 @@ export async function POST(request: Request): Promise<Response> {
     const t = d.data().token;
     if (!isExpoToken(t) || ownerOf.has(t)) return;
     ownerOf.set(t, d.id);
-    messages.push({ to: t, title, body, channelId: 'offers', sound: 'default', data: { kind: 'offer' } });
+    messages.push({ to: t, title, body, channelId: 'offers', sound: 'default', priority: 'high', data: { kind: 'offer' } });
   });
 
-  const sent = messages.length ? await sendPush(messages, ownerOf) : 0;
+  const r = messages.length ? await sendPushDetailed(messages, ownerOf) : { accepted: 0, delivered: 0, errors: {} };
+  const sent = r.accepted;
   await db.collection('broadcasts').add({ title, body, sent, audience: messages.length, by: admin, sentAt: FieldValue.serverTimestamp() });
-  return json(200, { sent, audience: messages.length });
+  return json(200, { sent, delivered: r.delivered, errors: r.errors, audience: messages.length });
 }

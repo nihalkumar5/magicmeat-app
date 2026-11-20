@@ -1,6 +1,6 @@
 import { adminDb } from '../../lib/firebase.js';
 import { json, preflight, readJson } from '../../lib/http.js';
-import { isExpoToken, orderLabel, sendPush, type PushMessage } from '../../lib/push.js';
+import { isExpoToken, orderLabel, sendPushDetailed, type PushMessage } from '../../lib/push.js';
 
 export const OPTIONS = preflight;
 
@@ -42,6 +42,6 @@ export async function POST(request: Request): Promise<Response> {
 
   if (messages.length === 0) return json(200, { sent: 0, reason: 'no_tokens' });
 
-  const sent = await sendPush(messages);
-  return json(200, { sent, total: messages.length });
+  const r = await sendPushDetailed(messages);
+  return json(200, { sent: r.accepted, delivered: r.delivered, errors: r.errors, total: messages.length });
 }

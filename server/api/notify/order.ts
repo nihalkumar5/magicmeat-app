@@ -1,7 +1,7 @@
 import { adminDb } from '../../lib/firebase.js';
 import { json, preflight, readJson } from '../../lib/http.js';
 import { adminFrom } from '../../lib/admin.js';
-import { isExpoToken, orderLabel, sendPush } from '../../lib/push.js';
+import { isExpoToken, orderLabel, sendPushDetailed } from '../../lib/push.js';
 
 export const OPTIONS = preflight;
 
@@ -46,9 +46,9 @@ export async function POST(request: Request): Promise<Response> {
   const token = (await db.collection('pushTokens').doc(uid).get()).data()?.token;
   if (!isExpoToken(token)) return json(200, { sent: 0 });
 
-  const sent = await sendPush(
+  const r = await sendPushDetailed(
     [{ to: token, ...msg, data: { orderId }, channelId: 'orders', sound: 'default', priority: 'high' }],
     new Map([[token, uid]]),
   );
-  return json(200, { sent });
+  return json(200, { sent: r.accepted, delivered: r.delivered, errors: r.errors });
 }

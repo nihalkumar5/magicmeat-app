@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TextInput, ActivityIndicator, Image } from 'react-native';
-import { countPushAudience, sendBroadcast, subscribeBroadcasts, type Broadcast } from '../services/backend';
+import { countPushAudience, pushErrorText, sendBroadcast, subscribeBroadcasts, type Broadcast } from '../services/backend';
 import { confirmAction, notify } from '../utils/dialogs';
 import { haptic } from '../utils/haptics';
 import { PressableScale } from './motion';
@@ -68,7 +68,14 @@ export function AdminBroadcast() {
         haptic.success();
         setTitle('');
         setBody('');
-        notify('Sent', r.audience ? `Delivered to ${r.sent} of ${r.audience} phones.` : 'No customer has notifications on yet.');
+        const problems = Object.keys(r.errors).map(pushErrorText);
+        if (!r.audience) notify('Not sent', 'No phone has notifications on yet.');
+        else if (problems.length)
+          notify(
+            r.sent ? 'Sent with problems' : 'Not delivered',
+            `Reached ${r.delivered || r.sent} of ${r.audience} phones.\n\n${problems.join('\n')}`,
+          );
+        else notify('Sent', `Delivered to ${r.delivered || r.sent} of ${r.audience} phones.`);
       } catch (e) {
         haptic.warn();
         notify('Not sent', e instanceof Error ? e.message : 'Please try again.');

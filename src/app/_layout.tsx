@@ -3,6 +3,8 @@ import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
+import { AndroidImportance } from 'expo-notifications';
 import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
@@ -56,6 +58,27 @@ export default function RootLayout() {
         `;
         document.head.appendChild(style);
       }
+    }
+  }, []);
+
+  // Configure high-importance Android notification channels and request permission
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      const channelConfig = {
+        name: 'Order updates',
+        importance: AndroidImportance.MAX,
+        vibrationPattern: [0, 400, 200, 400],
+        lightColor: '#DC2626',
+        sound: 'default',
+        enableVibrate: true,
+      };
+      Notifications.setNotificationChannelAsync('orders', channelConfig).catch(() => {});
+      Notifications.setNotificationChannelAsync('offers', {
+        name: 'Offers and news',
+        importance: AndroidImportance.DEFAULT,
+        sound: 'default',
+      }).catch(() => {});
+      Notifications.requestPermissionsAsync().catch(() => {});
     }
   }, []);
 

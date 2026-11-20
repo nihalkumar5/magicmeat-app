@@ -224,9 +224,38 @@ export function notifyOrderUpdate(orderId: string): void {
 }
 
 /** Push to every customer who allowed notifications. Resolves with how many got it. */
-export async function sendBroadcast(title: string, body: string): Promise<{ sent: number; audience: number }> {
+export interface BroadcastResult {
+  sent: number;
+  delivered: number;
+  audience: number;
+  /** Push error code -> count, straight from Expo/Firebase. */
+  errors: Record<string, number>;
+}
+
+export async function sendBroadcast(title: string, body: string): Promise<BroadcastResult> {
   const data = await callNotify('/api/notify/broadcast', { title, body });
-  return { sent: Number(data.sent) || 0, audience: Number(data.audience) || 0 };
+  return {
+    sent: Number(data.sent) || 0,
+    delivered: Number(data.delivered) || 0,
+    audience: Number(data.audience) || 0,
+    errors: data.errors && typeof data.errors === 'object' ? data.errors : {},
+  };
+}
+
+/** Plain-words reason for a push error code. */
+export function pushErrorText(code: string): string {
+  switch (code) {
+    case 'InvalidCredentials':
+      return 'Firebase key is missing in Expo for one of the apps (upload the FCM V1 key).';
+    case 'MismatchSenderId':
+      return 'google-services.json does not match the Firebase project.';
+    case 'DeviceNotRegistered':
+      return 'Some phones uninstalled the app or turned notifications off.';
+    case 'MessageRateExceeded':
+      return 'Too many messages to one phone; try again later.';
+    default:
+      return `Push error: ${code}.`;
+  }
 }
 
 /** Customers who can get notifications right now. */
