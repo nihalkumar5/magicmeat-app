@@ -836,28 +836,38 @@ export default function HomeScreen() {
         <View style={styles.mTopBar}>
           {/* Paints above the header too, so pulling down never shows white */}
           <View pointerEvents="none" style={styles.mTopOverscroll} />
-          <TouchableOpacity
-            style={styles.mLocationBlock}
-            onPress={handleOpenLocationModal}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={`${isPickup ? 'Pickup from' : 'Deliver to'} ${currentLocation.shortAddress}. Change address`}
-          >
-            <Text style={styles.mEyebrow}>{isPickup ? 'Pickup ready in' : 'Express delivery in'}</Text>
-            <View style={styles.mLocationRow}>
-              <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={22} color={HEADER_ACCENT} strokeWidth={2.4} />
-              <Text style={styles.mEta}>{isPickup ? '10 minutes' : '15–20 minutes'}</Text>
+          {/* Depth: a warm glow from the top-right and a faint brand bird */}
+          <View pointerEvents="none" style={styles.mHeaderGlow} />
+          <Image
+            pointerEvents="none"
+            source={require('../../../assets/brand/bird.png')}
+            style={styles.mHeaderBird}
+            resizeMode="contain"
+          />
+          <View style={styles.mLocationBlock}>
+            <View style={styles.mEyebrowRow}>
+              <View style={styles.mBoltBadge}>
+                <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={12} color={HEADER_ACCENT} strokeWidth={2.6} />
+              </View>
+              <Text style={styles.mEyebrow}>{isPickup ? 'PICKUP READY IN' : 'EXPRESS DELIVERY'}</Text>
             </View>
-            <View style={styles.mAddressRow}>
-              <Text style={styles.mLocationSub} numberOfLines={1}>
-                <Text style={styles.mAddressStrong}>
-                  {isPickup ? 'From' : 'To'} {currentLocation.shortAddress || 'choose address'}
-                </Text>
-                {currentLocation.fullAddress ? ` · ${currentLocation.fullAddress}` : ''}
+            <Text style={styles.mEta}>{isPickup ? '10 min' : '15–20 min'}</Text>
+            {/* Address as a glass chip: clearly tappable, one line */}
+            <PressableScale
+              style={styles.mAddressChip}
+              scaleTo={0.97}
+              haptics="tap"
+              onPress={handleOpenLocationModal}
+              accessibilityRole="button"
+              accessibilityLabel={`${isPickup ? 'Pickup from' : 'Deliver to'} ${currentLocation.shortAddress}. Change address`}
+            >
+              <AppIcon icon={Location01Icon} size={13} color="#FFFFFF" strokeWidth={2.2} />
+              <Text style={styles.mAddressChipText} numberOfLines={1}>
+                {currentLocation.shortAddress || 'Choose address'}
               </Text>
-              <AppIcon icon={ChevronDownIcon} size={14} color="rgba(255,255,255,0.8)" strokeWidth={2.4} />
-            </View>
-          </TouchableOpacity>
+              <AppIcon icon={ChevronDownIcon} size={13} color="rgba(255,255,255,0.85)" strokeWidth={2.6} />
+            </PressableScale>
+          </View>
 
           {/* Profile: photo in a thin ring, or initials (Contacts style), or a person glyph */}
           <PressableScale
@@ -1277,12 +1287,66 @@ const styles = StyleSheet.create({
   },
   mTopBar: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 8,
+    alignItems: 'flex-start',
+    paddingHorizontal: 18,
+    paddingTop: 14,
+    paddingBottom: 12,
     gap: 12,
     backgroundColor: HEADER_BG,
+  },
+  mHeaderGlow: {
+    position: 'absolute',
+    top: -140,
+    right: -90,
+    width: 300,
+    height: 300,
+    borderRadius: 150,
+    backgroundColor: 'rgba(255,214,170,0.16)',
+  },
+  mHeaderBird: {
+    position: 'absolute',
+    right: -18,
+    bottom: -26,
+    width: 170,
+    height: 112,
+    opacity: 0.09,
+    tintColor: '#FFFFFF',
+  },
+  mEyebrowRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  mBoltBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,201,74,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,201,74,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mAddressChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    gap: 6,
+    height: 30,
+    paddingHorizontal: 11,
+    marginTop: 10,
+    borderRadius: 15,
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  mAddressChipText: {
+    flexShrink: 1,
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: -0.1,
   },
   mTopOverscroll: {
     position: 'absolute',
@@ -1296,21 +1360,18 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  mEyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
   mEyebrow: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11.5,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    color: 'rgba(255,255,255,0.78)',
   },
   mEta: {
-    fontSize: 28,
+    fontSize: 34,
     fontWeight: '900',
     color: '#FFFFFF',
-    letterSpacing: -0.8,
+    letterSpacing: -1.2,
+    marginTop: 4,
   },
   mAddressRow: {
     flexDirection: 'row',
@@ -1406,11 +1467,11 @@ const styles = StyleSheet.create({
   mSearchWrap: {
     paddingHorizontal: 16,
     paddingTop: 6,
-    paddingBottom: 16,
+    paddingBottom: 18,
     marginBottom: 12,
     backgroundColor: HEADER_BG,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   liveCard: {
     marginHorizontal: 16,
@@ -2445,20 +2506,19 @@ const styles = StyleSheet.create({
   // shadow, brand-coloured icon, rotating "quoted" suggestion.
   searchCapsule: {
     minWidth: 0,
-    height: 50,
+    height: 52,
     backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#E8E8ED',
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
     gap: 10,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 2,
+    // Shadow in the header's own hue reads as depth, not dirt.
+    shadowColor: '#5A0A12',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    elevation: 6,
   },
   searchPlaceholderRow: {
     flexDirection: 'row',
