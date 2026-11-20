@@ -5,12 +5,12 @@ import { Platform } from 'react-native';
 import { createAuth } from './authInstance';
 
 const firebaseConfig = {
-  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'magicmeat-gmpqj',
+  appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:484845490221:web:3c93463d0061bdfd8768a4',
+  storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'magicmeat-gmpqj.firebasestorage.app',
+  apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyDhGBnsNM2_B2s_nAWQD5yPOfPlgZvRwsg',
+  authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'magicmeat-gmpqj.firebaseapp.com',
+  messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '484845490221',
 };
 
 export const firebaseEnabled = Boolean(

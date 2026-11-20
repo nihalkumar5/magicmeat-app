@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View, StyleSheet, Platform, useWindowDimensions } from 'react-native';
@@ -8,7 +8,7 @@ import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { DialogHost } from '../components/DialogHost';
-import { onOrderNotificationTap, registerForPush } from '../services/notifications';
+import { onOrderNotificationTap, registerForPush, triggerLocalOrderNotification } from '../services/notifications';
 import {
   fetchProfile,
   isAdmin,
@@ -80,12 +80,23 @@ export default function RootLayout() {
   // Customers log in with their mobile number (OTP); then follow their
   // orders. An admin who signs in with email follows every order instead.
   // Old guest (anonymous) sessions count as logged out.
+  const lastStatusMapRef = useRef<Record<string, string>>({});
+
   useEffect(() => {
     let stopOrders: (() => void) | null = null;
 
     const applyOrders = (orders: Order[]) => {
       const active = orders.find((o) => o.status !== 'delivered' && o.status !== 'cancelled') || null;
       useStore.setState({ orders, activeOrder: active });
+
+      // Notify customer immediately on status transitions
+      orders.forEach((o) => {
+        const prev = lastStatusMapRef.current[o.id];
+        if (prev && prev !== o.status) {
+          triggerLocalOrderNotification(o, prev as any);
+        }
+        lastStatusMapRef.current[o.id] = o.status;
+      });
     };
 
     let stopWishlist: (() => void) | null = null;
@@ -108,9 +119,11 @@ export default function RootLayout() {
 
       const admin = isPhoneUser(user) ? false : await isAdmin(user.uid);
       useStore.setState({ uid: user.uid, isAdmin: admin, authState: 'in' });
+
+      // Register device for push notifications
+      registerForPush(user.uid);
+
       if (isPhoneUser(user)) {
-        // Order updates and offers by push (asks once; native only).
-        registerForPush(user.uid);
         // Saved items follow the account. First snapshot: merge what this
         // phone had with what the account has, and store the union.
         let firstWishlist = true;

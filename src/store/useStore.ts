@@ -19,6 +19,7 @@ import { slotInfo } from '../data/slots';
 import { PICKUP_ENABLED } from '../constants/features';
 import { notify } from '../utils/dialogs';
 import { adminUpdateOrder, adminUpdateProduct, cancelMyOrder, createOrder, newOrderId, saveWishlist } from '../services/backend';
+import { triggerLocalOrderNotification } from '../services/notifications';
 
 interface StoreState {
   cart: CartItem[];
@@ -572,6 +573,8 @@ export const useStore = create<StoreState>()(
           activeOrder: newOrder,
           orders: s.orders.some((o) => o.id === id) ? s.orders : [newOrder, ...s.orders],
         }));
+
+        triggerLocalOrderNotification(newOrder);
 
         return newOrder;
       },
