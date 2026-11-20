@@ -33,7 +33,10 @@ async function sendEmail(orderId: string, order: Order): Promise<string> {
   // RESEND_APT_KEY: the name the key was first saved under in Vercel.
   const key = process.env.RESEND_API_KEY || process.env.RESEND_APT_KEY;
   const to = process.env.ORDER_ALERT_EMAIL;
-  if (!key || !to) return 'email:off';
+  if (!key || !to) {
+    console.warn('[alerts] email off: missing', !key ? 'RESEND key' : 'ORDER_ALERT_EMAIL');
+    return 'email:off';
+  }
   const label = orderLabel(orderId);
   const mode = order.deliveryMode === 'instant' ? 'Express (15–20 min)' : 'Normal (45–60 min)';
   const map = mapLink(order);
@@ -97,10 +100,14 @@ async function sendWhatsApp(orderId: string, order: Order): Promise<string> {
  */
 export async function alertOwner(orderId: string, order: Order): Promise<string[]> {
   const created = order.createdAt?.toMillis?.() ?? 0;
-  if (created && Date.now() - created > 15 * 60 * 1000) return ['skip:old'];
+  if (created && Date.now() - created > 15 * 60 * 1000) {
+    console.log('[alerts] skip: order older than 15 min', orderId);
+    return ['skip:old'];
+  }
   try {
     await adminDb().collection('orderAlerts').doc(orderId).create({ at: new Date() });
   } catch {
+    console.log('[alerts] skip: already sent', orderId);
     return ['skip:already-sent'];
   }
   const results = await Promise.allSettled([sendEmail(orderId, order), sendWhatsApp(orderId, order)]);

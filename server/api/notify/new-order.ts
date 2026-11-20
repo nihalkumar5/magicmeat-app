@@ -11,11 +11,15 @@ export async function POST(request: Request): Promise<Response> {
   const body = await readJson(request);
   const orderId = typeof body?.orderId === 'string' ? body.orderId.slice(0, 80) : '';
   if (!orderId) return json(400, { error: 'invalid_request' });
+  console.log('[new-order] called', orderId);
 
   const db = adminDb();
   const orderDoc = await db.collection('orders').doc(orderId).get();
   const order = orderDoc.data();
-  if (!order) return json(404, { error: 'not_found' });
+  if (!order) {
+    console.warn('[new-order] order not found', orderId);
+    return json(404, { error: 'not_found' });
+  }
 
   // Email + WhatsApp to the shop owner (once per order).
   const alerts = await alertOwner(orderId, order);
