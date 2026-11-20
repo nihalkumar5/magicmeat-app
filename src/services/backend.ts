@@ -166,6 +166,24 @@ export async function adminUpdateProduct(
   await updateDoc(doc(db, 'products', productId), patch);
 }
 
+// ------------------------------------------------------------ wishlists
+// wishlists/{uid}: { items: productId[] } so saved items follow the account.
+
+export function subscribeWishlist(uid: string, cb: (items: string[] | null) => void): Unsubscribe {
+  if (!db) return () => {};
+  return onSnapshot(
+    doc(db, 'wishlists', uid),
+    (snap) => cb(snap.exists() ? ((snap.data().items as string[]) || []).filter((x) => typeof x === 'string') : null),
+    (err) => console.warn('[backend] wishlist listener', err.code),
+  );
+}
+
+export async function saveWishlist(items: string[]): Promise<void> {
+  const user = currentUser();
+  if (!db || !user || !isPhoneUser(user)) return;
+  await setDoc(doc(db, 'wishlists', user.uid), { items: items.slice(-200), updatedAt: serverTimestamp() });
+}
+
 // -------------------------------------------------------------- coupons
 // coupons/{CODE}: public read, admins write (firestore.rules validates the
 // shape and re-checks every order's discount against it).

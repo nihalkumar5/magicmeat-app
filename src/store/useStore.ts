@@ -17,7 +17,7 @@ import { LocationData } from '../types/location';
 import { couponDiscount, feesFor, unitPriceFor } from '../data/pricing';
 import { slotInfo } from '../data/slots';
 import { notify } from '../utils/dialogs';
-import { adminUpdateOrder, adminUpdateProduct, cancelMyOrder, createOrder, newOrderId } from '../services/backend';
+import { adminUpdateOrder, adminUpdateProduct, cancelMyOrder, createOrder, newOrderId, saveWishlist } from '../services/backend';
 
 interface StoreState {
   cart: CartItem[];
@@ -351,12 +351,15 @@ export const useStore = create<StoreState>()(
         );
       },
 
-      toggleWishlist: (productId: string) =>
+      toggleWishlist: (productId: string) => {
         set((state) => ({
           wishlist: state.wishlist.includes(productId)
             ? state.wishlist.filter((id) => id !== productId)
             : [...state.wishlist, productId],
-        })),
+        }));
+        // Follows the account (wishlists/{uid}); the local copy works offline.
+        saveWishlist(get().wishlist).catch((e) => console.warn('[wishlist] save failed', e?.code || e));
+      },
 
       setOrderFulfillment: (orderFulfillment) => set({ orderFulfillment }),
 

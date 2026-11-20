@@ -12,6 +12,7 @@ rules_version = '2';
 //   users/{uid}           each signed-in user owns their profile.
 //   coupons/{CODE}        public read; admins create, edit and delete. An
 //                         order's discount is checked here against its coupon.
+//   wishlists/{uid}       a customer's saved product ids (own read/write).
 //   admins/{uid}          presence marks an admin. Written only with the Admin
 //                         SDK (scripts/make-admin.mjs), never from the app.
 service cloud.firestore {
@@ -55,6 +56,19 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && validCoupon(code);
       allow delete: if isAdmin();
+    }
+
+    // ---------- wishlists ----------
+    // Each customer's saved product ids, synced across their devices.
+    match /wishlists/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['items', 'updatedAt'])
+        && request.resource.data.items is list
+        && request.resource.data.items.size() <= 200
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // ---------- admins ----------

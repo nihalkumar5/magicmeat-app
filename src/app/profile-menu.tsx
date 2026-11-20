@@ -40,6 +40,7 @@ import {
   Store01Icon,
   UserIcon,
   Camera01Icon,
+  FavouriteIcon,
 } from '../components/HugeIcon';
 
 const C = {
@@ -97,6 +98,7 @@ function Row({
 
 export default function ProfileMenuScreen() {
   const { activeOrder, orders, profile, setProfile, savedAddresses, profilePhoto, setProfilePhoto } = useStore();
+  const wishlistCount = useStore((s) => s.wishlist.length);
 
   const changePhoto = async () => {
     try {
@@ -341,6 +343,12 @@ export default function ProfileMenuScreen() {
           onPress={() => router.push('/(tabs)/orders')}
         />
         <Row
+          icon={FavouriteIcon}
+          title="Saved items"
+          subtitle={wishlistCount ? `${wishlistCount} saved` : 'Tap the heart on a product to save it'}
+          onPress={() => router.push('/wishlist')}
+        />
+        <Row
           icon={Location01Icon}
           title="Saved addresses"
           subtitle={`${savedAddresses.length} saved`}
@@ -403,6 +411,7 @@ export default function ProfileMenuScreen() {
             confirmAction('Log out?', "You'll need your mobile number and a code to log back in.", 'Log out', () => {
               setProfile({ name: '', phone: '', email: '' });
               setProfilePhoto('');
+              useStore.setState({ wishlist: [], appliedCouponCode: null });
               logOut().catch(() => notify('Could not log out', 'Please try again.'));
             })
           }

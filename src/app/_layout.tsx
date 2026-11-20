@@ -14,7 +14,9 @@ import {
   phoneOf,
   subscribeAllOrders,
   subscribeMyOrders,
+  saveWishlist,
   subscribeCoupons,
+  subscribeWishlist,
   subscribeProducts,
   watchAuth,
 } from '../services/backend';
@@ -76,9 +78,12 @@ export default function RootLayout() {
       useStore.setState({ orders, activeOrder: active });
     };
 
+    let stopWishlist: (() => void) | null = null;
     const stopAuth = watchAuth(async (user) => {
       stopOrders?.();
       stopOrders = null;
+      stopWishlist?.();
+      stopWishlist = null;
 
       if (!user || user.isAnonymous) {
         useStore.setState({
@@ -94,6 +99,20 @@ export default function RootLayout() {
       const admin = isPhoneUser(user) ? false : await isAdmin(user.uid);
       useStore.setState({ uid: user.uid, isAdmin: admin, authState: 'in' });
       if (isPhoneUser(user)) {
+        // Saved items follow the account. First snapshot: merge what this
+        // phone had with what the account has, and store the union.
+        let firstWishlist = true;
+        stopWishlist = subscribeWishlist(user.uid, (remote) => {
+          const local = useStore.getState().wishlist;
+          if (firstWishlist) {
+            firstWishlist = false;
+            const merged = [...new Set([...(remote || []), ...local])];
+            useStore.setState({ wishlist: merged });
+            if (!remote || merged.length !== remote.length) saveWishlist(merged).catch(() => {});
+            return;
+          }
+          if (remote) useStore.setState({ wishlist: remote });
+        });
         // The verified number is the account's number; keep any saved name.
         const phone = phoneOf(user);
         const { profile, setProfile } = useStore.getState();
@@ -113,6 +132,7 @@ export default function RootLayout() {
 
     return () => {
       stopOrders?.();
+      stopWishlist?.();
       stopAuth();
     };
   }, []);
@@ -190,6 +210,7 @@ export default function RootLayout() {
                   animation: 'slide_from_right',
                 }}
               />
+              <Stack.Screen name="wishlist" options={{ headerShown: false, animation: 'slide_from_right' }} />
               <Stack.Screen
                 name="search"
                 options={{
