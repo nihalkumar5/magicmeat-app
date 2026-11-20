@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { BRUSH } from '../../constants/fonts';
 import { GUTTER, RADIUS, SPACE, TYPE } from '../../constants/layout';
 import { PICKUP_ENABLED } from '../../constants/features';
 import { notify } from '../../utils/dialogs';
@@ -1044,6 +1045,7 @@ export default function HomeScreen() {
 
         {/* Bestsellers */}
         <SectionHeader
+          brush
           title="Bestsellers"
           subtitle="What our customers order most"
           onSeeAll={() => openCategory('all')}
@@ -1097,7 +1099,7 @@ export default function HomeScreen() {
         <ProductShelf data={muttonProducts} keyPrefix="mutton" />
 
         {/* Picks */}
-        <SectionHeader title="Popular near you" subtitle={`What ${currentLocation.city || 'your area'} is ordering`} />
+        <SectionHeader brush title="Popular near you" subtitle={`What ${currentLocation.city || 'your area'} is ordering`} />
         <View style={styles.mPopularGrid}>
           {nearYouProducts.slice(0, 6).map((product) => (
             <ShopCard key={`near-you-${product.id}`} product={product} width={Math.floor((width - 32 - 12) / 2)} />
@@ -1239,11 +1241,22 @@ const TRUST_POINTS = [
   { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
 ];
 
-function SectionHeader({ title, subtitle, onSeeAll }: { title: string; subtitle?: string; onSeeAll?: () => void }) {
+function SectionHeader({
+  title,
+  subtitle,
+  onSeeAll,
+  brush,
+}: {
+  title: string;
+  subtitle?: string;
+  onSeeAll?: () => void;
+  /** Hand-painted accent title, used on a couple of sections only. */
+  brush?: boolean;
+}) {
   return (
     <View style={styles.mSectionHeader}>
       <View style={{ flex: 1 }}>
-        <Text style={styles.mSectionTitle}>{title}</Text>
+        <Text style={[styles.mSectionTitle, brush && styles.mSectionTitleBrush]}>{title}</Text>
         {!!subtitle && <Text style={styles.mSectionSub}>{subtitle}</Text>}
       </View>
       {onSeeAll && (
@@ -1706,6 +1719,14 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#6B7280',
     marginTop: 2,
+  },
+  mSectionTitleBrush: {
+    fontFamily: BRUSH,
+    fontWeight: 'normal',
+    fontSize: 30,
+    lineHeight: 34,
+    letterSpacing: 0,
+    color: '#BE1E2D',
   },
   mSeeAll: {
     fontSize: 15,

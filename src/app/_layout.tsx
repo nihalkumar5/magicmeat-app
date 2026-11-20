@@ -7,6 +7,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as Notifications from 'expo-notifications';
 import { AndroidImportance } from 'expo-notifications';
 import { THEME } from '../constants/theme';
+import { useFonts } from 'expo-font';
+import { FONT_ASSETS } from '../constants/fonts';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
@@ -189,6 +191,10 @@ export default function RootLayout() {
 
   const authState = useStore((s) => s.authState);
   const signedIn = authState === 'in';
+  // Brush accent font; the splash waits for it (or its failure, then the
+  // system font is used).
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  const fontsReady = fontsLoaded || !!fontError;
 
   // First time in (no address yet): find the customer's location and use it
   // as their delivery address. If location is off or denied, open the
@@ -299,7 +305,7 @@ export default function RootLayout() {
         </View>
       </View>
       <DialogHost />
-      <AnimatedSplash ready />
+      <AnimatedSplash ready={fontsReady} />
     </SafeAreaProvider>
   );
 }

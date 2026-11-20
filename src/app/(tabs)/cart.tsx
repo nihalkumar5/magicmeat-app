@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BRUSH } from '../../constants/fonts';
 import { View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
@@ -834,8 +835,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontFamily: BRUSH,
+    fontSize: 30,
+    lineHeight: 34,
     color: C.text,
   },
   emptySubtitle: {

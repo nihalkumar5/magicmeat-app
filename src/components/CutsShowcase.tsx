@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { BRUSH } from '../constants/fonts';
 import {
   View,
   Text,
@@ -247,11 +248,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: GUTTER,
     marginBottom: SPACE.md,
   },
+  // Brush accent for the one showcase on the home screen.
   title: {
-    fontSize: TYPE.title,
-    fontWeight: '800',
-    letterSpacing: -0.5,
-    color: '#111111',
+    fontFamily: BRUSH,
+    fontSize: 32,
+    lineHeight: 36,
+    color: '#BE1E2D',
   },
   sub: {
     fontSize: TYPE.body,

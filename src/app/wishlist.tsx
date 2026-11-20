@@ -1,4 +1,5 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { BRUSH } from '../constants/fonts';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
@@ -164,8 +165,9 @@ const styles = StyleSheet.create({
     marginBottom: 18,
   },
   emptyTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontFamily: BRUSH,
+    fontSize: 30,
+    lineHeight: 34,
     color: C.text,
   },
   emptySub: {
