@@ -10,19 +10,19 @@ export const OPTIONS = preflight;
 function messageFor(status: string, label: string, rider?: string): { title: string; body: string } | null {
   switch (status) {
     case 'butcher_prepping':
-      return { title: 'Order confirmed', body: `We're cutting your order ${label} fresh right now.` };
+      return { title: '🔪 Order confirmed', body: `We're cutting your order ${label} fresh right now.` };
     case 'cold_packed':
-      return { title: 'Packed and ready', body: `Order ${label} is packed and waiting for the rider.` };
+      return { title: '📦 Packed and ready', body: `Order ${label} is packed and waiting for the rider.` };
     case 'rider_assigned':
     case 'out_for_delivery':
       return {
-        title: 'On the way',
+        title: '🛵 On the way',
         body: rider ? `${rider} is bringing order ${label} to you.` : `Order ${label} is out for delivery.`,
       };
     case 'delivered':
-      return { title: 'Delivered', body: `Order ${label} has been delivered. Enjoy your meal!` };
+      return { title: '✅ Delivered', body: `Order ${label} has been delivered. Enjoy your meal! 😋` };
     case 'cancelled':
-      return { title: 'Order cancelled', body: `Order ${label} was cancelled. Call us if this is unexpected.` };
+      return { title: '❌ Order cancelled', body: `Order ${label} was cancelled. Call us if this is unexpected.` };
     default:
       return null;
   }

@@ -3,6 +3,7 @@ import { adminDb } from '../../lib/firebase.js';
 import { json, preflight, readJson } from '../../lib/http.js';
 import { adminFrom } from '../../lib/admin.js';
 import { isExpoToken, sendPush, type PushMessage } from '../../lib/push.js';
+import { withEmoji } from '../../lib/emoji.js';
 
 export const OPTIONS = preflight;
 
@@ -14,7 +15,8 @@ export async function POST(request: Request): Promise<Response> {
   const admin = await adminFrom(request);
   if (!admin) return json(403, { error: 'forbidden' });
   const input = await readJson(request);
-  const title = typeof input?.title === 'string' ? input.title.trim().slice(0, 65) : '';
+  const raw = typeof input?.title === 'string' ? input.title.trim().slice(0, 65) : '';
+  const title = raw ? withEmoji(raw) : '';
   const body = typeof input?.body === 'string' ? input.body.trim().slice(0, 240) : '';
   if (!title || !body) return json(400, { error: 'invalid_request', message: 'Add a title and a message.' });
 

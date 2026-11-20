@@ -4,6 +4,7 @@ import { countPushAudience, sendBroadcast, subscribeBroadcasts, type Broadcast }
 import { confirmAction, notify } from '../utils/dialogs';
 import { haptic } from '../utils/haptics';
 import { PressableScale } from './motion';
+import { withEmoji } from '../utils/notifyEmoji';
 import { AppIcon, Megaphone01Icon, SentIcon } from './HugeIcon';
 
 const C = {
@@ -60,7 +61,7 @@ export function AdminBroadcast() {
       notify('Add a title and message', 'Both show on the customer’s lock screen.');
       return;
     }
-    confirmAction(`Send to ${who}?`, `“${title.trim()}” goes out right away. It can’t be taken back.`, 'Send', async () => {
+    confirmAction(`Send to ${who}?`, `“${withEmoji(title)}” goes out right away. It can’t be taken back.`, 'Send', async () => {
       setSending(true);
       try {
         const r = await sendBroadcast(title.trim(), body.trim());
@@ -98,7 +99,7 @@ export function AdminBroadcast() {
             <Text style={styles.previewNow}>now</Text>
           </View>
           <Text style={styles.previewTitle} numberOfLines={1}>
-            {title.trim() || 'Your title'}
+            {title.trim() ? withEmoji(title) : 'Your title'}
           </Text>
           <Text style={styles.previewBody} numberOfLines={3}>
             {body.trim() || 'Your message shows here, just like on the customer’s phone.'}
