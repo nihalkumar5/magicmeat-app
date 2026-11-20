@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "484845490221",
+    "project_id": "magicmeat-gmpqj",
+    "storage_bucket": "magicmeat-gmpqj.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484845490221:android:caa07f6455b1756c8768a4",
+        "android_client_info": {
+          "package_name": "com.magicmeat.customer"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAaXzy0lRs_DwydT6nwATTR0y7ZnegPsI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:484845490221:android:5e767bf0fb06d6048768a4",
+        "android_client_info": {
+          "package_name": "com.magicmeat.partner"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCAaXzy0lRs_DwydT6nwATTR0y7ZnegPsI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
