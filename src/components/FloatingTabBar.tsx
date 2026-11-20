@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Platform, useWindowDimensions, Animated } from 'react-native';
+import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBarHeightContext, type BottomTabBarProps } from 'expo-router/tabs';
 import { useStore } from '../store/useStore';
@@ -18,16 +18,13 @@ const TABS: Record<string, { label: string; icon: any }> = {
   orders: { label: 'Orders', icon: DeliveryBox01Icon },
 };
 
-const isDesktopWeb = (width: number) => Platform.OS === 'web' && width >= 768;
-
 // Space the floating bar takes at the bottom of a tab screen, so fixed
-// footers (cart bar, checkout button) can sit above it. 0 outside the tabs
-// and on desktop web, where the bar is hidden.
+// footers (cart bar, checkout button) can sit above it. 0 outside the tabs.
+// Shown on every screen size, desktop web included.
 export function useTabBarInset(): number {
   const inTabs = useContext(BottomTabBarHeightContext) !== undefined;
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  if (!inTabs || isDesktopWeb(width)) return 0;
+  if (!inTabs) return 0;
   return BAR_HEIGHT + Math.max(insets.bottom, BAR_GAP) + BAR_GAP;
 }
 
@@ -36,7 +33,6 @@ export function useTabBarInset(): number {
 // behind the selected tab.
 export function FloatingTabBar({ state, emitter, navigateToTab }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
   const cartCount = useStore((s) => s.cart.reduce((n, item) => n + item.quantity, 0));
 
   const routes = state.routes.filter((r) => TABS[r.name]);
@@ -58,8 +54,6 @@ export function FloatingTabBar({ state, emitter, navigateToTab }: BottomTabBarPr
   const slotW = routes.length ? (barW - 12) / routes.length : 0;
   const pillW = Math.min(slotW - 6, 84);
   const translateX = Animated.multiply(x, slotW);
-
-  if (isDesktopWeb(width)) return null;
 
   return (
     <View pointerEvents="box-none" style={[styles.wrap, { bottom: Math.max(insets.bottom, BAR_GAP) }]}>
