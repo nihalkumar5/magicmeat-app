@@ -6,6 +6,7 @@ import { haptic } from '../utils/haptics';
 import { notify } from '../utils/dialogs';
 import { AppIcon, Tick02Icon, DiscountTag01Icon } from './HugeIcon';
 import type { Coupon } from '../types';
+import { GUTTER, SPACE } from '../constants/layout';
 
 const RED = '#DC2626';
 const BG = '#F2F2F7'; // page background, used for the ticket notches
@@ -94,14 +95,14 @@ function Ticket({ coupon, on, notch, onPress }: { coupon: Coupon; on: boolean; n
 
 const styles = StyleSheet.create({
   wrap: {
-    marginBottom: 12,
+    marginBottom: SPACE.lg,
   },
   head: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: GUTTER,
+    marginBottom: SPACE.sm,
   },
   headText: {
     fontSize: 13,
@@ -109,8 +110,8 @@ const styles = StyleSheet.create({
     color: '#1C1C1E',
   },
   row: {
-    gap: 10,
-    paddingHorizontal: 16,
+    gap: SPACE.sm,
+    paddingHorizontal: GUTTER,
   },
   ticket: {
     height: TICKET_H,

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FONT } from '../../constants/fonts';
+import { GUTTER, RADIUS, SPACE, TYPE } from '../../constants/layout';
 import {
   View,
   Text,
@@ -207,7 +208,7 @@ interface HeroProps {
   onSelectSlide: (targetCategory: MeatCategory, productId: string) => void;
 }
 
-const HERO_GUTTER = 16;
+const HERO_GUTTER = GUTTER;
 
 // Header colour, from the logo's crimson (#B41024) opened up a touch for a
 // large surface: #BE1E2D keeps white text at 6.2:1 (WCAG AA at any size).
@@ -1289,10 +1290,10 @@ const styles = StyleSheet.create({
   mTopBar: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    paddingHorizontal: 18,
-    paddingTop: 14,
-    paddingBottom: 12,
-    gap: 12,
+    paddingHorizontal: GUTTER,
+    paddingTop: SPACE.md,
+    paddingBottom: SPACE.md,
+    gap: SPACE.md,
     backgroundColor: HEADER_BG,
   },
   mHeaderGlow: {
@@ -1333,10 +1334,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     alignSelf: 'flex-start',
     maxWidth: '100%',
-    gap: 6,
+    gap: SPACE.xs,
     height: 30,
-    paddingHorizontal: 11,
-    marginTop: 10,
+    paddingHorizontal: SPACE.md - 2,
+    marginTop: SPACE.sm,
     borderRadius: 15,
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
@@ -1369,12 +1370,12 @@ const styles = StyleSheet.create({
   },
   // Display face for the one number that matters on this screen.
   mEta: {
-    fontSize: 40,
-    lineHeight: 44,
+    fontSize: TYPE.display,
+    lineHeight: Math.round(TYPE.display * 1.18),
     fontFamily: FONT.display,
     color: '#FFFFFF',
-    letterSpacing: -1.4,
-    marginTop: 4,
+    letterSpacing: -1.1,
+    marginTop: SPACE.xs,
   },
   mAddressRow: {
     flexDirection: 'row',
@@ -1389,12 +1390,12 @@ const styles = StyleSheet.create({
   mOffer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginHorizontal: 16,
-    marginBottom: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    gap: SPACE.sm,
+    marginHorizontal: GUTTER,
+    marginBottom: SPACE.lg,
+    paddingVertical: SPACE.sm + 2,
+    paddingHorizontal: SPACE.md,
+    borderRadius: RADIUS.md,
     backgroundColor: '#ECFDF3',
   },
   mOfferText: {
@@ -1403,14 +1404,14 @@ const styles = StyleSheet.create({
     color: '#166534',
   },
   mShelf: {
-    paddingHorizontal: 16,
-    gap: 12,
+    paddingHorizontal: GUTTER,
+    gap: SPACE.md,
   },
   mPopularGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: GUTTER,
   },
   mLocationRow: {
     flexDirection: 'row',
@@ -1469,19 +1470,19 @@ const styles = StyleSheet.create({
   // Header ends in soft rounded corners over the white page; it stays
   // with the search bar when it sticks to the top.
   mSearchWrap: {
-    paddingHorizontal: 16,
-    paddingTop: 6,
-    paddingBottom: 18,
-    marginBottom: 12,
+    paddingHorizontal: GUTTER,
+    paddingTop: SPACE.xs,
+    paddingBottom: SPACE.lg,
+    marginBottom: SPACE.lg,
     backgroundColor: HEADER_BG,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
+    borderBottomLeftRadius: SPACE.xl,
+    borderBottomRightRadius: SPACE.xl,
   },
   liveCard: {
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 14,
-    borderRadius: 20,
+    marginHorizontal: GUTTER,
+    marginBottom: SPACE.md,
+    padding: SPACE.md,
+    borderRadius: RADIUS.lg,
     backgroundColor: '#FFFFFF',
     borderWidth: 1,
     borderColor: '#F1F1F3',
@@ -1615,7 +1616,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 6,
-    marginTop: 10,
+    marginTop: SPACE.md,
   },
   mDot: {
     width: 6,
@@ -1629,11 +1630,11 @@ const styles = StyleSheet.create({
   },
   mTrustRow: {
     flexDirection: 'row',
-    marginHorizontal: 16,
-    marginTop: 18,
+    marginHorizontal: GUTTER,
+    marginTop: SPACE.lg,
     backgroundColor: '#F9FAFB',
-    borderRadius: 16,
-    paddingVertical: 14,
+    borderRadius: RADIUS.lg,
+    paddingVertical: SPACE.md,
   },
   mTrustItem: {
     flex: 1,
@@ -1662,19 +1663,19 @@ const styles = StyleSheet.create({
   mSectionHeader: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    paddingHorizontal: 16,
-    marginTop: 28,
-    marginBottom: 12,
-    gap: 12,
+    paddingHorizontal: GUTTER,
+    marginTop: SPACE.xl,
+    marginBottom: SPACE.md,
+    gap: SPACE.md,
   },
   mSectionTitle: {
-    fontSize: 23,
+    fontSize: TYPE.title,
     fontFamily: FONT.display,
     color: '#111111',
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
   },
   mSectionSub: {
-    fontSize: 13,
+    fontSize: TYPE.body,
     fontFamily: FONT.medium,
     color: '#6B7280',
     marginTop: 2,
@@ -1687,13 +1688,14 @@ const styles = StyleSheet.create({
   mCategoryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 11,
-    marginBottom: 4,
+    // tiles' own 5pt side padding brings their edges to the 21pt gutter
+    paddingHorizontal: GUTTER - SPACE.xs,
+    marginBottom: 0,
   },
   mCategoryItem: {
     width: '25%',
-    paddingHorizontal: 5,
-    marginBottom: 14,
+    paddingHorizontal: SPACE.xs,
+    marginBottom: SPACE.md,
     alignItems: 'center',
   },
   // Squircle-ish tile in the category's tint; the plate fills it.
@@ -1723,8 +1725,8 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   mCategoryLabel: {
-    marginTop: 7,
-    fontSize: 12.5,
+    marginTop: SPACE.sm,
+    fontSize: TYPE.body,
     lineHeight: 16,
     fontFamily: FONT.bold,
     letterSpacing: -0.1,
@@ -2832,10 +2834,10 @@ const styles = StyleSheet.create({
   },
   /* Jhatka promise card */
   promiseCard: {
-    marginHorizontal: 16,
-    marginTop: 26,
-    paddingTop: 22,
-    borderRadius: 24,
+    marginHorizontal: GUTTER,
+    marginTop: SPACE.xl,
+    paddingTop: SPACE.lg,
+    borderRadius: RADIUS.lg,
     overflow: 'hidden',
     backgroundColor: '#F7EFE6',
   },

@@ -1,43 +1,52 @@
 import { useState } from 'react';
-import { FONT } from '../constants/fonts';
-import { View, Text, StyleSheet, Animated, Image, useWindowDimensions, Pressable } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Animated,
+  Image,
+  Pressable,
+  TouchableOpacity,
+  useWindowDimensions,
+  Platform,
+} from 'react-native';
 import { router } from 'expo-router';
+import { BlurView } from 'expo-blur';
 import { PRODUCTS } from '../data/mockData';
 import { useStore, defaultCutFor } from '../store/useStore';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { haptic } from '../utils/haptics';
-import { PressableScale, useBump } from './motion';
-import { AppIcon, PlusSignIcon } from './HugeIcon';
+import { PressableScale, PopIn, useBump } from './motion';
+import { AppIcon, PlusSignIcon, MinusSignIcon } from './HugeIcon';
+import { FONT } from '../constants/fonts';
+import { GUTTER, PHI, RADIUS, SPACE, TYPE } from '../constants/layout';
 import type { Product } from '../types';
 
-// "The butcher's cuts": an editorial, image-led carousel between the
-// promise card and the shelves.
-//  · Large portrait cards with a peek of the next one, snapping per card.
-//  · The centred card is full size; its neighbours sit back (scale, dim).
-//  · Photos move slower than their cards (parallax), so the row has depth.
-//  · A thin progress line under the row tracks the scroll.
-// Tap a card for the product; the round + adds the usual cut to the basket.
+// "Today's fresh cuts": large photo cards with motion, dressed in the app's
+// own language.
+//  · Full-bleed photo; the centred card is full size, neighbours sit back
+//    (scale + soft white veil) and photos drift slower than their cards.
+//  · A white glass panel at the bottom carries the name (display font),
+//    one line, price and the same ADD / stepper as the shop.
+//  · Card proportions follow √φ (1 : 1.272), spacing the φ scale.
 
-const PICKS: { id: string; eyebrow: string; line: string }[] = [
-  { id: 'c3', eyebrow: 'Chicken', line: 'Juicy and bone-in. Made for tandoori and roasts.' },
-  { id: 'm5', eyebrow: 'Mutton', line: 'Tender boneless pieces for korma and kebabs.' },
-  { id: 'f2', eyebrow: 'Fish', line: 'Katla, cleaned and cut into curry steaks.' },
-  { id: 'c7', eyebrow: 'Chicken', line: 'Lean cubes for tikka, stir-fry and biryani.' },
-  { id: 'm2', eyebrow: 'Mutton', line: 'Bone-in and cut big, the way biryani needs it.' },
+const PICKS: { id: string; tag: string; line: string }[] = [
+  { id: 'c3', tag: 'Chicken', line: 'Juicy and bone-in. Made for tandoori and roasts.' },
+  { id: 'm5', tag: 'Mutton', line: 'Tender boneless pieces for korma and kebabs.' },
+  { id: 'f2', tag: 'Fish', line: 'Katla, cleaned and cut into curry steaks.' },
+  { id: 'c7', tag: 'Chicken', line: 'Lean cubes for tikka, stir-fry and biryani.' },
+  { id: 'm2', tag: 'Mutton', line: 'Bone-in and cut big, the way biryani needs it.' },
 ];
 
-const GAP = 12;
-const SIDE = 16;
 const RED = '#DC2626';
-
 const shortName = (name: string) => name.replace(/\s*\(.*?\)\s*/g, ' ').trim();
 
 export function CutsShowcase() {
   const { width: screenW } = useWindowDimensions();
   const viewW = Math.min(screenW, 768);
   const cardW = Math.round(viewW * 0.7);
-  const cardH = Math.round(cardW * 1.28);
-  const step = cardW + GAP;
+  const cardH = Math.round(cardW * Math.sqrt(PHI)); // √φ ≈ 1.272
+  const step = cardW + SPACE.md;
   const [scrollX] = useState(() => new Animated.Value(0));
 
   const items = PICKS.map((p) => ({ ...p, product: PRODUCTS.find((x) => x.id === p.id) })).filter(
@@ -45,7 +54,7 @@ export function CutsShowcase() {
   );
   if (items.length === 0) return null;
 
-  const TRACK = 72;
+  const TRACK = 55;
   const thumbW = TRACK / items.length;
   const thumbX = scrollX.interpolate({
     inputRange: [0, Math.max(1, (items.length - 1) * step)],
@@ -55,11 +64,10 @@ export function CutsShowcase() {
 
   return (
     <View style={styles.wrap}>
+      {/* Same header pattern as every other home section */}
       <View style={styles.head}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.kicker}>HAND-CUT TO ORDER</Text>
-          <Text style={styles.title}>The butcher’s cuts</Text>
-        </View>
+        <Text style={styles.title}>Today’s fresh cuts</Text>
+        <Text style={styles.sub}>Cut fresh to order, packed cold</Text>
       </View>
 
       <Animated.ScrollView
@@ -68,7 +76,7 @@ export function CutsShowcase() {
         snapToInterval={step}
         decelerationRate="fast"
         disableIntervalMomentum
-        contentContainerStyle={{ paddingHorizontal: SIDE, gap: GAP }}
+        contentContainerStyle={{ paddingHorizontal: GUTTER, gap: SPACE.md }}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], { useNativeDriver: true })}
       >
@@ -92,7 +100,7 @@ function CutCard({
   h,
   scrollX,
 }: {
-  item: { id: string; eyebrow: string; line: string; product: Product };
+  item: { id: string; tag: string; line: string; product: Product };
   index: number;
   step: number;
   w: number;
@@ -100,28 +108,29 @@ function CutCard({
   scrollX: Animated.Value;
 }) {
   const { product } = item;
-  const qty = useStore((s) => s.cart.filter((c) => c.product.id === product.id).reduce((n, c) => n + c.quantity, 0));
+  const cartItem = useStore((s) => s.cart.find((c) => c.product.id === product.id));
+  const qty = cartItem?.quantity ?? 0;
   const soldOut = useStore((s) => {
     const inv = s.inventory[product.id];
     return inv ? !inv.inStock || inv.stockKg <= 0 : false;
   });
   const addToCart = useStore((s) => s.addToCart);
-  const bump = useBump(qty, 1.25);
+  const updateQuantity = useStore((s) => s.updateQuantity);
+  const bump = useBump(qty);
 
   const input = [(index - 1) * step, index * step, (index + 1) * step];
   const scale = scrollX.interpolate({ inputRange: input, outputRange: [0.9, 1, 0.9], extrapolate: 'clamp' });
-  const lift = scrollX.interpolate({ inputRange: input, outputRange: [10, 0, 10], extrapolate: 'clamp' });
-  const dim = scrollX.interpolate({ inputRange: input, outputRange: [0.35, 0, 0.35], extrapolate: 'clamp' });
+  const lift = scrollX.interpolate({ inputRange: input, outputRange: [SPACE.sm, 0, SPACE.sm], extrapolate: 'clamp' });
+  const veil = scrollX.interpolate({ inputRange: input, outputRange: [0.4, 0, 0.4], extrapolate: 'clamp' });
   const parallax = scrollX.interpolate({
     inputRange: input,
     outputRange: [-w * 0.14, 0, w * 0.14],
     extrapolate: 'clamp',
   });
-  const copyY = scrollX.interpolate({ inputRange: input, outputRange: [14, 0, 14], extrapolate: 'clamp' });
-  const copyOpacity = scrollX.interpolate({ inputRange: input, outputRange: [0.5, 1, 0.5], extrapolate: 'clamp' });
+  const panelY = scrollX.interpolate({ inputRange: input, outputRange: [SPACE.md, 0, SPACE.md], extrapolate: 'clamp' });
+  const mrp = product.originalPrice && product.originalPrice > product.basePrice ? product.originalPrice : 0;
 
   const add = () => {
-    if (soldOut) return;
     haptic.tap();
     addToCart(product, defaultCutFor(product), true, 1);
   };
@@ -130,9 +139,9 @@ function CutCard({
     <Animated.View style={{ width: w, height: h, transform: [{ translateY: lift }, { scale }] }}>
       <PressableScale
         style={[styles.card, { width: w, height: h }]}
-        scaleTo={0.97}
+        scaleTo={0.98}
         onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
-        accessibilityRole="button"
+        accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
         accessibilityLabel={`${shortName(product.name)}, ₹${product.basePrice}. ${item.line}`}
       >
         {/* Photo, wider than the card so it can drift (parallax) */}
@@ -150,56 +159,82 @@ function CutCard({
           />
         </Animated.View>
 
-        {/* Bottom scrim, built from stacked bands so it needs no gradient lib */}
-        <View pointerEvents="none" style={styles.scrim}>
-          {[0.0, 0.12, 0.28, 0.44, 0.58, 0.7, 0.8].map((o, k) => (
-            <View key={k} style={{ flex: 1, backgroundColor: `rgba(12,6,4,${o})` }} />
-          ))}
+        <View style={styles.tag}>
+          <Text style={styles.tagText}>{item.tag}</Text>
         </View>
 
-        {/* Neighbours sit back */}
-        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.dim, { opacity: dim }]} />
-
-        <View style={styles.chip}>
-          <Text style={styles.chipText}>{item.eyebrow.toUpperCase()}</Text>
-        </View>
-
-        <Animated.View style={[styles.copy, { opacity: copyOpacity, transform: [{ translateY: copyY }] }]}>
-          <Text style={styles.name} numberOfLines={2}>
-            {shortName(product.name)}
-          </Text>
-          <Text style={styles.line} numberOfLines={2}>
-            {item.line}
-          </Text>
-          <View style={styles.bottomRow}>
-            <Text style={styles.price}>
-              ₹{product.basePrice}
-              <Text style={styles.weight}> · {product.netWeight}</Text>
+        {/* Liquid glass panel: blur of the photo behind, a light tint, a
+            bright rim on top and a soft inner sheen, floating on a shadow */}
+        <Animated.View style={[styles.panelShadow, { transform: [{ translateY: panelY }] }]}>
+          <View style={styles.panel}>
+            <BlurView
+              intensity={55}
+              tint="light"
+              blurMethod={Platform.OS === 'android' ? 'dimezisBlurViewSdk31Plus' : undefined}
+              style={StyleSheet.absoluteFill}
+            />
+            <View pointerEvents="none" style={styles.glassTint} />
+            <View pointerEvents="none" style={styles.sheen}>
+              {[0.42, 0.28, 0.16, 0.07, 0].map((o, k) => (
+                <View key={k} style={{ flex: 1, backgroundColor: `rgba(255,255,255,${o})` }} />
+              ))}
+            </View>
+            <View pointerEvents="none" style={styles.rim} />
+            <Text style={styles.name} numberOfLines={1}>
+              {shortName(product.name)}
             </Text>
-            {/* the real + button sits above the card (no button inside a button) */}
-            <View style={styles.addSpace} />
+            <Text style={styles.line} numberOfLines={2}>
+              {item.line}
+            </Text>
+            <View style={styles.priceRow}>
+              <Text style={styles.price}>₹{product.basePrice}</Text>
+              {!!mrp && <Text style={styles.mrp}>₹{mrp}</Text>}
+              <Text style={styles.weight}>· {product.netWeight}</Text>
+            </View>
           </View>
         </Animated.View>
+
+        {/* Neighbours sit back */}
+        <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.veil, { opacity: veil }]} />
       </PressableScale>
 
-      <Animated.View style={[styles.addSlot, { opacity: copyOpacity, transform: [{ translateY: copyY }] }]}>
-        <Pressable
-          onPress={add}
-          disabled={soldOut}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={soldOut ? `${shortName(product.name)} is sold out` : `Add ${shortName(product.name)}`}
-        >
-          <Animated.View style={[styles.addBtn, soldOut && styles.addOff, { transform: [{ scale: bump }] }]}>
-            {soldOut ? (
-              <Text style={styles.soldOut}>Sold out</Text>
-            ) : qty > 0 ? (
-              <Text style={styles.qty}>{qty}</Text>
-            ) : (
-              <AppIcon icon={PlusSignIcon} size={18} color={RED} strokeWidth={2.6} />
-            )}
-          </Animated.View>
-        </Pressable>
+      {/* ADD / stepper (same as the shop), outside the card's press area */}
+      <Animated.View style={[styles.action, { transform: [{ translateY: panelY }] }]}>
+        {soldOut ? (
+          <View style={styles.soldOut}>
+            <Text style={styles.soldOutText}>Sold out</Text>
+          </View>
+        ) : qty > 0 ? (
+          <PopIn key="stepper" style={styles.stepper}>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => {
+                haptic.tap();
+                if (cartItem) updateQuantity(cartItem.cartItemId, -1);
+              }}
+              accessibilityLabel={`One less ${shortName(product.name)}`}
+            >
+              <AppIcon icon={MinusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
+            </TouchableOpacity>
+            <Animated.Text style={[styles.stepQty, { transform: [{ scale: bump }] }]}>{qty}</Animated.Text>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              onPress={() => {
+                haptic.tap();
+                if (cartItem) updateQuantity(cartItem.cartItemId, 1);
+              }}
+              accessibilityLabel={`One more ${shortName(product.name)}`}
+            >
+              <AppIcon icon={PlusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
+            </TouchableOpacity>
+          </PopIn>
+        ) : (
+          <PopIn key="add">
+            <Pressable style={styles.addBtn} onPress={add} accessibilityLabel={`Add ${shortName(product.name)}`}>
+              <Text style={styles.addText}>ADD</Text>
+            </Pressable>
+          </PopIn>
+        )}
       </Animated.View>
     </Animated.View>
   );
@@ -207,131 +242,197 @@ function CutCard({
 
 const styles = StyleSheet.create({
   wrap: {
-    marginTop: 26,
-    marginBottom: 8,
+    marginTop: SPACE.xl,
   },
   head: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: SIDE,
-    marginBottom: 14,
-  },
-  kicker: {
-    fontSize: 11,
-    fontFamily: FONT.heavy,
-    letterSpacing: 1.6,
-    color: RED,
+    paddingHorizontal: GUTTER,
+    marginBottom: SPACE.md,
   },
   title: {
-    fontSize: 26,
+    fontSize: TYPE.title,
     fontFamily: FONT.display,
-    letterSpacing: -0.6,
+    letterSpacing: -0.5,
     color: '#111111',
-    marginTop: 3,
+  },
+  sub: {
+    fontSize: TYPE.body,
+    fontFamily: FONT.medium,
+    color: '#6B7280',
+    marginTop: 2,
   },
   card: {
-    borderRadius: 26,
+    borderRadius: RADIUS.lg + 4,
     overflow: 'hidden',
-    backgroundColor: '#1C1C1E',
+    backgroundColor: '#F4F4F6',
   },
-  scrim: {
+  tag: {
     position: 'absolute',
+    top: SPACE.md,
+    left: SPACE.md,
+    paddingHorizontal: SPACE.sm + 2,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.94)',
+  },
+  tagText: {
+    fontSize: TYPE.micro,
+    fontFamily: FONT.heavy,
+    color: '#B91C1C',
+    letterSpacing: 0.3,
+  },
+  panelShadow: {
+    position: 'absolute',
+    left: SPACE.sm,
+    right: SPACE.sm,
+    bottom: SPACE.sm,
+    borderRadius: RADIUS.lg,
+    shadowColor: '#1A0A06',
+    shadowOffset: { width: 0, height: SPACE.sm },
+    shadowOpacity: 0.18,
+    shadowRadius: SPACE.lg,
+    elevation: 6,
+  },
+  panel: {
+    borderRadius: RADIUS.lg,
+    overflow: 'hidden',
+    paddingHorizontal: SPACE.md,
+    paddingTop: SPACE.md - 1,
+    paddingBottom: SPACE.md - 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.55)',
+    // Fallback where blur isn't available (and on web with backdrop-filter).
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    ...(Platform.OS === 'web'
+      ? ({ backdropFilter: 'blur(22px) saturate(180%)', WebkitBackdropFilter: 'blur(22px) saturate(180%)' } as object)
+      : {}),
+  },
+  // Light tint so dark text stays readable over any photo.
+  glassTint: {
+    position: 'absolute',
+    top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    height: '64%',
+    backgroundColor: 'rgba(255,255,255,0.42)',
   },
-  dim: {
-    backgroundColor: '#FFFFFF',
-  },
-  chip: {
+  // Soft light falling from the top edge.
+  sheen: {
     position: 'absolute',
-    top: 14,
-    left: 14,
-    paddingHorizontal: 10,
-    height: 26,
-    borderRadius: 13,
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.88)',
+    left: 0,
+    right: 0,
+    top: 0,
+    height: '55%',
   },
-  chipText: {
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-    color: '#111111',
-  },
-  copy: {
+  // Bright specular rim along the top, like light catching glass.
+  rim: {
     position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 16,
+    left: SPACE.md,
+    right: SPACE.md,
+    top: 0,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.95)',
   },
   name: {
-    fontSize: 26,
+    fontSize: TYPE.lead + 2,
     fontFamily: FONT.display,
-    letterSpacing: -0.6,
-    lineHeight: 27,
-    color: '#FFFFFF',
+    letterSpacing: -0.4,
+    color: '#111111',
   },
   line: {
-    fontSize: 13.5,
-    lineHeight: 18,
-    color: 'rgba(255,255,255,0.82)',
-    marginTop: 6,
+    fontSize: 12.5,
+    lineHeight: 17,
+    fontFamily: FONT.medium,
+    color: '#6B7280',
+    marginTop: SPACE.xxs,
   },
-  bottomRow: {
+  priceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 14,
+    alignItems: 'baseline',
+    gap: SPACE.xs,
+    marginTop: SPACE.sm,
+    paddingRight: 76, // room for ADD
+    minHeight: 30,
   },
   price: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#FFFFFF',
+    fontSize: TYPE.lead,
+    fontFamily: FONT.heavy,
+    color: '#111111',
+  },
+  mrp: {
+    fontSize: 12,
+    fontFamily: FONT.medium,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
   },
   weight: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.75)',
+    fontSize: 12,
+    fontFamily: FONT.medium,
+    color: '#6B7280',
   },
-  addSpace: {
-    width: 42,
-    height: 42,
+  veil: {
+    backgroundColor: '#FFFFFF',
   },
-  addSlot: {
+  action: {
     position: 'absolute',
-    right: 16,
-    bottom: 16,
+    right: SPACE.sm + SPACE.md,
+    bottom: SPACE.sm + SPACE.md - 2,
   },
   addBtn: {
-    minWidth: 42,
-    height: 42,
-    borderRadius: 21,
-    paddingHorizontal: 12,
+    minWidth: 64,
+    height: 32,
+    paddingHorizontal: 14,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: RED,
     backgroundColor: '#FFFFFF',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  addOff: {
-    backgroundColor: 'rgba(255,255,255,0.7)',
-  },
-  qty: {
-    fontSize: 16,
-    fontWeight: '800',
+  addText: {
     color: RED,
+    fontSize: TYPE.body,
+    fontFamily: FONT.heavy,
+    letterSpacing: 0.3,
+  },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 32,
+    borderRadius: 9,
+    backgroundColor: RED,
+  },
+  stepBtn: {
+    width: 28,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepQty: {
+    minWidth: 14,
+    textAlign: 'center',
+    color: '#FFFFFF',
+    fontSize: TYPE.body,
+    fontFamily: FONT.heavy,
   },
   soldOut: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+  },
+  soldOutText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
     color: '#6B7280',
   },
   progressTrack: {
     alignSelf: 'center',
-    width: 72,
+    width: 55,
     height: 4,
     borderRadius: 2,
-    marginTop: 16,
+    marginTop: SPACE.md,
     backgroundColor: '#E5E7EB',
     overflow: 'hidden',
   },
