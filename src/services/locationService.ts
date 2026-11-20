@@ -1,6 +1,6 @@
 import * as Location from 'expo-location';
 import { Platform } from 'react-native';
-import { Coordinates, LocationData, MAGICMEAT_HUBS } from '../types/location';
+import { Coordinates, LocationData, MAGICMEAT_HUBS, SERVICE_CITY, SERVICE_PIN, SERVICE_STATE } from '../types/location';
 
 // Haversine Formula for exact distance calculation in KM
 export function calculateDistanceKm(c1: Coordinates, c2: Coordinates): number {
@@ -35,13 +35,10 @@ export function evaluateHubServiceability(coords: Coordinates) {
 
   return {
     nearestHubName: nearest.name,
-    distanceKm: minDistance,
-    isServiceable: true,
-    deliveryEta: isExpress
-      ? '15–20 mins'
-      : isStandard
-        ? '30-45 Mins (Standard Slot)'
-        : '45-60 Mins (Special Cold Delivery)',
+    distanceKm: Math.round(minDistance * 10) / 10,
+    // Only Hazaribagh: beyond the standard radius we don't deliver.
+    isServiceable: isStandard,
+    deliveryEta: isExpress ? '15–20 mins' : isStandard ? '45–60 mins' : 'Not delivering here yet',
   };
 }
 
@@ -288,110 +285,34 @@ export async function detectDeviceLocation(): Promise<LocationData> {
   };
 }
 
-// Popular Searchable Places for Instant Autocomplete
+// Hazaribagh neighbourhoods for quick search (approximate area centres;
+// the rider still gets the customer's own GPS pin when they share it).
+function area(name: string, latitude: number, longitude: number): LocationData {
+  const coords = { latitude, longitude };
+  const svc = evaluateHubServiceability(coords);
+  return {
+    shortAddress: `${name}, ${SERVICE_CITY}`,
+    fullAddress: `${name}, ${SERVICE_CITY}, ${SERVICE_STATE} ${SERVICE_PIN}, India`,
+    city: SERVICE_CITY,
+    state: SERVICE_STATE,
+    postalCode: SERVICE_PIN,
+    coords,
+    isServiceable: svc.isServiceable,
+    nearestHubName: svc.nearestHubName,
+    distanceKm: svc.distanceKm,
+    deliveryEta: svc.deliveryEta,
+  };
+}
+
 export const POPULAR_LOCATIONS: LocationData[] = [
-  {
-    shortAddress: 'Khandel Road, Bilaspur',
-    fullAddress: 'Roop Vihar, 4523+VFV, Khandel Rd, Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh 495006',
-    city: 'Bilaspur',
-    state: 'Chhattisgarh',
-    postalCode: '495006',
-    coords: { latitude: 22.0797, longitude: 82.1409 },
-    isServiceable: true,
-    nearestHubName: 'Bilaspur Butchery Hub (Sarkanda)',
-    distanceKm: 0.6,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
-  {
-    shortAddress: 'Atal Nagar, Raipur',
-    fullAddress: 'Sector 24, Near IIIT Naya Raipur, Atal Nagar, Chhattisgarh 492018',
-    city: 'Raipur',
-    state: 'Chhattisgarh',
-    postalCode: '492018',
-    coords: { latitude: 21.15, longitude: 81.77 },
-    isServiceable: true,
-    nearestHubName: 'Naya Raipur Express Hub (Atal Nagar)',
-    distanceKm: 1.2,
-    deliveryEta: '15–20 mins',
-    tag: 'Work',
-  },
-  {
-    shortAddress: 'Civil Lines, Raipur',
-    fullAddress: 'LK Corporate Tower, Civil Lines, Raipur, Chhattisgarh 492001',
-    city: 'Raipur',
-    state: 'Chhattisgarh',
-    postalCode: '492001',
-    coords: { latitude: 21.2514, longitude: 81.6296 },
-    isServiceable: true,
-    nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-    distanceKm: 0.4,
-    deliveryEta: '15–20 mins',
-    tag: 'Work',
-  },
-  {
-    shortAddress: 'Bellandur, Bengaluru',
-    fullAddress: 'Flat 402, Green Glen Orchid, Bellandur, Bengaluru 560103',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    postalCode: '560103',
-    coords: { latitude: 12.9304, longitude: 77.6784 },
-    isServiceable: true,
-    nearestHubName: 'Bengaluru East Express Hub (Indiranagar / Bellandur)',
-    distanceKm: 1.8,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
-  {
-    shortAddress: 'Devendra Nagar, Raipur',
-    fullAddress: 'B-12, Sector 4, Devendra Nagar, Raipur, Chhattisgarh 492004',
-    city: 'Raipur',
-    state: 'Chhattisgarh',
-    postalCode: '492004',
-    coords: { latitude: 21.2612, longitude: 81.6421 },
-    isServiceable: true,
-    nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-    distanceKm: 2.1,
-    deliveryEta: '15–20 mins',
-    tag: 'Other',
-  },
-  {
-    shortAddress: 'Indiranagar 100ft Rd, Bengaluru',
-    fullAddress: '12th Main Rd, HAL 2nd Stage, Indiranagar, Bengaluru 560038',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    postalCode: '560038',
-    coords: { latitude: 12.9719, longitude: 77.6412 },
-    isServiceable: true,
-    nearestHubName: 'Bengaluru East Express Hub (Indiranagar / Bellandur)',
-    distanceKm: 1.2,
-    deliveryEta: '15–20 mins',
-    tag: 'Work',
-  },
-  {
-    shortAddress: 'Bandra West, Mumbai',
-    fullAddress: 'Hill Road, Bandra West, Mumbai, Maharashtra 400050',
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    postalCode: '400050',
-    coords: { latitude: 19.0553, longitude: 72.8331 },
-    isServiceable: true,
-    nearestHubName: 'Mumbai Coastal Butchery Hub (Bandra BKC)',
-    distanceKm: 1.4,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
-  {
-    shortAddress: 'Koregaon Park, Pune',
-    fullAddress: 'Lane 7, Koregaon Park, Pune, Maharashtra 411001',
-    city: 'Pune',
-    state: 'Maharashtra',
-    postalCode: '411001',
-    coords: { latitude: 18.5362, longitude: 73.894 },
-    isServiceable: true,
-    nearestHubName: 'Pune Green Pastures Hub (Koregaon Park)',
-    distanceKm: 0.9,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
+  area('Jhanda Chowk', 23.994, 85.361),
+  area('Matwari', 23.9985, 85.356),
+  area('Korrah', 23.983, 85.372),
+  area('Babugaon', 24.001, 85.365),
+  area('Indrapuri Chowk', 23.989, 85.354),
+  area('Kolghatti', 23.9975, 85.37),
+  area('Pagmil', 24.006, 85.358),
+  area('Canary Hill Road', 24.0045, 85.38),
+  area('Lakhe', 23.976, 85.353),
+  area('Sindoor', 23.97, 85.376),
 ];

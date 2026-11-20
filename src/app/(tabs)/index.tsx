@@ -600,7 +600,7 @@ export default function HomeScreen() {
               <Text style={styles.top10Heading}>Bestsellers</Text>
               <View style={styles.top10LocationSub}>
                 <AppIcon icon={Location01Icon} size={13} color="#B45309" strokeWidth={2.5} />
-                <Text style={styles.top10CityText}>In {currentLocation.city || 'Raipur'}</Text>
+                <Text style={styles.top10CityText}>In {currentLocation.city || 'Hazaribagh'}</Text>
               </View>
             </View>
 

@@ -16,7 +16,7 @@ import { haptic } from '../utils/haptics';
 import { notify, confirmAction } from '../utils/dialogs';
 import { goBack } from '../utils/navigation';
 import { PICKUP_ENABLED } from '../constants/features';
-import { LocationData, MAGICMEAT_HUBS, DarkStoreHub } from '../types/location';
+import { LocationData, MAGICMEAT_HUBS, DarkStoreHub, SERVICE_CITY, SERVICE_PIN, SERVICE_STATE } from '../types/location';
 import { detectDeviceLocation, POPULAR_LOCATIONS } from '../services/locationService';
 import {
   AppIcon,
@@ -71,7 +71,7 @@ export default function LocationSelectScreen() {
   // New Address Form State
   const [newTitle, setNewTitle] = useState('');
   const [newAddress, setNewAddress] = useState('');
-  const [newCity, setNewCity] = useState('Raipur');
+  const [newCity, setNewCity] = useState(SERVICE_CITY);
   const [newTag, setNewTag] = useState<'Home' | 'Work' | 'Other'>('Home');
 
   // Store Pickup Search
@@ -134,11 +134,13 @@ export default function LocationSelectScreen() {
       shortAddress: newTitle.trim(),
       fullAddress: [newAddress.trim(), newCity.trim()].filter(Boolean).join(', '),
       city: newCity.trim(),
-      state: 'Chhattisgarh',
-      coords: { latitude: 21.2514, longitude: 81.6296 },
-      isServiceable: true,
-      nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-      distanceKm: 2.5,
+      state: SERVICE_STATE,
+      postalCode: SERVICE_PIN,
+      // Typed address: we only know the town, so use the hub's area.
+      coords: MAGICMEAT_HUBS[0].coords,
+      isServiceable: newCity.trim().toLowerCase().includes(SERVICE_CITY.toLowerCase()),
+      nearestHubName: MAGICMEAT_HUBS[0].name,
+      distanceKm: 0,
       deliveryEta: '15–20 mins',
       tag: newTag,
     };
