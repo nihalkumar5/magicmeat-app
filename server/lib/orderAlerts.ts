@@ -30,7 +30,8 @@ function mapLink(order: Order): string {
 }
 
 async function sendEmail(orderId: string, order: Order): Promise<string> {
-  const key = process.env.RESEND_API_KEY;
+  // RESEND_APT_KEY: the name the key was first saved under in Vercel.
+  const key = process.env.RESEND_API_KEY || process.env.RESEND_APT_KEY;
   const to = process.env.ORDER_ALERT_EMAIL;
   if (!key || !to) return 'email:off';
   const label = orderLabel(orderId);
