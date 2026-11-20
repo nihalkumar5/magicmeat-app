@@ -213,7 +213,11 @@ export default function CartScreen() {
                   <View style={styles.stepper}>
                     <TouchableOpacity
                       style={styles.stepBtn}
-                      onPress={() => updateQuantity(item.cartItemId, -1)}
+                      onPress={() => {
+                        if (item.quantity === 1) haptic.warn();
+                        else haptic.tap();
+                        updateQuantity(item.cartItemId, -1);
+                      }}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 4 }}
                       accessibilityLabel={
                         item.quantity === 1 ? `Remove ${item.product.name}` : `One less ${item.product.name}`
@@ -229,7 +233,10 @@ export default function CartScreen() {
                     <Text style={styles.stepQty}>{item.quantity}</Text>
                     <TouchableOpacity
                       style={styles.stepBtn}
-                      onPress={() => updateQuantity(item.cartItemId, 1)}
+                      onPress={() => {
+                        haptic.tap();
+                        updateQuantity(item.cartItemId, 1);
+                      }}
                       hitSlop={{ top: 8, bottom: 8, left: 4, right: 8 }}
                       accessibilityLabel={`One more ${item.product.name}`}
                     >

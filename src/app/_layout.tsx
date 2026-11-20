@@ -8,6 +8,7 @@ import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { DialogHost } from '../components/DialogHost';
+import { onOrderNotificationTap, registerForPush } from '../services/notifications';
 import { useFonts } from 'expo-font';
 import { FONT_ASSETS } from '../constants/fonts';
 import {
@@ -58,6 +59,12 @@ export default function RootLayout() {
     }
   }, []);
 
+  // Tapping an order notification opens that order.
+  useEffect(
+    () => onOrderNotificationTap((id) => router.push({ pathname: '/order-tracking/[id]', params: { id } })),
+    []
+  );
+
   // Live coupons (offers strip, checkout, admin).
   useEffect(() => subscribeCoupons((coupons) => useStore.setState({ coupons })), []);
 
@@ -102,6 +109,8 @@ export default function RootLayout() {
       const admin = isPhoneUser(user) ? false : await isAdmin(user.uid);
       useStore.setState({ uid: user.uid, isAdmin: admin, authState: 'in' });
       if (isPhoneUser(user)) {
+        // Order updates and offers by push (asks once; native only).
+        registerForPush(user.uid);
         // Saved items follow the account. First snapshot: merge what this
         // phone had with what the account has, and store the union.
         let firstWishlist = true;

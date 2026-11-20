@@ -12,14 +12,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { haptic } from '../utils/haptics';
 import { notify, confirmAction } from '../utils/dialogs';
 import { goBack } from '../utils/navigation';
 import { PICKUP_ENABLED } from '../constants/features';
 import { LocationData, MAGICMEAT_HUBS, DarkStoreHub } from '../types/location';
-import {
-  detectDeviceLocation,
-  POPULAR_LOCATIONS,
-} from '../services/locationService';
+import { detectDeviceLocation, POPULAR_LOCATIONS } from '../services/locationService';
 import {
   AppIcon,
   ArrowLeft01Icon,
@@ -64,7 +62,7 @@ export default function LocationSelectScreen() {
   } = useStore();
 
   const [activeMode, setActiveMode] = useState<'delivery' | 'takeaway'>(
-    PICKUP_ENABLED ? orderFulfillment || 'delivery' : 'delivery'
+    PICKUP_ENABLED ? orderFulfillment || 'delivery' : 'delivery',
   );
   const [isDetecting, setIsDetecting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,6 +78,7 @@ export default function LocationSelectScreen() {
   const [storeSearchQuery, setStoreSearchQuery] = useState('');
 
   const handleSelectDeliveryLocation = (loc: LocationData) => {
+    haptic.select();
     setCurrentLocation(loc);
     setOrderFulfillment('delivery');
     goBack();
@@ -105,6 +104,7 @@ export default function LocationSelectScreen() {
   };
 
   const handleUseCurrentLocation = async () => {
+    haptic.tap();
     setIsDetecting(true);
     try {
       const detected = await detectDeviceLocation();
@@ -112,7 +112,7 @@ export default function LocationSelectScreen() {
       if ((detected.accuracyM ?? 0) > 75) {
         notify(
           'Please check your address',
-          `Your location is accurate to about ${detected.accuracyM} m. Make sure the address is right before you order.`
+          `Your location is accurate to about ${detected.accuracyM} m. Make sure the address is right before you order.`,
         );
       }
       setOrderFulfillment('delivery');
@@ -120,10 +120,7 @@ export default function LocationSelectScreen() {
       goBack();
     } catch (err: any) {
       setIsDetecting(false);
-      notify(
-        'Couldn’t find your location',
-        err.message || 'Please allow location access, or pick a saved address.'
-      );
+      notify('Couldn’t find your location', err.message || 'Please allow location access, or pick a saved address.');
     }
   };
 
@@ -149,6 +146,7 @@ export default function LocationSelectScreen() {
     addSavedAddress(created);
     setCurrentLocation(created);
     setOrderFulfillment('delivery');
+    haptic.success();
     setIsAddingNew(false);
     setNewTitle('');
     setNewAddress('');
@@ -160,7 +158,7 @@ export default function LocationSelectScreen() {
       searchQuery.trim() === '' ||
       p.shortAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.fullAddress.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.city.toLowerCase().includes(searchQuery.toLowerCase())
+      p.city.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const filteredHubs = MAGICMEAT_HUBS.filter(
@@ -168,7 +166,7 @@ export default function LocationSelectScreen() {
       storeSearchQuery.trim() === '' ||
       h.name.toLowerCase().includes(storeSearchQuery.toLowerCase()) ||
       h.city.toLowerCase().includes(storeSearchQuery.toLowerCase()) ||
-      (h.address && h.address.toLowerCase().includes(storeSearchQuery.toLowerCase()))
+      (h.address && h.address.toLowerCase().includes(storeSearchQuery.toLowerCase())),
   );
 
   const q = searchQuery.trim().toLowerCase();
@@ -223,7 +221,11 @@ export default function LocationSelectScreen() {
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         {isDeliveryMode ? (
           <>
             {/* Search */}
@@ -239,7 +241,10 @@ export default function LocationSelectScreen() {
                 accessibilityLabel="Search address"
               />
               {!!searchQuery && (
-                <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setSearchQuery('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                   <View style={styles.clearCircle}>
                     <AppIcon icon={Cancel01Icon} size={11} color="#FFFFFF" strokeWidth={3} />
                   </View>
@@ -269,8 +274,12 @@ export default function LocationSelectScreen() {
                             <AppIcon icon={Location01Icon} size={17} color={C.secondary} strokeWidth={2} />
                           </View>
                           <View style={{ flex: 1, minWidth: 0 }}>
-                            <Text style={styles.rowTitle} numberOfLines={1}>{place.shortAddress}</Text>
-                            <Text style={styles.rowSub} numberOfLines={2}>{place.fullAddress}</Text>
+                            <Text style={styles.rowTitle} numberOfLines={1}>
+                              {place.shortAddress}
+                            </Text>
+                            <Text style={styles.rowSub} numberOfLines={2}>
+                              {place.fullAddress}
+                            </Text>
                             {!place.isServiceable && <Text style={styles.notServed}>Not delivering here yet</Text>}
                           </View>
                         </TouchableOpacity>
@@ -312,7 +321,12 @@ export default function LocationSelectScreen() {
                     accessibilityRole="button"
                   >
                     <View style={[styles.tile, { backgroundColor: C.redBg }]}>
-                      <AppIcon icon={isAddingNew ? Cancel01Icon : Add01Icon} size={17} color={C.red} strokeWidth={2.2} />
+                      <AppIcon
+                        icon={isAddingNew ? Cancel01Icon : Add01Icon}
+                        size={17}
+                        color={C.red}
+                        strokeWidth={2.2}
+                      />
                     </View>
                     <Text style={[styles.rowTitle, { color: C.red, flex: 1 }]}>
                       {isAddingNew ? 'Cancel new address' : 'Add a new address'}
@@ -332,7 +346,8 @@ export default function LocationSelectScreen() {
                             style={[styles.tagChip, newTag === tag && styles.tagChipActive]}
                             onPress={() => {
                               setNewTag(tag);
-                              if (!newTitle.trim() || ['Home', 'Work', 'Other'].includes(newTitle.trim())) setNewTitle(tag);
+                              if (!newTitle.trim() || ['Home', 'Work', 'Other'].includes(newTitle.trim()))
+                                setNewTitle(tag);
                             }}
                           >
                             <Text style={[styles.tagChipText, newTag === tag && { color: '#FFFFFF' }]}>{tag}</Text>
@@ -404,16 +419,25 @@ export default function LocationSelectScreen() {
                                 accessibilityLabel={`Deliver to ${item.shortAddress}`}
                               >
                                 <View style={[styles.tile, { backgroundColor: selected ? C.red : C.bg }]}>
-                                  <AppIcon icon={TagIcon} size={17} color={selected ? '#FFFFFF' : C.secondary} strokeWidth={2} />
+                                  <AppIcon
+                                    icon={TagIcon}
+                                    size={17}
+                                    color={selected ? '#FFFFFF' : C.secondary}
+                                    strokeWidth={2}
+                                  />
                                 </View>
                                 <View style={{ flex: 1, minWidth: 0 }}>
                                   <View style={styles.titleLine}>
-                                    <Text style={styles.rowTitle} numberOfLines={1}>{item.shortAddress}</Text>
+                                    <Text style={styles.rowTitle} numberOfLines={1}>
+                                      {item.shortAddress}
+                                    </Text>
                                     {!!item.tag && item.tag !== item.shortAddress && (
                                       <Text style={styles.tag}>{item.tag}</Text>
                                     )}
                                   </View>
-                                  <Text style={styles.rowSub} numberOfLines={2}>{item.fullAddress}</Text>
+                                  <Text style={styles.rowSub} numberOfLines={2}>
+                                    {item.fullAddress}
+                                  </Text>
                                   {item.isServiceable === false ? (
                                     <Text style={styles.notServed}>Not delivering here yet</Text>
                                   ) : (
@@ -429,7 +453,7 @@ export default function LocationSelectScreen() {
                                       'Delete address?',
                                       `“${item.shortAddress}” will be removed from your saved addresses.`,
                                       'Delete',
-                                      () => removeSavedAddress(item.shortAddress)
+                                      () => removeSavedAddress(item.shortAddress),
                                     )
                                   }
                                   hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
@@ -459,8 +483,8 @@ export default function LocationSelectScreen() {
             </View>
             <Text style={styles.soonTitle}>Store pickup is coming soon</Text>
             <Text style={styles.soonSub}>
-              We’re renovating our stores to serve you better. Until then, we’ll bring your order to your door in
-              15–20 minutes.
+              We’re renovating our stores to serve you better. Until then, we’ll bring your order to your door in 15–20
+              minutes.
             </Text>
             <TouchableOpacity
               style={styles.soonBtn}
@@ -489,7 +513,10 @@ export default function LocationSelectScreen() {
                 accessibilityLabel="Search stores"
               />
               {!!storeSearchQuery && (
-                <TouchableOpacity onPress={() => setStoreSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <TouchableOpacity
+                  onPress={() => setStoreSearchQuery('')}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
                   <View style={styles.clearCircle}>
                     <AppIcon icon={Cancel01Icon} size={11} color="#FFFFFF" strokeWidth={3} />
                   </View>
@@ -522,8 +549,14 @@ export default function LocationSelectScreen() {
                           <AppIcon icon={Store01Icon} size={17} color={selected ? '#FFFFFF' : C.red} strokeWidth={2} />
                         </View>
                         <View style={{ flex: 1, minWidth: 0 }}>
-                          <Text style={styles.rowTitle} numberOfLines={1}>{hub.name}</Text>
-                          {!!hub.address && <Text style={styles.rowSub} numberOfLines={2}>{hub.address}</Text>}
+                          <Text style={styles.rowTitle} numberOfLines={1}>
+                            {hub.name}
+                          </Text>
+                          {!!hub.address && (
+                            <Text style={styles.rowSub} numberOfLines={2}>
+                              {hub.address}
+                            </Text>
+                          )}
                           <View style={styles.hubMeta}>
                             <AppIcon icon={Clock01Icon} size={12} color={C.secondary} strokeWidth={2} />
                             <Text style={styles.distance}>

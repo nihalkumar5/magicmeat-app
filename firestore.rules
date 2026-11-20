@@ -13,6 +13,7 @@ rules_version = '2';
 //   coupons/{CODE}        public read; admins create, edit and delete. An
 //                         order's discount is checked here against its coupon.
 //   wishlists/{uid}       a customer's saved product ids (own read/write).
+//   pushTokens/{uid}      a customer's Expo push token (own write).
 //   admins/{uid}          presence marks an admin. Written only with the Admin
 //                         SDK (scripts/make-admin.mjs), never from the app.
 service cloud.firestore {
@@ -56,6 +57,25 @@ service cloud.firestore {
       allow read: if true;
       allow create, update: if isAdmin() && validCoupon(code);
       allow delete: if isAdmin();
+    }
+
+    // ---------- broadcasts (written only by our server) ----------
+    match /broadcasts/{id} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // ---------- push tokens ----------
+    // The device's Expo push token; read by admins' server code (Admin SDK).
+    match /pushTokens/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create, update: if signedIn()
+        && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['token', 'platform', 'updatedAt'])
+        && isShortString(request.resource.data.token, 10, 200)
+        && isShortString(request.resource.data.platform, 1, 20)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if signedIn() && request.auth.uid == uid;
     }
 
     // ---------- wishlists ----------

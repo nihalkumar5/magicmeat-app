@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
+import { haptic } from '../utils/haptics';
 import { goBack } from '../utils/navigation';
 import { reorderToCart, savedOn } from '../utils/reorder';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
@@ -338,7 +339,10 @@ export default function ProfileMenuScreen() {
             </View>
             <TouchableOpacity
               style={styles.againBtn}
-              onPress={() => reorderToCart(lastOrder)}
+              onPress={() => {
+                haptic.success();
+                reorderToCart(lastOrder);
+              }}
               activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel={`Order ${lastSummary} again`}

@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../../store/useStore';
+import { haptic } from '../../utils/haptics';
 import { reorderToCart } from '../../utils/reorder';
 import { CUSTOMER_STAGES, customerStage } from '../../utils/orderStage';
 import { useTabBarInset } from '../../components/FloatingTabBar';
@@ -178,7 +179,10 @@ export default function OrdersScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.againBtn}
-                  onPress={() => reorderToCart(o)}
+                  onPress={() => {
+                    haptic.success();
+                    reorderToCart(o);
+                  }}
                   activeOpacity={0.7}
                   accessibilityRole="button"
                   accessibilityLabel={`Order ${summary(o)} again`}

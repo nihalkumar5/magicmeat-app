@@ -19,12 +19,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { router } from 'expo-router';
 import { useStore } from '../store/useStore';
+import { haptic } from '../utils/haptics';
 import { goBack } from '../utils/navigation';
 import { notify, confirmAction } from '../utils/dialogs';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { adminSignIn, adminSignOut, validCoords } from '../services/backend';
 import { AdminOffers } from '../components/AdminOffers';
+import { AdminBroadcast } from '../components/AdminBroadcast';
 import { orderLabel } from '../utils/orderId';
 import { PRODUCTS } from '../data/mockData';
 import type { Order, Product } from '../types';
@@ -459,10 +461,12 @@ export default function AdminScreen() {
     if (isBusy(order)) return;
     if (stage === 'new') {
       markPending(order);
+      haptic.success();
       updateOrderStatus(order.id, 'butcher_prepping');
     } else if (stage === 'preparing' || stage === 'packed') openAssign(order);
     else if (stage === 'on_way') {
       markPending(order);
+      haptic.success();
       updateOrderStatus(order.id, 'delivered');
     }
   };
@@ -473,6 +477,7 @@ export default function AdminScreen() {
       `Order ${orderLabel(order.id)} will be cancelled and ${order.customerName || 'the customer'} will see it.`,
       stageOf(order) === 'new' ? 'Reject' : 'Cancel order',
       () => {
+        haptic.warn();
         cancelOrder(order.id);
         setDetailId(null);
       },
@@ -484,6 +489,7 @@ export default function AdminScreen() {
     if (!rider.name.trim()) return notify('Rider needed', 'Enter the rider’s name.');
     if (!isValidPhone(rider.phone)) return notify('Rider needed', 'Enter the rider’s 10-digit mobile number.');
     markPending(assigning);
+    haptic.success();
     assignRider(assigning.id, rider.name.trim(), cleanPhone(rider.phone));
     setAssignId(null);
   };
@@ -831,7 +837,10 @@ export default function AdminScreen() {
                             </View>
                             <Switch
                               value={!out}
-                              onValueChange={() => toggleStock(p.id)}
+                              onValueChange={() => {
+                                haptic.select();
+                                toggleStock(p.id);
+                              }}
                               trackColor={{ false: '#E5E5EA', true: '#34C759' }}
                               thumbColor="#FFFFFF"
                               accessibilityLabel={`${p.name} available`}
@@ -849,7 +858,12 @@ export default function AdminScreen() {
           )}
 
           {/* ======================================================== offers */}
-          {tab === 'offers' && <AdminOffers />}
+          {tab === 'offers' && (
+            <>
+              <AdminBroadcast />
+              <AdminOffers />
+            </>
+          )}
 
           {/* ======================================================== riders */}
           {tab === 'riders' && (

@@ -2,7 +2,9 @@ import {
   collection,
   deleteDoc,
   doc,
+  getCountFromServer,
   getDoc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -164,6 +166,99 @@ export async function adminUpdateProduct(
 ) {
   if (!db) return;
   await updateDoc(doc(db, 'products', productId), patch);
+}
+
+// --------------------------------------------------------- push tokens
+// pushTokens/{uid}: this customer's Expo push token (one device: the latest).
+
+export async function savePushToken(token: string, platform: string): Promise<void> {
+  const user = currentUser();
+  if (!db || !user || !isPhoneUser(user)) return;
+  await setDoc(doc(db, 'pushTokens', user.uid), {
+    token: token.slice(0, 200),
+    platform: platform.slice(0, 20),
+    updatedAt: serverTimestamp(),
+  });
+}
+
+/** Firebase ID token of the signed-in user, for calls to our server. */
+export async function idToken(): Promise<string | null> {
+  const user = currentUser();
+  return user ? user.getIdToken() : null;
+}
+
+// --------------------------------------------------------- notifications
+// Sending goes through our server (it holds the push credentials and checks
+// that the caller is an admin); the app only says what to send.
+
+export interface Broadcast {
+  id: string;
+  title: string;
+  body: string;
+  sent: number;
+  audience: number;
+  sentAt: number;
+}
+
+async function callNotify(path: string, body: Record<string, string>): Promise<any> {
+  const token = await idToken();
+  if (!token) throw new OtpError('Sign in again to send notifications.', 'signed_out');
+  let res: Response;
+  try {
+    res = await fetch(`${OTP_API}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new OtpError('No internet connection. Please check and try again.', 'network');
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new OtpError(data.message || 'Could not send. Please try again.', data.error || 'error');
+  return data;
+}
+
+/** Tells the customer their order's new status (admin only; best effort). */
+export function notifyOrderUpdate(orderId: string): void {
+  callNotify('/api/notify/order', { orderId }).catch((e) => console.warn('[notify] order', e?.code));
+}
+
+/** Push to every customer who allowed notifications. Resolves with how many got it. */
+export async function sendBroadcast(title: string, body: string): Promise<{ sent: number; audience: number }> {
+  const data = await callNotify('/api/notify/broadcast', { title, body });
+  return { sent: Number(data.sent) || 0, audience: Number(data.audience) || 0 };
+}
+
+/** Customers who can get notifications right now. */
+export async function countPushAudience(): Promise<number | null> {
+  if (!db) return null;
+  try {
+    return (await getCountFromServer(collection(db, 'pushTokens'))).data().count;
+  } catch {
+    return null;
+  }
+}
+
+export function subscribeBroadcasts(cb: (items: Broadcast[]) => void): Unsubscribe {
+  if (!db) return () => {};
+  return onSnapshot(
+    query(collection(db, 'broadcasts'), orderBy('sentAt', 'desc'), limit(5)),
+    (snap) =>
+      cb(
+        snap.docs.map((d) => {
+          const x = d.data();
+          return {
+            id: d.id,
+            title: String(x.title || ''),
+            body: String(x.body || ''),
+            sent: Number(x.sent) || 0,
+            audience: Number(x.audience) || 0,
+            sentAt: x.sentAt?.toMillis?.() ?? Date.now(),
+          };
+        }),
+      ),
+    (err) => console.warn('[backend] broadcasts listener', err.code),
+  );
 }
 
 // ------------------------------------------------------------ wishlists
@@ -479,7 +574,7 @@ export async function adminUpdateOrder(
   await updateDoc(doc(db, 'orders', orderId), {
     ...clean,
     updatedAt: serverTimestamp(),
-  });
+  });  if (patch.status) notifyOrderUpdate(orderId);
 }
 
 // -------------------------------------------------------------- profile

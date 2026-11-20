@@ -19,6 +19,7 @@ import { ShopCard } from '../../components/ShopCard';
 import { FloatingCartBar } from '../../components/FloatingCartBar';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { useStore } from '../../store/useStore';
+import { haptic } from '../../utils/haptics';
 import type { MeatCategory, Product } from '../../types';
 import { AppIcon, Search01Icon, Sorting01Icon, DeliveryTruck01Icon, GridViewIcon } from '../../components/HugeIcon';
 import { CATEGORY_IMAGES, CATEGORY_IMG_3D, categoryTint } from '../../data/categoryImages';
@@ -123,7 +124,10 @@ export default function ShopScreen() {
               <TouchableOpacity
                 key={cat.id}
                 style={[styles.railItem, on && styles.railItemOn]}
-                onPress={() => setSelected(cat.id)}
+                onPress={() => {
+                  if (cat.id !== selected) haptic.select();
+                  setSelected(cat.id);
+                }}
                 activeOpacity={0.7}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: on }}
@@ -155,7 +159,10 @@ export default function ShopScreen() {
             </Text>
             <TouchableOpacity
               style={[styles.sortChip, sort !== 'popular' && styles.sortChipOn]}
-              onPress={() => setSort(NEXT_SORT[sort])}
+              onPress={() => {
+                haptic.select();
+                setSort(NEXT_SORT[sort]);
+              }}
               activeOpacity={0.7}
               accessibilityRole="button"
               accessibilityLabel={`Sort: ${SORT_LABEL[sort]}. Tap to change`}
