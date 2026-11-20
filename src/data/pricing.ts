@@ -115,8 +115,8 @@ export function mrpFor(product: Product, cut: CutOption): number {
 
 // Fees. Firestore rules check the same numbers (firestore.rules totalsOk).
 export const FREE_DELIVERY_ABOVE = 499;
-export const DELIVERY_FEE = 35;
-export const EXPRESS_FEE = 49;
+export const DELIVERY_FEE = 10;
+export const EXPRESS_FEE = 20;
 
 export function feesFor(subtotal: number, fulfillment: 'delivery' | 'takeaway', deliveryMode: DeliveryMode = 'slot') {
   const deliveryFee = deliveryFeeFor(subtotal, fulfillment, deliveryMode);

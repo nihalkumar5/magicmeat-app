@@ -42,7 +42,7 @@ function line(cutId: string, quantity = 1, unitPrice = prices[cutId]) {
 function order(uid: string, id: string, items = [line(baseCut.id, 2)], overrides: Record<string, unknown> = {}) {
   const subtotal = items.reduce((s, it) => s + it.unitPrice * it.quantity, 0);
   const mode = (overrides.deliveryMode as string) ?? 'slot';
-  const deliveryFee = mode === 'instant' ? 49 : subtotal < 499 ? 35 : 0;
+  const deliveryFee = mode === 'instant' ? 20 : subtotal < 499 ? 10 : 0;
   return {
     id,
     customerUid: uid,

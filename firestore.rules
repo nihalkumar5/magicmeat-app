@@ -146,9 +146,13 @@ service cloud.firestore {
     // cached, so re-using a computed subtotal would recompute it).
     function totalsOk(o) {
       return o.subtotal is int
-        // Express ('instant') is always 49; Normal is 35 below 499, else free.
-        && o.deliveryFee == (o.fulfillment != 'delivery' ? 0
-             : (o.deliveryMode == 'instant' ? 49 : (o.subtotal < 499 ? 35 : 0)))
+        // Express ('instant') is always 20; Normal is 10 below 499, else free.
+        // The old fees (49 / 35) are still accepted from app builds made
+        // before the change; drop that branch once everyone has updated.
+        && (o.deliveryFee == (o.fulfillment != 'delivery' ? 0
+             : (o.deliveryMode == 'instant' ? 20 : (o.subtotal < 499 ? 10 : 0)))
+          || o.deliveryFee == (o.fulfillment != 'delivery' ? 0
+             : (o.deliveryMode == 'instant' ? 49 : (o.subtotal < 499 ? 35 : 0))))
         && o.coldPackagingFee == 0
         && o.discount == discountFor(o)
         && o.total == o.subtotal + o.deliveryFee + o.coldPackagingFee - o.discount
