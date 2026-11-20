@@ -1,5 +1,14 @@
 import { useState, useMemo } from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  Image,
+  TouchableOpacity,
+  ScrollView,
+  useWindowDimensions,
+  Animated,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,11 +17,14 @@ import { useStore } from '../../store/useStore';
 import { packVariantsFor, cutForPack } from '../../data/pricing';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { goBack } from '../../utils/navigation';
+import { haptic } from '../../utils/haptics';
+import { PopIn, useBump } from '../../components/motion';
 import {
   AppIcon,
   ArrowLeft01Icon,
   ShoppingBag01Icon,
   PlusSignIcon,
+  Delete02Icon,
   MinusSignIcon,
   FavouriteIcon,
   ShieldCheckIcon,
@@ -65,7 +77,7 @@ export default function ProductDetailScreen() {
   const pack = packs.find((p) => p.id === packId) || packs[0];
   const packCut = useMemo(
     () => cutForPack(product, product.availableCuts[0], pack, pack.id === packs[0].id),
-    [product, pack, packs]
+    [product, pack, packs],
   );
 
   // The pack with the lowest price per kg gets "Best value" (only when sizes differ).
@@ -80,7 +92,7 @@ export default function ProductDetailScreen() {
   const inBasket = cartItem?.quantity ?? 0;
   const basketCount = cart.reduce((n, item) => n + item.quantity, 0);
   const basketTotal = cart.reduce((n, item) => n + item.unitPrice * item.quantity, 0);
-  const [qty, setQty] = useState(1);
+  const qtyBump = useBump(inBasket);
   const [showMore, setShowMore] = useState(false);
 
   const isLiked = wishlist.includes(product.id);
@@ -102,8 +114,8 @@ export default function ProductDetailScreen() {
   }
 
   const add = () => {
-    addToCart(product, packCut, true, qty);
-    setQty(1);
+    haptic.tap();
+    addToCart(product, packCut, true, 1);
   };
 
   return (
@@ -187,8 +199,8 @@ export default function ProductDetailScreen() {
                   key={p.id}
                   style={[styles.size, on && styles.sizeOn]}
                   onPress={() => {
+                    haptic.select();
                     setPackId(p.id);
-                    setQty(1);
                   }}
                   activeOpacity={0.8}
                   accessibilityRole="radio"
@@ -281,23 +293,36 @@ export default function ProductDetailScreen() {
           </View>
         ) : inBasket > 0 ? (
           <>
-            <View style={styles.stepper}>
+            {/* In the basket: − / + change it; at 1 the minus becomes a bin that removes it */}
+            <PopIn key="in-basket" style={styles.stepper}>
               <TouchableOpacity
                 style={styles.stepBtn}
-                onPress={() => cartItem && updateQuantity(cartItem.cartItemId, -1)}
-                accessibilityLabel="One less"
+                onPress={() => {
+                  haptic.tap();
+                  if (cartItem) updateQuantity(cartItem.cartItemId, -1);
+                }}
+                accessibilityLabel={inBasket === 1 ? 'Remove from basket' : 'One less'}
               >
-                <AppIcon icon={MinusSignIcon} size={16} color={C.text} strokeWidth={2.4} />
+                <AppIcon
+                  icon={inBasket === 1 ? Delete02Icon : MinusSignIcon}
+                  size={16}
+                  color={inBasket === 1 ? C.red : C.text}
+                  strokeWidth={2.4}
+                />
               </TouchableOpacity>
-              <Text style={styles.stepQty}>{inBasket}</Text>
+              <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{inBasket}</Animated.Text>
               <TouchableOpacity
                 style={styles.stepBtn}
-                onPress={() => cartItem && updateQuantity(cartItem.cartItemId, 1)}
+                onPress={() => {
+                  haptic.tap();
+                  if (cartItem) updateQuantity(cartItem.cartItemId, 1);
+                }}
+                disabled={inBasket >= 20}
                 accessibilityLabel="One more"
               >
                 <AppIcon icon={PlusSignIcon} size={16} color={C.text} strokeWidth={2.4} />
               </TouchableOpacity>
-            </View>
+            </PopIn>
             <TouchableOpacity
               style={[styles.buyBtn, { backgroundColor: C.text }]}
               onPress={() => router.push('/(tabs)/cart')}
@@ -308,31 +333,13 @@ export default function ProductDetailScreen() {
             </TouchableOpacity>
           </>
         ) : (
-          <>
-            <View style={styles.stepper}>
-              <TouchableOpacity
-                style={styles.stepBtn}
-                onPress={() => setQty(Math.max(1, qty - 1))}
-                disabled={qty <= 1}
-                accessibilityLabel="Fewer"
-              >
-                <AppIcon icon={MinusSignIcon} size={16} color={qty <= 1 ? C.placeholder : C.text} strokeWidth={2.4} />
-              </TouchableOpacity>
-              <Text style={styles.stepQty}>{qty}</Text>
-              <TouchableOpacity
-                style={styles.stepBtn}
-                onPress={() => setQty(Math.min(20, qty + 1))}
-                accessibilityLabel="More"
-              >
-                <AppIcon icon={PlusSignIcon} size={16} color={C.text} strokeWidth={2.4} />
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity style={styles.buyBtn} onPress={add} activeOpacity={0.85} accessibilityRole="button">
-              <Text style={styles.buyText}>
-                Add {qty > 1 ? `${qty} ` : ''}· ₹{price * qty}
-              </Text>
+          // Not in the basket yet: one clear action (no stepper that looks
+          // like something is already added).
+          <PopIn key="add" style={{ flex: 1 }}>
+            <TouchableOpacity style={styles.addBtnFull} onPress={add} activeOpacity={0.85} accessibilityRole="button">
+              <Text style={styles.buyText}>Add to basket · ₹{price}</Text>
             </TouchableOpacity>
-          </>
+          </PopIn>
         )}
       </View>
     </SafeAreaView>
@@ -687,6 +694,14 @@ const styles = StyleSheet.create({
   },
   buyBtn: {
     flex: 1,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: C.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // Full-width Add (no flex: it sits in a column wrapper, so a fixed height).
+  addBtnFull: {
     height: 54,
     borderRadius: 27,
     backgroundColor: C.red,
