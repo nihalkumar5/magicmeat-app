@@ -3,8 +3,9 @@ import { orderLabel } from './push.js';
 
 // New-order alerts for the shop owner, on free tiers:
 //  · Email through Resend (3,000/month free). Without a verified domain
-//    Resend only delivers to the account owner's own address, which is
-//    exactly who this goes to. Env: RESEND_API_KEY, ORDER_ALERT_EMAIL,
+//    Resend only delivers to the account owner's own address; the
+//    domain magicmeatsupreme.in is verified, so any address works. Env:
+//    RESEND_API_KEY, ORDER_ALERT_EMAIL (comma-separated),
 //    optional ORDER_ALERT_FROM.
 //  · WhatsApp through CallMeBot (free; messages only the number that
 //    registered the key). Env: CALLMEBOT_PHONE (e.g. 919876543210),
@@ -59,7 +60,8 @@ async function sendEmail(orderId: string, order: Order): Promise<string> {
     method: 'POST',
     headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      from: process.env.ORDER_ALERT_FROM || 'MagicMeat <onboarding@resend.dev>',
+      // magicmeatsupreme.in is verified in Resend, so we can mail anyone.
+      from: process.env.ORDER_ALERT_FROM || 'MagicMeat Orders <orders@magicmeatsupreme.in>',
       to: to.split(',').map((s) => s.trim()).filter(Boolean),
       subject: `New order ${label} · ${rupees(order.total)} · ${order.customerName || 'Customer'}`,
       html,
