@@ -7,6 +7,8 @@ import { THEME } from '../constants/theme';
 import { CutSelectorModal } from '../components/CutSelectorModal';
 import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
+import { useFonts } from 'expo-font';
+import { FONT_ASSETS } from '../constants/fonts';
 import {
   fetchProfile,
   isAdmin,
@@ -138,6 +140,10 @@ export default function RootLayout() {
   }, []);
 
   const authState = useStore((s) => s.authState);
+  // Brand fonts; the splash stays up until they're in (or failed, then the
+  // system font is used).
+  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
+  const fontsReady = fontsLoaded || !!fontError;
   const signedIn = authState === 'in';
 
   // Logged out: always land on the login screen.
@@ -230,7 +236,7 @@ export default function RootLayout() {
           <LocationSelectorModal />
         </View>
       </View>
-      <AnimatedSplash ready />
+      <AnimatedSplash ready={fontsReady} />
     </SafeAreaProvider>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { FONT } from '../constants/fonts';
 import {
   Image,
   KeyboardAvoidingView,
@@ -627,8 +628,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   memberName: {
-    fontSize: 21,
-    fontWeight: '800',
+    fontSize: 23,
+    fontFamily: FONT.display,
     letterSpacing: -0.4,
     color: '#FFFFFF',
   },
@@ -669,8 +670,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.16)',
   },
   memberTileValue: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontFamily: FONT.display,
     letterSpacing: -0.4,
     color: '#FFFFFF',
   },

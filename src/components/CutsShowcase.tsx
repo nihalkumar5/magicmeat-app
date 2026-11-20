@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { FONT } from '../constants/fonts';
 import { View, Text, StyleSheet, Animated, Image, useWindowDimensions, Pressable } from 'react-native';
 import { router } from 'expo-router';
 import { PRODUCTS } from '../data/mockData';
@@ -217,13 +218,13 @@ const styles = StyleSheet.create({
   },
   kicker: {
     fontSize: 11,
-    fontWeight: '800',
+    fontFamily: FONT.heavy,
     letterSpacing: 1.6,
     color: RED,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontFamily: FONT.display,
     letterSpacing: -0.6,
     color: '#111111',
     marginTop: 3,
@@ -266,8 +267,8 @@ const styles = StyleSheet.create({
     bottom: 16,
   },
   name: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontFamily: FONT.display,
     letterSpacing: -0.6,
     lineHeight: 27,
     color: '#FFFFFF',

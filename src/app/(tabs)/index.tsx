@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { FONT } from '../../constants/fonts';
 import {
   View,
   Text,
@@ -968,7 +969,7 @@ export default function HomeScreen() {
           <View style={styles.mOffer}>
             <AppIcon icon={DeliveryTruck01Icon} size={16} color="#166534" strokeWidth={2} />
             <Text style={styles.mOfferText}>
-              <Text style={{ fontWeight: '800' }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
+              <Text style={{ fontFamily: FONT.heavy }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
             </Text>
           </View>
         )}
@@ -1344,7 +1345,7 @@ const styles = StyleSheet.create({
   mAddressChipText: {
     flexShrink: 1,
     fontSize: 13,
-    fontWeight: '700',
+    fontFamily: FONT.bold,
     color: '#FFFFFF',
     letterSpacing: -0.1,
   },
@@ -1362,15 +1363,17 @@ const styles = StyleSheet.create({
   },
   mEyebrow: {
     fontSize: 11.5,
-    fontWeight: '800',
-    letterSpacing: 1.4,
-    color: 'rgba(255,255,255,0.78)',
+    fontFamily: FONT.heavy,
+    letterSpacing: 1.6,
+    color: 'rgba(255,255,255,0.8)',
   },
+  // Display face for the one number that matters on this screen.
   mEta: {
-    fontSize: 34,
-    fontWeight: '900',
+    fontSize: 40,
+    lineHeight: 44,
+    fontFamily: FONT.display,
     color: '#FFFFFF',
-    letterSpacing: -1.2,
+    letterSpacing: -1.4,
     marginTop: 4,
   },
   mAddressRow: {
@@ -1396,6 +1399,7 @@ const styles = StyleSheet.create({
   },
   mOfferText: {
     fontSize: 13,
+    fontFamily: FONT.medium,
     color: '#166534',
   },
   mShelf: {
@@ -1664,19 +1668,20 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   mSectionTitle: {
-    fontSize: 21,
-    fontWeight: '800',
+    fontSize: 23,
+    fontFamily: FONT.display,
     color: '#111111',
-    letterSpacing: -0.3,
+    letterSpacing: -0.6,
   },
   mSectionSub: {
     fontSize: 13,
+    fontFamily: FONT.medium,
     color: '#6B7280',
     marginTop: 2,
   },
   mSeeAll: {
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONT.bold,
     color: '#DC2626',
   },
   mCategoryGrid: {
@@ -1720,8 +1725,8 @@ const styles = StyleSheet.create({
   mCategoryLabel: {
     marginTop: 7,
     fontSize: 12.5,
-    lineHeight: 15,
-    fontWeight: '600',
+    lineHeight: 16,
+    fontFamily: FONT.bold,
     letterSpacing: -0.1,
     color: '#1C1C1E',
     textAlign: 'center',
@@ -2530,13 +2535,13 @@ const styles = StyleSheet.create({
   searchStaticPrefix: {
     color: '#6B7280',
     fontSize: 15,
-    fontWeight: '500',
+    fontFamily: FONT.medium,
     flexShrink: 0,
   },
   searchDynamicWord: {
     color: '#111111',
     fontSize: 15,
-    fontWeight: '600',
+    fontFamily: FONT.bold,
   },
   offlineStoreCard: {
     width: 54,

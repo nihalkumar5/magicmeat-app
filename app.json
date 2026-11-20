@@ -51,7 +51,8 @@
         {
           "locationWhenInUsePermission": "MagicMeat uses your location to find your exact delivery address and the nearest store."
         }
-      ]
+      ],
+      "expo-font"
     ]
   }
 }
