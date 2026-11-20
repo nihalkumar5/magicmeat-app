@@ -847,13 +847,14 @@ export default function HomeScreen() {
             resizeMode="contain"
           />
           <View style={styles.mLocationBlock}>
-            <View style={styles.mEyebrowRow}>
-              <View style={styles.mBoltBadge}>
-                <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={12} color={HEADER_ACCENT} strokeWidth={2.6} />
+            {/* One line: the time, with the mode as a small gold pill */}
+            <View style={styles.mEtaRow}>
+              <Text style={styles.mEta}>{isPickup ? '10 min' : '15–20 min'}</Text>
+              <View style={styles.mModePill}>
+                <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={11} color={HEADER_ACCENT} strokeWidth={2.6} />
+                <Text style={styles.mModeText}>{isPickup ? 'PICKUP' : 'EXPRESS'}</Text>
               </View>
-              <Text style={styles.mEyebrow}>{isPickup ? 'PICKUP READY IN' : 'EXPRESS DELIVERY'}</Text>
             </View>
-            <Text style={styles.mEta}>{isPickup ? '10 min' : '15–20 min'}</Text>
             {/* Address as a glass chip: clearly tappable, one line */}
             <PressableScale
               style={styles.mAddressChip}
@@ -1289,10 +1290,10 @@ const styles = StyleSheet.create({
   },
   mTopBar: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     paddingHorizontal: GUTTER,
-    paddingTop: SPACE.md,
-    paddingBottom: SPACE.md,
+    paddingTop: SPACE.xs,
+    paddingBottom: SPACE.sm,
     gap: SPACE.md,
     backgroundColor: HEADER_BG,
   },
@@ -1313,6 +1314,28 @@ const styles = StyleSheet.create({
     height: 112,
     opacity: 0.09,
     tintColor: '#FFFFFF',
+  },
+  mEtaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACE.sm,
+  },
+  mModePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    height: 22,
+    paddingHorizontal: SPACE.sm,
+    borderRadius: 11,
+    backgroundColor: 'rgba(255,201,74,0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,201,74,0.4)',
+  },
+  mModeText: {
+    fontSize: 10.5,
+    fontFamily: FONT.heavy,
+    letterSpacing: 1,
+    color: HEADER_ACCENT,
   },
   mEyebrowRow: {
     flexDirection: 'row',
@@ -1335,10 +1358,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     maxWidth: '100%',
     gap: SPACE.xs,
-    height: 30,
-    paddingHorizontal: SPACE.md - 2,
+    height: 28,
+    paddingHorizontal: SPACE.md - 3,
     marginTop: SPACE.sm,
-    borderRadius: 15,
+    borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.14)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
@@ -1371,11 +1394,10 @@ const styles = StyleSheet.create({
   // Display face for the one number that matters on this screen.
   mEta: {
     fontSize: TYPE.display,
-    lineHeight: Math.round(TYPE.display * 1.18),
+    lineHeight: 38,
     fontFamily: FONT.display,
     color: '#FFFFFF',
     letterSpacing: -1.1,
-    marginTop: SPACE.xs,
   },
   mAddressRow: {
     flexDirection: 'row',
@@ -1433,9 +1455,9 @@ const styles = StyleSheet.create({
   },
   // 2 pt white gap inside a hairline brand ring, like an iOS avatar.
   mProfileRing: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     padding: 2,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.55)',
@@ -1472,11 +1494,11 @@ const styles = StyleSheet.create({
   mSearchWrap: {
     paddingHorizontal: GUTTER,
     paddingTop: SPACE.xs,
-    paddingBottom: SPACE.lg,
+    paddingBottom: SPACE.md,
     marginBottom: SPACE.lg,
     backgroundColor: HEADER_BG,
-    borderBottomLeftRadius: SPACE.xl,
-    borderBottomRightRadius: SPACE.xl,
+    borderBottomLeftRadius: SPACE.lg,
+    borderBottomRightRadius: SPACE.lg,
   },
   liveCard: {
     marginHorizontal: GUTTER,
@@ -2513,9 +2535,9 @@ const styles = StyleSheet.create({
   // shadow, brand-coloured icon, rotating "quoted" suggestion.
   searchCapsule: {
     minWidth: 0,
-    height: 52,
+    height: 48,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
