@@ -43,6 +43,8 @@ export default function RootLayout() {
         style.id = styleId;
         style.textContent = `
           html, body, #root {
+            height: 100% !important;
+            height: 100dvh !important;
             width: 100% !important;
             max-width: 100vw !important;
             overflow-x: hidden !important;
@@ -264,7 +266,6 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: '100%',
     height: '100%',
-    minHeight: Platform.OS === 'web' ? ('100vh' as any) : '100%',
     backgroundColor: THEME.colors.background,
     overflow: 'hidden',
   },
@@ -283,7 +284,6 @@ const styles = StyleSheet.create({
   },
   contentContainerDesktop: {
     width: '100%',
-    minHeight: '100vh' as any,
     backgroundColor: '#FFFFFF',
   },
 });
