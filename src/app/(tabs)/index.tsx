@@ -63,6 +63,11 @@ import {
   Scooter01Icon,
   Home01Icon,
   GridViewIcon,
+  DrumstickIcon,
+  FishFoodIcon,
+  EggIcon,
+  ChickenThighsIcon,
+  FastWindIcon,
 } from '../../components/HugeIcon';
 
 // Final 6 Essential Craving Categories (3-Column Circular Grid)
@@ -849,6 +854,7 @@ export default function HomeScreen() {
         <View style={styles.mTopBar}>
           {/* Paints above the header too, so pulling down never shows white */}
           <View pointerEvents="none" style={styles.mTopOverscroll} />
+          <HeaderDoodles height={110} />
           <View style={styles.mLocationBlock}>
             {/* One line: the time, with the mode as a small gold pill */}
             <View style={styles.mEtaRow}>
@@ -905,6 +911,7 @@ export default function HomeScreen() {
 
         {/* Search (sticks to the top while scrolling) */}
         <View style={styles.mSearchWrap}>
+          <HeaderDoodles height={80} />
           <AnimatedSearchCapsule />
         </View>
 
@@ -912,6 +919,7 @@ export default function HomeScreen() {
             block (live order, free-delivery note) with a straight edge,
             then the white page starts. */}
         <View style={styles.mRedZone}>
+          <HeaderDoodles height={260} />
           {/* Live order (talabat-style status card) */}
           {activeOrder && (
             <TouchableOpacity
@@ -1254,6 +1262,49 @@ const TRUST_POINTS = [
   { title: 'Pay later', sub: 'Cash or UPI', icon: CheckmarkBadge01Icon },
 ];
 
+// A faint, even pattern of line doodles of what we sell (drumstick, fish,
+// egg, thigh, speed lines) over the crimson, like the patterned headers of
+// Indian delivery apps. Very low contrast, so it reads as texture and the
+// text on top stays clear.
+const DOODLE_ICONS = [DrumstickIcon, FishFoodIcon, EggIcon, ChickenThighsIcon, FastWindIcon];
+const DOODLE_STEP_X = 58;
+const DOODLE_STEP_Y = 46;
+
+function HeaderDoodles({ height }: { height: number }) {
+  const cols = Math.ceil(APP_PATTERN_W / DOODLE_STEP_X) + 1;
+  const rows = Math.ceil(height / DOODLE_STEP_Y) + 1;
+  const cells = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const k = r * cols + c;
+      cells.push(
+        <View
+          key={k}
+          style={{
+            position: 'absolute',
+            top: r * DOODLE_STEP_Y + 6,
+            left: c * DOODLE_STEP_X + (r % 2 ? DOODLE_STEP_X / 2 : 0) - 10,
+            transform: [{ rotate: `${(k % 3) * 14 - 14}deg` }],
+          }}
+        >
+          <AppIcon
+            icon={DOODLE_ICONS[(k + r) % DOODLE_ICONS.length]}
+            size={20}
+            color="rgba(255,255,255,0.09)"
+            strokeWidth={1.7}
+          />
+        </View>,
+      );
+    }
+  }
+  return (
+    <View pointerEvents="none" style={styles.mDoodles}>
+      {cells}
+    </View>
+  );
+}
+const APP_PATTERN_W = 520;
+
 function SectionHeader({
   title,
   subtitle,
@@ -1386,6 +1437,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.1,
+  },
+  mDoodles: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    overflow: 'hidden',
   },
   mTopOverscroll: {
     position: 'absolute',
