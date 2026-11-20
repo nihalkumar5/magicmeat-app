@@ -508,7 +508,10 @@ export default function HomeScreen() {
                 onPress={() =>
                   PICKUP_ENABLED
                     ? setActiveOrderType('takeaway')
-                    : notify('Pickup is coming soon', 'Our stores are being renovated. We deliver in 15–20 minutes meanwhile.')
+                    : notify(
+                        'Pickup is coming soon',
+                        'Our stores are being renovated. We deliver in 15–20 minutes meanwhile.',
+                      )
                 }
                 activeOpacity={0.85}
               >
@@ -527,7 +530,9 @@ export default function HomeScreen() {
                   >
                     Takeaway
                   </Text>
-                  <Text style={styles.desktopSegmentPillSub}>{PICKUP_ENABLED ? 'Pickup in 10 Mins' : 'Coming soon'}</Text>
+                  <Text style={styles.desktopSegmentPillSub}>
+                    {PICKUP_ENABLED ? 'Pickup in 10 Mins' : 'Coming soon'}
+                  </Text>
                 </View>
               </TouchableOpacity>
 
@@ -849,7 +854,12 @@ export default function HomeScreen() {
             <View style={styles.mEtaRow}>
               <Text style={styles.mEta}>{isPickup ? '10 min' : '15–20 min'}</Text>
               <View style={styles.mModePill}>
-                <AppIcon icon={isPickup ? ShoppingBag01Icon : FlashIcon} size={11} color={HEADER_ACCENT} strokeWidth={2.6} />
+                <AppIcon
+                  icon={isPickup ? ShoppingBag01Icon : FlashIcon}
+                  size={11}
+                  color={HEADER_ACCENT}
+                  strokeWidth={2.6}
+                />
                 <Text style={styles.mModeText}>{isPickup ? 'PICKUP' : 'EXPRESS'}</Text>
               </View>
             </View>
@@ -898,81 +908,88 @@ export default function HomeScreen() {
           <AnimatedSearchCapsule />
         </View>
 
-        {/* Live order (talabat-style status card) */}
-        {activeOrder && (
-          <TouchableOpacity
-            style={styles.liveCard}
-            activeOpacity={0.9}
-            onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
-            accessibilityRole="button"
-            accessibilityLabel={`${LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}. Track order`}
-          >
-            <View style={styles.liveTop}>
-              {!!activeOrder.items[0] && (
-                <Image
-                  source={{ uri: optimizeImageUrl(activeOrder.items[0].product.image, 100) }}
-                  style={styles.liveThumb}
-                />
-              )}
-              <View style={{ flex: 1, minWidth: 0 }}>
-                <Text style={styles.liveEyebrow}>Your order</Text>
-                <Text style={styles.liveEta} numberOfLines={1}>
-                  {activeOrder.deliveryMode === 'instant'
-                    ? `Arriving in ${activeOrder.eta}`
-                    : `Arriving ${activeOrder.eta}`}
-                </Text>
+        {/* Blinkit-style: the header colour keeps going behind the first
+            block (live order, free-delivery note) with a straight edge,
+            then the white page starts. */}
+        <View style={styles.mRedZone}>
+          {/* Live order (talabat-style status card) */}
+          {activeOrder && (
+            <TouchableOpacity
+              style={styles.liveCard}
+              activeOpacity={0.9}
+              onPress={() => router.push({ pathname: '/order-tracking/[id]', params: { id: activeOrder.id } })}
+              accessibilityRole="button"
+              accessibilityLabel={`${LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}. Track order`}
+            >
+              <View style={styles.liveTop}>
+                {!!activeOrder.items[0] && (
+                  <Image
+                    source={{ uri: optimizeImageUrl(activeOrder.items[0].product.image, 100) }}
+                    style={styles.liveThumb}
+                  />
+                )}
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text style={styles.liveEyebrow}>Your order</Text>
+                  <Text style={styles.liveEta} numberOfLines={1}>
+                    {activeOrder.deliveryMode === 'instant'
+                      ? `Arriving in ${activeOrder.eta}`
+                      : `Arriving ${activeOrder.eta}`}
+                  </Text>
+                </View>
+                <View style={styles.livePill}>
+                  <View style={styles.livePillDot} />
+                  <Text style={styles.livePillText}>Live</Text>
+                </View>
               </View>
-              <View style={styles.livePill}>
-                <View style={styles.livePillDot} />
-                <Text style={styles.livePillText}>Live</Text>
-              </View>
-            </View>
 
-            <View style={styles.liveSteps}>
-              {LIVE_STEPS.map((step, i) => {
-                const current = customerStage(activeOrder.status);
-                const done = i < current;
-                const now = i === current;
-                return (
-                  <React.Fragment key={step.key}>
-                    {i > 0 && <View style={[styles.liveLine, i <= current && styles.liveLineDone]} />}
-                    <View style={styles.liveStepCol}>
-                      <View style={[styles.liveStep, done && styles.liveStepDone, now && styles.liveStepNow]}>
-                        <AppIcon
-                          icon={done ? Tick02Icon : step.icon}
-                          size={15}
-                          color={done ? '#FFFFFF' : now ? '#DC2626' : '#9CA3AF'}
-                          strokeWidth={2.2}
-                        />
+              <View style={styles.liveSteps}>
+                {LIVE_STEPS.map((step, i) => {
+                  const current = customerStage(activeOrder.status);
+                  const done = i < current;
+                  const now = i === current;
+                  return (
+                    <React.Fragment key={step.key}>
+                      {i > 0 && <View style={[styles.liveLine, i <= current && styles.liveLineDone]} />}
+                      <View style={styles.liveStepCol}>
+                        <View style={[styles.liveStep, done && styles.liveStepDone, now && styles.liveStepNow]}>
+                          <AppIcon
+                            icon={done ? Tick02Icon : step.icon}
+                            size={15}
+                            color={done ? '#FFFFFF' : now ? '#DC2626' : '#9CA3AF'}
+                            strokeWidth={2.2}
+                          />
+                        </View>
+                        <Text style={[styles.liveStepLabel, (done || now) && styles.liveStepLabelOn]}>
+                          {step.label}
+                        </Text>
                       </View>
-                      <Text style={[styles.liveStepLabel, (done || now) && styles.liveStepLabelOn]}>{step.label}</Text>
-                    </View>
-                  </React.Fragment>
-                );
-              })}
-            </View>
-
-            <View style={styles.liveBottom}>
-              <Text style={styles.liveStatus} numberOfLines={1}>
-                {LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}
-              </Text>
-              <View style={styles.liveTrack}>
-                <Text style={styles.liveTrackText}>Track</Text>
-                <AppIcon icon={ArrowRight01Icon} size={14} color="#DC2626" strokeWidth={2.4} />
+                    </React.Fragment>
+                  );
+                })}
               </View>
-            </View>
-          </TouchableOpacity>
-        )}
 
-        {/* Offer */}
-        {!isPickup && (
-          <View style={styles.mOffer}>
-            <AppIcon icon={DeliveryTruck01Icon} size={16} color="#166534" strokeWidth={2} />
-            <Text style={styles.mOfferText}>
-              <Text style={{ fontWeight: '800' }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
-            </Text>
-          </View>
-        )}
+              <View style={styles.liveBottom}>
+                <Text style={styles.liveStatus} numberOfLines={1}>
+                  {LIVE_STATUS_TEXT[activeOrder.status] || 'Order in progress'}
+                </Text>
+                <View style={styles.liveTrack}>
+                  <Text style={styles.liveTrackText}>Track</Text>
+                  <AppIcon icon={ArrowRight01Icon} size={14} color="#DC2626" strokeWidth={2.4} />
+                </View>
+              </View>
+            </TouchableOpacity>
+          )}
+
+          {/* Offer */}
+          {!isPickup && (
+            <View style={styles.mOffer}>
+              <AppIcon icon={DeliveryTruck01Icon} size={16} color={HEADER_ACCENT} strokeWidth={2} />
+              <Text style={styles.mOfferText}>
+                <Text style={{ fontWeight: '800' }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
+              </Text>
+            </View>
+          )}
+        </View>
 
         {/* Coupons (thin ticket row; hidden when there are none) */}
         <OffersStrip background="#FFFFFF" />
@@ -1091,7 +1108,11 @@ export default function HomeScreen() {
         <ProductShelf data={muttonProducts} keyPrefix="mutton" />
 
         {/* Picks */}
-        <SectionHeader brush title="Popular near you" subtitle={`What ${currentLocation.city || 'your area'} is ordering`} />
+        <SectionHeader
+          brush
+          title="Popular near you"
+          subtitle={`What ${currentLocation.city || 'your area'} is ordering`}
+        />
         <View style={styles.mPopularGrid}>
           {nearYouProducts.slice(0, 6).map((product) => (
             <ShopCard key={`near-you-${product.id}`} product={product} width={Math.floor((width - 32 - 12) / 2)} />
@@ -1406,16 +1427,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACE.sm,
     marginHorizontal: GUTTER,
-    marginBottom: SPACE.lg,
     paddingVertical: SPACE.sm + 2,
     paddingHorizontal: SPACE.md,
     borderRadius: RADIUS.md,
-    backgroundColor: '#ECFDF3',
+    // Glass note on the crimson.
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   mOfferText: {
     fontSize: 13,
     fontWeight: '500',
-    color: '#166534',
+    color: '#FFFFFF',
   },
   mShelf: {
     paddingHorizontal: GUTTER,
@@ -1487,10 +1510,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: GUTTER,
     paddingTop: SPACE.xs,
     paddingBottom: SPACE.md,
-    marginBottom: SPACE.lg,
     backgroundColor: HEADER_BG,
-    borderBottomLeftRadius: SPACE.lg,
-    borderBottomRightRadius: SPACE.lg,
+  },
+  mRedZone: {
+    backgroundColor: HEADER_BG,
+    paddingBottom: SPACE.md,
+    marginBottom: SPACE.lg,
   },
   liveCard: {
     marginHorizontal: GUTTER,
