@@ -220,57 +220,70 @@ export default function ProfileMenuScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Identity card (Airbnb style) */}
-        <View style={styles.idCard}>
-          <View style={styles.idLeft}>
+        {/* Member card: the home header's crimson, glow and bird, so the
+            brand reads the same across the app */}
+        <View style={styles.member}>
+          <View pointerEvents="none" style={styles.memberGlow} />
+          <Image
+            pointerEvents="none"
+            source={require('../../assets/brand/bird.png')}
+            style={styles.memberBird}
+            resizeMode="contain"
+          />
+
+          <View style={styles.memberTop}>
             <TouchableOpacity
-              style={styles.avatar}
+              style={styles.memberAvatar}
               onPress={changePhoto}
-              activeOpacity={0.8}
+              activeOpacity={0.85}
               accessibilityRole="button"
               accessibilityLabel={profilePhoto ? 'Change profile photo' : 'Add profile photo'}
             >
-              {profilePhoto ? (
-                <Image source={{ uri: profilePhoto }} style={styles.avatarImg} />
-              ) : initial ? (
-                <Text style={styles.avatarText}>{initial}</Text>
-              ) : (
-                <AppIcon icon={UserIcon} size={34} color="#FFFFFF" strokeWidth={1.8} />
-              )}
-              <View style={styles.cameraBadge}>
-                <AppIcon icon={Camera01Icon} size={14} color="#FFFFFF" strokeWidth={2.2} />
+              <View style={styles.memberAvatarInner}>
+                {profilePhoto ? (
+                  <Image source={{ uri: profilePhoto }} style={styles.memberAvatarImg} />
+                ) : initial ? (
+                  <Text style={styles.memberInitial}>{initial}</Text>
+                ) : (
+                  <AppIcon icon={UserIcon} size={30} color="#B91C1C" strokeWidth={1.9} />
+                )}
+              </View>
+              <View style={styles.memberCamera}>
+                <AppIcon icon={Camera01Icon} size={12} color="#B91C1C" strokeWidth={2.4} />
               </View>
             </TouchableOpacity>
+
             <TouchableOpacity
+              style={{ flex: 1, minWidth: 0 }}
               onPress={openEditProfile}
-              activeOpacity={0.7}
+              activeOpacity={0.75}
               accessibilityLabel="Edit profile"
-              style={{ alignItems: 'center' }}
             >
-              <Text style={styles.name} numberOfLines={2}>
+              <Text style={styles.memberName} numberOfLines={2}>
                 {userName.trim() || 'Add your name'}
               </Text>
-              <Text style={styles.idMeta} numberOfLines={1}>
-                {hasDetails ? `+91 ${userPhone}` : 'Tap to add details'}
+              <Text style={styles.memberPhone} numberOfLines={1}>
+                {hasDetails ? `+91 ${userPhone}` : 'Tap to add your details'}
               </Text>
+              <View style={styles.memberSince}>
+                <Text style={styles.memberSinceText}>{memberSince ? `Member since ${memberSince}` : 'New member'}</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
-          <View style={styles.idRight}>
-            <View style={styles.statRow}>
-              <Text style={styles.statValue}>{delivered}</Text>
-              <Text style={styles.statLabel}>Orders delivered</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statRow}>
-              <Text style={[styles.statValue, { color: C.green }]}>₹{totalSaved}</Text>
-              <Text style={styles.statLabel}>Saved on MRP</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statRow}>
-              <Text style={styles.statValue}>{memberSince || 'New'}</Text>
-              <Text style={styles.statLabel}>{memberSince ? 'Customer since' : 'Customer'}</Text>
-            </View>
+          <View style={styles.memberStats}>
+            {[
+              { value: String(delivered), label: delivered === 1 ? 'Order\ndelivered' : 'Orders\ndelivered' },
+              { value: `₹${totalSaved}`, label: 'Saved\non MRP' },
+              { value: String(wishlistCount), label: 'Saved\nitems' },
+            ].map((t) => (
+              <View key={t.label} style={styles.memberTile}>
+                <Text style={styles.memberTileValue} numberOfLines={1} adjustsFontSizeToFit>
+                  {t.value}
+                </Text>
+                <Text style={styles.memberTileLabel}>{t.label}</Text>
+              </View>
+            ))}
           </View>
         </View>
 
@@ -538,6 +551,135 @@ export default function ProfileMenuScreen() {
 }
 
 const styles = StyleSheet.create({
+  member: {
+    borderRadius: 28,
+    padding: 18,
+    marginBottom: 20,
+    overflow: 'hidden',
+    backgroundColor: '#BE1E2D',
+    shadowColor: '#5A0A12',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.28,
+    shadowRadius: 22,
+    elevation: 8,
+  },
+  memberGlow: {
+    position: 'absolute',
+    top: -130,
+    right: -90,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    backgroundColor: 'rgba(255,214,170,0.16)',
+  },
+  memberBird: {
+    position: 'absolute',
+    right: -24,
+    top: 18,
+    width: 160,
+    height: 105,
+    opacity: 0.08,
+    tintColor: '#FFFFFF',
+  },
+  memberTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  memberAvatar: {
+    width: 76,
+    height: 76,
+  },
+  memberAvatarInner: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 3,
+    borderColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: '#FDECEC',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  memberAvatarImg: {
+    width: '100%',
+    height: '100%',
+  },
+  memberInitial: {
+    fontSize: 30,
+    fontWeight: '800',
+    color: '#B91C1C',
+  },
+  memberCamera: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  memberName: {
+    fontSize: 21,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
+  },
+  memberPhone: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.8)',
+    marginTop: 2,
+  },
+  memberSince: {
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    paddingHorizontal: 10,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.14)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  memberSinceText: {
+    fontSize: 11.5,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+    color: '#FFFFFF',
+  },
+  memberStats: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 18,
+  },
+  memberTile: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  memberTileValue: {
+    fontSize: 20,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+    color: '#FFFFFF',
+  },
+  memberTileLabel: {
+    fontSize: 11.5,
+    lineHeight: 15,
+    color: 'rgba(255,255,255,0.78)',
+    marginTop: 3,
+  },
   logoutBtn: {
     height: 50,
     borderRadius: 14,
