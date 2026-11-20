@@ -182,46 +182,56 @@ export default function ProductDetailScreen() {
               </View>
             )}
           </View>
+          {/* One size only: say it here instead of a one-option picker */}
+          {packs.length < 2 && (
+            <Text style={styles.packLine}>
+              {pack.label}
+              {perKg(pack.price, pack.netWeight) ? ` · ₹${perKg(pack.price, pack.netWeight)}/kg` : ''}
+              {pack.serves ? ` · ${pack.serves}` : ''}
+            </Text>
+          )}
           <View style={styles.metaRow}>
             <AppIcon icon={Clock01Icon} size={13} color={C.secondary} strokeWidth={2} />
             <Text style={styles.meta}>Express delivery in 15–20 mins · Incl. of all taxes</Text>
           </View>
           {isOutOfStock && <Text style={styles.soldOut}>Sold out right now. Check back soon.</Text>}
 
-          {/* Sizes */}
-          <Text style={styles.sectionTitle}>Choose size</Text>
-          <View style={styles.sizes}>
-            {packs.map((p) => {
-              const on = p.id === pack.id;
-              const kg = perKg(p.price, p.netWeight);
-              return (
-                <TouchableOpacity
-                  key={p.id}
-                  style={[styles.size, on && styles.sizeOn]}
-                  onPress={() => {
-                    haptic.select();
-                    setPackId(p.id);
-                  }}
-                  activeOpacity={0.8}
-                  accessibilityRole="radio"
-                  accessibilityState={{ selected: on }}
-                  accessibilityLabel={`${p.label}, ₹${p.price}`}
-                >
-                  {p.id === bestValueId && (
-                    <View style={styles.bestTag}>
-                      <Text style={styles.bestTagText}>Best value</Text>
+          {/* Sizes (only when there is a real choice) */}
+          {packs.length > 1 && <Text style={styles.sectionTitle}>Choose size</Text>}
+          {packs.length > 1 && (
+            <View style={styles.sizes}>
+              {packs.map((p) => {
+                const on = p.id === pack.id;
+                const kg = perKg(p.price, p.netWeight);
+                return (
+                  <TouchableOpacity
+                    key={p.id}
+                    style={[styles.size, on && styles.sizeOn]}
+                    onPress={() => {
+                      haptic.select();
+                      setPackId(p.id);
+                    }}
+                    activeOpacity={0.8}
+                    accessibilityRole="radio"
+                    accessibilityState={{ selected: on }}
+                    accessibilityLabel={`${p.label}, ₹${p.price}`}
+                  >
+                    {p.id === bestValueId && (
+                      <View style={styles.bestTag}>
+                        <Text style={styles.bestTagText}>Best value</Text>
+                      </View>
+                    )}
+                    <Text style={styles.sizeLabel}>{p.label}</Text>
+                    <View style={styles.sizePriceRow}>
+                      <Text style={[styles.sizePrice, on && { color: C.red }]}>₹{p.price}</Text>
+                      {p.originalPrice > p.price && <Text style={styles.sizeMrp}>₹{p.originalPrice}</Text>}
                     </View>
-                  )}
-                  <Text style={styles.sizeLabel}>{p.label}</Text>
-                  <View style={styles.sizePriceRow}>
-                    <Text style={[styles.sizePrice, on && { color: C.red }]}>₹{p.price}</Text>
-                    {p.originalPrice > p.price && <Text style={styles.sizeMrp}>₹{p.originalPrice}</Text>}
-                  </View>
-                  <Text style={styles.sizeSub}>{kg ? `₹${kg}/kg` : p.serves}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+                    <Text style={styles.sizeSub}>{kg ? `₹${kg}/kg` : p.serves}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
 
           {/* Details */}
           <Text style={styles.sectionTitle}>Details</Text>
@@ -460,6 +470,12 @@ const styles = StyleSheet.create({
     color: C.text,
     letterSpacing: -0.5,
     marginTop: 4,
+  },
+  packLine: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: C.text,
+    marginTop: 6,
   },
   priceRow: {
     flexDirection: 'row',
