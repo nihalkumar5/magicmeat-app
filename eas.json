@@ -6,18 +6,42 @@
   "build": {
     "development": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "magicmeat-gmpqj",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:484845490221:web:3c93463d0061bdfd8768a4",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "magicmeat-gmpqj.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDhGBnsNM2_B2s_nAWQD5yPOfPlgZvRwsg",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "magicmeat-gmpqj.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "484845490221"
+      }
     },
     "preview": {
       "distribution": "internal",
       "android": {
         "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "magicmeat-gmpqj",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:484845490221:web:3c93463d0061bdfd8768a4",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "magicmeat-gmpqj.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDhGBnsNM2_B2s_nAWQD5yPOfPlgZvRwsg",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "magicmeat-gmpqj.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "484845490221"
       }
     },
     "production": {
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "magicmeat-gmpqj",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:484845490221:web:3c93463d0061bdfd8768a4",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "magicmeat-gmpqj.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyDhGBnsNM2_B2s_nAWQD5yPOfPlgZvRwsg",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "magicmeat-gmpqj.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "484845490221"
       }
     }
   },
