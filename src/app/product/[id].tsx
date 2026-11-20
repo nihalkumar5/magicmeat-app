@@ -18,6 +18,7 @@ import { packVariantsFor, cutForPack } from '../../data/pricing';
 import { optimizeImageUrl } from '../../utils/imageOptimizer';
 import { goBack } from '../../utils/navigation';
 import { haptic } from '../../utils/haptics';
+import { HeartButton } from '../../components/HeartButton';
 import { PopIn, useBump } from '../../components/motion';
 import {
   AppIcon,
@@ -26,7 +27,6 @@ import {
   PlusSignIcon,
   Delete02Icon,
   MinusSignIcon,
-  FavouriteIcon,
   ShieldCheckIcon,
   SnowflakeIcon,
   Cash01Icon,
@@ -62,7 +62,7 @@ function perKg(price: number, netWeight: string): number {
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { addToCart, wishlist, toggleWishlist, cart, updateQuantity, inventory } = useStore();
+  const { addToCart, cart, updateQuantity, inventory } = useStore();
   const { width } = useWindowDimensions();
   const foundProduct = useMemo(() => PRODUCTS.find((p) => p.id === id), [id]);
   const product = foundProduct || PRODUCTS[0];
@@ -95,7 +95,6 @@ export default function ProductDetailScreen() {
   const qtyBump = useBump(inBasket);
   const [showMore, setShowMore] = useState(false);
 
-  const isLiked = wishlist.includes(product.id);
   const price = pack.price;
   const mrp = pack.originalPrice > price ? pack.originalPrice : 0;
   const off = mrp ? Math.round(((mrp - price) / mrp) * 100) : 0;
@@ -128,13 +127,7 @@ export default function ProductDetailScreen() {
           <AppIcon icon={ArrowLeft01Icon} size={20} color={C.text} strokeWidth={2.2} />
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', gap: 10 }}>
-          <TouchableOpacity
-            style={styles.roundBtn}
-            onPress={() => toggleWishlist(product.id)}
-            accessibilityLabel={isLiked ? 'Remove from saved' : 'Save'}
-          >
-            <AppIcon icon={FavouriteIcon} size={19} color={isLiked ? C.red : C.text} strokeWidth={2.1} />
-          </TouchableOpacity>
+          <HeartButton productId={product.id} size={19} style={styles.roundBtn} label={product.name} />
           <TouchableOpacity
             style={styles.roundBtn}
             onPress={() => router.push('/(tabs)/cart')}

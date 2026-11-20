@@ -1,11 +1,12 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated, Platform } from 'react-native';
 import { router } from 'expo-router';
 import type { Product } from '../types';
 import { useStore, defaultCutFor } from '../store/useStore';
 import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { AppIcon, PlusSignIcon, MinusSignIcon, Clock01Icon } from './HugeIcon';
 import { PressableScale, PopIn, useBump } from './motion';
+import { HeartButton } from './HeartButton';
 import { haptic } from '../utils/haptics';
 
 const RED = '#DC2626';
@@ -36,7 +37,10 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
       style={[styles.card, { width }]}
       scaleTo={0.97}
       onPress={() => router.push({ pathname: '/product/[id]', params: { id: product.id } })}
-      accessibilityRole="button"
+      // On web a 'button' role renders <button>, and the card holds its own
+      // Add and heart buttons; buttons can't nest, so the card stays a plain
+      // pressable there.
+      accessibilityRole={Platform.OS === 'web' ? undefined : 'button'}
       accessibilityLabel={`${product.name}, ₹${product.basePrice}`}
     >
       <View style={styles.imageWrap}>
@@ -46,6 +50,7 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
           resizeMode="cover"
           fadeDuration={0}
         />
+        <HeartButton productId={product.id} size={16} style={styles.heart} label={product.name} />
         {off > 0 && !soldOut && (
           <View style={styles.offTag}>
             <Text style={styles.offText}>{off}% OFF</Text>
@@ -125,6 +130,12 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
 export const ShopCard = React.memo(ShopCardComponent);
 
 const styles = StyleSheet.create({
+  heart: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 2,
+  },
   card: {
     marginBottom: 16,
   },
