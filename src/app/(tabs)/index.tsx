@@ -844,14 +844,6 @@ export default function HomeScreen() {
         <View style={styles.mTopBar}>
           {/* Paints above the header too, so pulling down never shows white */}
           <View pointerEvents="none" style={styles.mTopOverscroll} />
-          {/* Depth: a warm glow from the top-right and a faint brand bird */}
-          <View pointerEvents="none" style={styles.mHeaderGlow} />
-          <Image
-            pointerEvents="none"
-            source={require('../../../assets/brand/bird.png')}
-            style={styles.mHeaderBird}
-            resizeMode="contain"
-          />
           <View style={styles.mLocationBlock}>
             {/* One line: the time, with the mode as a small gold pill */}
             <View style={styles.mEtaRow}>
@@ -1315,24 +1307,6 @@ const styles = StyleSheet.create({
     paddingBottom: SPACE.sm,
     gap: SPACE.md,
     backgroundColor: HEADER_BG,
-  },
-  mHeaderGlow: {
-    position: 'absolute',
-    top: -140,
-    right: -90,
-    width: 300,
-    height: 300,
-    borderRadius: 150,
-    backgroundColor: 'rgba(255,214,170,0.16)',
-  },
-  mHeaderBird: {
-    position: 'absolute',
-    right: -18,
-    bottom: -26,
-    width: 170,
-    height: 112,
-    opacity: 0.09,
-    tintColor: '#FFFFFF',
   },
   mEtaRow: {
     flexDirection: 'row',
