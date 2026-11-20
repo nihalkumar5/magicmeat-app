@@ -22,7 +22,7 @@ module.exports = function withAndroidBuildOptions(config) {
       }
     };
 
-    setProperty('reactNativeArchitectures', 'arm64-v8a');
+    setProperty('reactNativeArchitectures', 'armeabi-v7a,arm64-v8a');
     setProperty('expoNodeExecutable', nodeExecutable);
 
     return gradleConfig;
