@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useStore } from '../store/useStore';
 import { notify, confirmAction } from '../utils/dialogs';
 import { goBack } from '../utils/navigation';
+import { PICKUP_ENABLED } from '../constants/features';
 import { LocationData, MAGICMEAT_HUBS, DarkStoreHub } from '../types/location';
 import {
   detectDeviceLocation,
@@ -63,7 +64,7 @@ export default function LocationSelectScreen() {
   } = useStore();
 
   const [activeMode, setActiveMode] = useState<'delivery' | 'takeaway'>(
-    orderFulfillment || 'delivery'
+    PICKUP_ENABLED ? orderFulfillment || 'delivery' : 'delivery'
   );
   const [isDetecting, setIsDetecting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -97,6 +98,7 @@ export default function LocationSelectScreen() {
       deliveryEta: 'Pickup in 10 Mins',
       tag: 'Work',
     };
+    if (!PICKUP_ENABLED) return;
     setCurrentLocation(hubLocation);
     setOrderFulfillment('takeaway');
     goBack();
@@ -200,7 +202,7 @@ export default function LocationSelectScreen() {
           {(
             [
               { key: 'delivery', label: 'Delivery' },
-              { key: 'takeaway', label: 'Pickup' },
+              { key: 'takeaway', label: PICKUP_ENABLED ? 'Pickup' : 'Pickup · Soon' },
             ] as const
           ).map((m) => (
             <TouchableOpacity
@@ -446,6 +448,32 @@ export default function LocationSelectScreen() {
               </>
             )}
           </>
+        ) : !PICKUP_ENABLED ? (
+          // Pickup paused while the stores are renovated.
+          <View style={styles.soonWrap}>
+            <View style={styles.soonIcon}>
+              <AppIcon icon={Store01Icon} size={28} color={C.red} strokeWidth={2} />
+            </View>
+            <View style={styles.soonBadge}>
+              <Text style={styles.soonBadgeText}>COMING SOON</Text>
+            </View>
+            <Text style={styles.soonTitle}>Store pickup is coming soon</Text>
+            <Text style={styles.soonSub}>
+              We’re renovating our stores to serve you better. Until then, we’ll bring your order to your door in
+              15–20 minutes.
+            </Text>
+            <TouchableOpacity
+              style={styles.soonBtn}
+              onPress={() => {
+                setActiveMode('delivery');
+                setOrderFulfillment('delivery');
+              }}
+              activeOpacity={0.85}
+              accessibilityRole="button"
+            >
+              <Text style={styles.soonBtnText}>Order for delivery</Text>
+            </TouchableOpacity>
+          </View>
         ) : (
           <>
             {/* Pickup */}
@@ -521,6 +549,63 @@ export default function LocationSelectScreen() {
 }
 
 const styles = StyleSheet.create({
+  soonWrap: {
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 40,
+  },
+  soonIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FEF2F2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soonBadge: {
+    marginTop: 16,
+    paddingHorizontal: 10,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: '#FDE2A7',
+  },
+  soonBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1,
+    color: '#B45309',
+  },
+  soonTitle: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: C.text,
+    textAlign: 'center',
+    marginTop: 12,
+  },
+  soonSub: {
+    fontSize: 15,
+    lineHeight: 21,
+    color: C.secondary,
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  soonBtn: {
+    marginTop: 22,
+    height: 50,
+    paddingHorizontal: 28,
+    borderRadius: 25,
+    backgroundColor: C.red,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  soonBtnText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   safeArea: {
     flex: 1,
     backgroundColor: C.bg,

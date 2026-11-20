@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { FONT } from '../../constants/fonts';
 import { GUTTER, RADIUS, SPACE, TYPE } from '../../constants/layout';
+import { PICKUP_ENABLED } from '../../constants/features';
+import { notify } from '../../utils/dialogs';
 import {
   View,
   Text,
@@ -301,7 +303,7 @@ export default function HomeScreen() {
   const cartCount = useStore((state) => state.cart.reduce((sum, item) => sum + item.quantity, 0));
   const cartTotal = useStore((state) => state.cart.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0));
 
-  const [activeOrderType, setActiveOrderType] = useState<OrderType>('takeaway');
+  const [activeOrderType, setActiveOrderType] = useState<OrderType>('delivery');
   const [promiseOpen, setPromiseOpen] = useState(false);
   const { width } = useWindowDimensions();
   const isDesktop = Platform.OS === 'web' && width >= 768;
@@ -503,7 +505,11 @@ export default function HomeScreen() {
               {/* Takeaway */}
               <TouchableOpacity
                 style={[styles.desktopSegmentPill, activeOrderType === 'takeaway' && styles.desktopSegmentPillActive]}
-                onPress={() => setActiveOrderType('takeaway')}
+                onPress={() =>
+                  PICKUP_ENABLED
+                    ? setActiveOrderType('takeaway')
+                    : notify('Pickup is coming soon', 'Our stores are being renovated. We deliver in 15–20 minutes meanwhile.')
+                }
                 activeOpacity={0.85}
               >
                 <AppIcon
@@ -521,7 +527,7 @@ export default function HomeScreen() {
                   >
                     Takeaway
                   </Text>
-                  <Text style={styles.desktopSegmentPillSub}>Pickup in 10 Mins</Text>
+                  <Text style={styles.desktopSegmentPillSub}>{PICKUP_ENABLED ? 'Pickup in 10 Mins' : 'Coming soon'}</Text>
                 </View>
               </TouchableOpacity>
 

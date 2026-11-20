@@ -16,6 +16,7 @@ import {
 import { LocationData } from '../types/location';
 import { couponDiscount, feesFor, unitPriceFor } from '../data/pricing';
 import { slotInfo } from '../data/slots';
+import { PICKUP_ENABLED } from '../constants/features';
 import { notify } from '../utils/dialogs';
 import { adminUpdateOrder, adminUpdateProduct, cancelMyOrder, createOrder, newOrderId, saveWishlist } from '../services/backend';
 
@@ -293,7 +294,7 @@ export const useStore = create<StoreState>()(
       customizerProduct: null,
       orders: [],
       activeOrder: null,
-      orderFulfillment: preloadedState?.orderFulfillment || 'delivery',
+      orderFulfillment: PICKUP_ENABLED ? preloadedState?.orderFulfillment || 'delivery' : 'delivery',
       wishlist: preloadedState?.wishlist || [],
       inventory: INITIAL_INVENTORY,
       profile: preloadedState?.profile || { name: '', phone: '', email: '' },
@@ -361,7 +362,9 @@ export const useStore = create<StoreState>()(
         saveWishlist(get().wishlist).catch((e) => console.warn('[wishlist] save failed', e?.code || e));
       },
 
-      setOrderFulfillment: (orderFulfillment) => set({ orderFulfillment }),
+      // Pickup is paused (constants/features): stay on delivery.
+      setOrderFulfillment: (orderFulfillment) =>
+        set({ orderFulfillment: PICKUP_ENABLED ? orderFulfillment : 'delivery' }),
 
       setCurrentLocation: (location: LocationData) => {
         // Immediate sync to localStorage on web
