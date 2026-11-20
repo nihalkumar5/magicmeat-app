@@ -20,7 +20,10 @@ export async function POST(request: Request): Promise<Response> {
   const adminUids: string[] = [];
   adminsSnap.forEach((d) => adminUids.push(d.id));
 
-  if (adminUids.length === 0) return json(200, { sent: 0, reason: 'no_admins' });
+  if (adminUids.length === 0) {
+    console.warn('[new-order] no admins in admins/');
+    return json(200, { sent: 0, reason: 'no_admins' });
+  }
 
   // Get push tokens for each admin uid
   const messages: PushMessage[] = [];
@@ -40,7 +43,11 @@ export async function POST(request: Request): Promise<Response> {
     }
   }
 
-  if (messages.length === 0) return json(200, { sent: 0, reason: 'no_tokens' });
+  if (messages.length === 0) {
+    console.warn('[new-order] no admin push token saved', JSON.stringify({ admins: adminUids.length }));
+    return json(200, { sent: 0, reason: 'no_tokens' });
+  }
+  console.log('[new-order] sending', JSON.stringify({ orderId, admins: adminUids.length, phones: messages.length }));
 
   const r = await sendPushDetailed(messages);
   return json(200, { sent: r.accepted, delivered: r.delivered, errors: r.errors, total: messages.length });
