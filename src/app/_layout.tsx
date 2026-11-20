@@ -1,3 +1,4 @@
+import '../utils/webFrame';
 import { useEffect, useRef } from 'react';
 import { Stack, router, usePathname } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -25,7 +26,8 @@ import {
   watchAuth,
 } from '../services/backend';
 import type { Order } from '../types';
-import { useStore } from '../store/useStore';
+import { useStore, hasAddress } from '../store/useStore';
+import { detectDeviceLocation } from '../services/locationService';
 
 export default function RootLayout() {
   const pathname = usePathname();
@@ -186,9 +188,25 @@ export default function RootLayout() {
   }, []);
 
   const authState = useStore((s) => s.authState);
-  // Brand fonts; the splash stays up until they're in (or failed, then the
-  // system font is used).
   const signedIn = authState === 'in';
+
+  // First time in (no address yet): find the customer's location and use it
+  // as their delivery address. If location is off or denied, open the
+  // address screen so they can pick or type one.
+  const needsAddress = useStore((s) => !hasAddress(s.currentLocation));
+  const autoLocated = useRef(false);
+  useEffect(() => {
+    if (!signedIn || !needsAddress || autoLocated.current) return;
+    autoLocated.current = true;
+    detectDeviceLocation()
+      .then((loc) => {
+        const st = useStore.getState();
+        if (hasAddress(st.currentLocation)) return; // picked one meanwhile
+        st.setCurrentLocation(loc);
+        if (st.savedAddresses.length === 0) st.addSavedAddress({ ...loc, tag: 'Home' });
+      })
+      .catch(() => router.push('/location-select'));
+  }, [signedIn, needsAddress]);
 
   // Logged out: always land on the login screen.
   useEffect(() => {

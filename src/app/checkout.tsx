@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useStore } from '../store/useStore';
+import { useStore, hasAddress } from '../store/useStore';
 import { goBack } from '../utils/navigation';
 import type { DeliveryMode } from '../types';
 import { DELIVERY_FEE, EXPRESS_FEE, FREE_DELIVERY_ABOVE, feesFor, mrpFor } from '../data/pricing';
@@ -123,6 +123,11 @@ export default function CheckoutScreen() {
       showError(
         `${soldOut.map((i) => i.product.name).join(', ')} ${soldOut.length > 1 ? 'are' : 'is'} out of stock. Please remove ${soldOut.length > 1 ? 'them' : 'it'} from your basket.`,
       );
+      return;
+    }
+    if (orderFulfillment === 'delivery' && !hasAddress(currentLocation)) {
+      showError('Please add your delivery address.');
+      router.push('/location-select');
       return;
     }
     if (isUnserviceable) {

@@ -103,74 +103,25 @@ export function defaultCutFor(product: Product): CutOption {
   );
 }
 
-const INITIAL_SAVED_ADDRESSES: LocationData[] = [
-  {
-    shortAddress: 'Khandel Road',
-    fullAddress: 'Roop Vihar, 4523+VFV, Khandel Rd, Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh 495006, India',
-    city: 'Bilaspur',
-    state: 'Chhattisgarh',
-    postalCode: '495006',
-    coords: { latitude: 22.0797, longitude: 82.1409 },
-    isServiceable: true,
-    nearestHubName: 'Bilaspur Butchery Hub (Sarkanda)',
-    distanceKm: 0.8,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
-  {
-    shortAddress: 'Jivan Vihar',
-    fullAddress:
-      'Abc, Magneto Mall, 229/14 & 230/10, Great Eastern Rd, Jivan Vihar, Raipur, Chhattisgarh 492001, India',
-    city: 'Raipur',
-    state: 'Chhattisgarh',
-    postalCode: '492001',
-    coords: { latitude: 21.2435, longitude: 81.6748 },
-    isServiceable: true,
-    nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-    distanceKm: 15,
-    deliveryEta: '15–20 mins',
-    tag: 'Work',
-  },
-  {
-    shortAddress: 'Other (Varanasi)',
-    fullAddress: 'House 1, Mohanpuri Colony, Karaundi, Varanasi, Uttar Pradesh 221005, India',
-    city: 'Varanasi',
-    state: 'Uttar Pradesh',
-    postalCode: '221005',
-    coords: { latitude: 25.2677, longitude: 82.9913 },
-    isServiceable: false,
-    nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-    distanceKm: 476,
-    deliveryEta: 'Expanding Soon',
-    tag: 'Other',
-  },
-  {
-    shortAddress: 'Civil Lines, Raipur',
-    fullAddress: 'LK Corporate Tower, Civil Lines, Raipur, Chhattisgarh 492001',
-    city: 'Raipur',
-    state: 'Chhattisgarh',
-    postalCode: '492001',
-    coords: { latitude: 21.2514, longitude: 81.6296 },
-    isServiceable: true,
-    nearestHubName: 'Raipur Central Butchery Hub (Civil Lines)',
-    distanceKm: 0.4,
-    deliveryEta: '15–20 mins',
-    tag: 'Work',
-  },
-  {
-    shortAddress: 'Bellandur, Bengaluru',
-    fullAddress: 'Flat 402, Green Glen Orchid, Bellandur, Bengaluru 560103',
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    postalCode: '560103',
-    coords: { latitude: 12.9304, longitude: 77.6784 },
-    isServiceable: true,
-    nearestHubName: 'Bengaluru East Express Hub',
-    distanceKm: 1.8,
-    deliveryEta: '15–20 mins',
-    tag: 'Home',
-  },
-];
+// No address until the customer gives one: on first launch the app asks for
+// their location and fills it in (see AutoLocate in the root layout).
+export const EMPTY_LOCATION: LocationData = {
+  shortAddress: '',
+  fullAddress: '',
+  city: '',
+  state: '',
+  coords: { latitude: 0, longitude: 0 },
+  isServiceable: true,
+  nearestHubName: '',
+  distanceKm: 0,
+  deliveryEta: '15–20 mins',
+};
+
+export const hasAddress = (l?: LocationData | null) => !!l?.fullAddress?.trim();
+
+// Sample addresses older builds saved for everyone; removed on update.
+const DEMO_ADDRESSES = new Set<string>(['Roop Vihar, 4523+VFV, Khandel Rd, Ashok Nagar, Sarkanda, Bilaspur, Chhattisgarh 495006, India', 'Abc, Magneto Mall, 229/14 & 230/10, Great Eastern Rd, Jivan Vihar, Raipur, Chhattisgarh 492001, India', 'House 1, Mohanpuri Colony, Karaundi, Varanasi, Uttar Pradesh 221005, India', 'LK Corporate Tower, Civil Lines, Raipur, Chhattisgarh 492001', 'Flat 402, Green Glen Orchid, Bellandur, Bengaluru 560103']);
+const isDemo = (l?: { fullAddress?: string } | null) => !!l?.fullAddress && DEMO_ADDRESSES.has(l.fullAddress);
 
 // Universal Storage Adapter for Web & Mobile Native
 const universalStorage = {
@@ -283,12 +234,14 @@ export const useStore = create<StoreState>()(
       cart: preloadedState?.cart || [],
       // Normal is the default; Express is a paid upgrade the customer picks.
       deliveryMode: preloadedState?.deliveryMode === 'instant' ? 'instant' : 'slot',
-      selectedAddress:
-        preloadedState?.selectedAddress ||
-        preloadedState?.currentLocation?.fullAddress ||
-        INITIAL_SAVED_ADDRESSES[0].fullAddress,
-      currentLocation: preloadedState?.currentLocation || INITIAL_SAVED_ADDRESSES[0],
-      savedAddresses: preloadedState?.savedAddresses || INITIAL_SAVED_ADDRESSES,
+      selectedAddress: isDemo(preloadedState?.currentLocation)
+        ? ''
+        : preloadedState?.selectedAddress || preloadedState?.currentLocation?.fullAddress || '',
+      currentLocation:
+        preloadedState?.currentLocation && !isDemo(preloadedState.currentLocation)
+          ? preloadedState.currentLocation
+          : EMPTY_LOCATION,
+      savedAddresses: (preloadedState?.savedAddresses || []).filter((a: LocationData) => !isDemo(a)),
       isLocationModalOpen: false,
       searchQuery: '',
       selectedCategory: 'all',
@@ -585,14 +538,22 @@ export const useStore = create<StoreState>()(
     }),
     {
       name: 'magicmeat-store-persist',
-      version: 3,
+      version: 4,
       // v2: orders and inventory moved to Firestore; drop the local copies.
       // v3: only Express ('instant') and Normal ('slot') remain.
+      // v4: sample addresses removed.
       migrate: (persisted: any) => {
         if (persisted) {
           delete persisted.orders;
           delete persisted.inventory;
           if (persisted.deliveryMode !== 'instant') persisted.deliveryMode = 'slot';
+          // v4: drop the sample addresses older builds saved for everyone.
+          if (Array.isArray(persisted.savedAddresses))
+            persisted.savedAddresses = persisted.savedAddresses.filter((a: LocationData) => !isDemo(a));
+          if (isDemo(persisted.currentLocation)) {
+            persisted.currentLocation = EMPTY_LOCATION;
+            persisted.selectedAddress = '';
+          }
         }
         return persisted;
       },
