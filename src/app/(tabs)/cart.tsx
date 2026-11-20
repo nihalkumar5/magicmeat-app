@@ -13,7 +13,6 @@ import { DominosCard } from '../../components/DominosCard';
 import { useTabBarInset } from '../../components/FloatingTabBar';
 import { FadeInUp, PopIn, PressableScale } from '../../components/motion';
 import { haptic } from '../../utils/haptics';
-import { FONT } from '../../constants/fonts';
 import { CouponSheet } from '../../components/CouponSheet';
 import type { DeliveryMode } from '../../types';
 import {
@@ -649,7 +648,7 @@ const styles = StyleSheet.create({
   },
   slotTitle: {
     fontSize: 17,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     letterSpacing: -0.3,
     color: C.text,
   },
@@ -662,13 +661,13 @@ const styles = StyleSheet.create({
   },
   fastTagText: {
     fontSize: 9.5,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     letterSpacing: 0.8,
     color: '#B45309',
   },
   slotTime: {
     fontSize: 13,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: C.secondary,
     marginTop: 2,
   },
@@ -686,7 +685,7 @@ const styles = StyleSheet.create({
   },
   feeText: {
     fontSize: 13,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     color: C.text,
   },
   feeTextFree: {

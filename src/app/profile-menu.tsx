@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { FONT } from '../constants/fonts';
 import {
   Image,
   KeyboardAvoidingView,
@@ -99,8 +98,21 @@ function Row({
 }
 
 export default function ProfileMenuScreen() {
-  const { activeOrder, orders, profile, setProfile, savedAddresses, profilePhoto, setProfilePhoto } = useStore();
+  const { activeOrder, orders, profile, setProfile, savedAddresses, profilePhoto, setProfilePhoto, isAdmin } =
+    useStore();
   const wishlistCount = useStore((s) => s.wishlist.length);
+  const [versionTapCount, setVersionTapCount] = useState(0);
+
+  const handleVersionTap = () => {
+    const next = versionTapCount + 1;
+    if (next >= 5) {
+      setVersionTapCount(0);
+      haptic.success();
+      router.push('/admin');
+    } else {
+      setVersionTapCount(next);
+    }
+  };
 
   const changePhoto = async () => {
     try {
@@ -414,14 +426,17 @@ export default function ProfileMenuScreen() {
               'Email us with your order number and a photo if something is wrong. Our team reviews every request.',
             )
           }
+          last={!isAdmin}
         />
-        <Row
-          icon={Store01Icon}
-          title="Store admin"
-          subtitle="For MagicMeat staff"
-          onPress={() => router.push('/admin')}
-          last
-        />
+        {isAdmin && (
+          <Row
+            icon={Store01Icon}
+            title="Store admin"
+            subtitle="For MagicMeat staff"
+            onPress={() => router.push('/admin')}
+            last
+          />
+        )}
 
         <TouchableOpacity
           style={styles.logoutBtn}
@@ -447,7 +462,9 @@ export default function ProfileMenuScreen() {
           <Text style={styles.brand}>
             MAGIC<Text style={{ color: C.red }}>MEAT</Text>
           </Text>
-          <Text style={styles.version}>100% Jhatka · Version {version}</Text>
+          <TouchableOpacity onPress={handleVersionTap} activeOpacity={1}>
+            <Text style={styles.version}>100% Jhatka · Version {version}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
 
@@ -633,7 +650,7 @@ const styles = StyleSheet.create({
   },
   memberName: {
     fontSize: 23,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     letterSpacing: -0.4,
     color: '#FFFFFF',
   },
@@ -675,7 +692,7 @@ const styles = StyleSheet.create({
   },
   memberTileValue: {
     fontSize: 22,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     letterSpacing: -0.4,
     color: '#FFFFFF',
   },

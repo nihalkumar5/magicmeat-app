@@ -9,8 +9,6 @@ import { LocationSelectorModal } from '../components/LocationSelectorModal';
 import { AnimatedSplash } from '../components/AnimatedSplash';
 import { DialogHost } from '../components/DialogHost';
 import { onOrderNotificationTap, registerForPush } from '../services/notifications';
-import { useFonts } from 'expo-font';
-import { FONT_ASSETS } from '../constants/fonts';
 import {
   fetchProfile,
   isAdmin,
@@ -26,7 +24,6 @@ import {
 } from '../services/backend';
 import type { Order } from '../types';
 import { useStore } from '../store/useStore';
-import { installWebBrandFont } from '../utils/webFonts';
 
 export default function RootLayout() {
   const pathname = usePathname();
@@ -37,7 +34,6 @@ export default function RootLayout() {
     !pathname || pathname === '/' || pathname === '/(tabs)' || pathname === '/(tabs)/' || pathname === '/(tabs)/index';
 
   useEffect(() => {
-    installWebBrandFont();
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const styleId = 'magicmeat-web-root-styles';
       if (!document.getElementById(styleId)) {
@@ -156,8 +152,6 @@ export default function RootLayout() {
   const authState = useStore((s) => s.authState);
   // Brand fonts; the splash stays up until they're in (or failed, then the
   // system font is used).
-  const [fontsLoaded, fontError] = useFonts(FONT_ASSETS);
-  const fontsReady = fontsLoaded || !!fontError;
   const signedIn = authState === 'in';
 
   // Logged out: always land on the login screen.
@@ -251,7 +245,7 @@ export default function RootLayout() {
         </View>
       </View>
       <DialogHost />
-      <AnimatedSplash ready={fontsReady} />
+      <AnimatedSplash ready />
     </SafeAreaProvider>
   );
 }

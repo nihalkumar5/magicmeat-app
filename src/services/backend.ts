@@ -173,7 +173,7 @@ export async function adminUpdateProduct(
 
 export async function savePushToken(token: string, platform: string): Promise<void> {
   const user = currentUser();
-  if (!db || !user || !isPhoneUser(user)) return;
+  if (!db || !user) return;
   await setDoc(doc(db, 'pushTokens', user.uid), {
     token: token.slice(0, 200),
     platform: platform.slice(0, 20),
@@ -550,6 +550,13 @@ export async function createOrder(input: NewOrderInput): Promise<void> {
     data.lng = input.lng;
   }
   await setDoc(doc(db, 'orders', input.id), data);
+
+  // Notify store admin of fresh order
+  fetch(`${OTP_API}/api/notify/new-order`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ orderId: input.id }),
+  }).catch(() => {});
 }
 
 export async function cancelMyOrder(orderId: string): Promise<void> {

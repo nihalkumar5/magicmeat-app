@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { FONT } from '../../constants/fonts';
 import { GUTTER, RADIUS, SPACE, TYPE } from '../../constants/layout';
 import { PICKUP_ENABLED } from '../../constants/features';
 import { notify } from '../../utils/dialogs';
@@ -977,7 +976,7 @@ export default function HomeScreen() {
           <View style={styles.mOffer}>
             <AppIcon icon={DeliveryTruck01Icon} size={16} color="#166534" strokeWidth={2} />
             <Text style={styles.mOfferText}>
-              <Text style={{ fontFamily: FONT.heavy }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
+              <Text style={{ fontWeight: '800' }}>Free delivery</Text> on orders above ₹{FREE_DELIVERY_ABOVE}
             </Text>
           </View>
         )}
@@ -1340,7 +1339,7 @@ const styles = StyleSheet.create({
   },
   mModeText: {
     fontSize: 10.5,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     letterSpacing: 1,
     color: HEADER_ACCENT,
   },
@@ -1376,7 +1375,7 @@ const styles = StyleSheet.create({
   mAddressChipText: {
     flexShrink: 1,
     fontSize: 13,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.1,
   },
@@ -1394,15 +1393,14 @@ const styles = StyleSheet.create({
   },
   mEyebrow: {
     fontSize: 11.5,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     letterSpacing: 1.6,
     color: 'rgba(255,255,255,0.8)',
   },
-  // Display face for the one number that matters on this screen.
   mEta: {
     fontSize: TYPE.display,
     lineHeight: 38,
-    fontFamily: FONT.display,
+    fontWeight: '900',
     color: '#FFFFFF',
     letterSpacing: -1.1,
   },
@@ -1429,7 +1427,7 @@ const styles = StyleSheet.create({
   },
   mOfferText: {
     fontSize: 13,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#166534',
   },
   mShelf: {
@@ -1699,19 +1697,19 @@ const styles = StyleSheet.create({
   },
   mSectionTitle: {
     fontSize: TYPE.title,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     color: '#111111',
     letterSpacing: -0.5,
   },
   mSectionSub: {
     fontSize: TYPE.body,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#6B7280',
     marginTop: 2,
   },
   mSeeAll: {
     fontSize: 15,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     color: '#DC2626',
   },
   mCategoryGrid: {
@@ -1757,7 +1755,7 @@ const styles = StyleSheet.create({
     marginTop: SPACE.sm,
     fontSize: TYPE.body,
     lineHeight: 16,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     letterSpacing: -0.1,
     color: '#1C1C1E',
     textAlign: 'center',
@@ -2566,13 +2564,13 @@ const styles = StyleSheet.create({
   searchStaticPrefix: {
     color: '#6B7280',
     fontSize: 15,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     flexShrink: 0,
   },
   searchDynamicWord: {
     color: '#111111',
     fontSize: 15,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
   },
   offlineStoreCard: {
     width: 54,

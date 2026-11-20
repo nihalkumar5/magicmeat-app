@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Modal, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { dismissDialog, subscribeDialogs, type DialogRequest } from '../utils/dialogs';
-import { FONT } from '../constants/fonts';
 
 // In-app replacement for window.alert / window.confirm on web, styled like
 // an iOS alert: title, message, then Cancel and the action side by side
@@ -84,14 +83,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     color: '#111111',
     textAlign: 'center',
   },
   message: {
     fontSize: 13.5,
     lineHeight: 19,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#3C3C43',
     textAlign: 'center',
     marginTop: 6,
@@ -116,12 +115,12 @@ const styles = StyleSheet.create({
   },
   cancel: {
     fontSize: 16,
-    fontFamily: FONT.semibold,
+    fontWeight: '600',
     color: '#007AFF',
   },
   confirm: {
     fontSize: 16,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     color: '#007AFF',
   },
   destructive: {

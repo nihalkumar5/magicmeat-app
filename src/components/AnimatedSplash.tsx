@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, Text, AccessibilityInfo, useWindowDimensions } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import { FONT } from '../constants/fonts';
 
 // Keep the native splash (crimson + white bird badge) up until this
 // component has drawn the same frame, so the hand-off is invisible.
@@ -329,7 +328,7 @@ const styles = StyleSheet.create({
   tagline: {
     marginTop: 14,
     fontSize: 11,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     letterSpacing: 2.2,
     color: 'rgba(255,255,255,0.75)',
   },

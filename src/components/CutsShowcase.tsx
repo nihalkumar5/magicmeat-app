@@ -18,7 +18,6 @@ import { optimizeImageUrl } from '../utils/imageOptimizer';
 import { haptic } from '../utils/haptics';
 import { PressableScale, PopIn, useBump } from './motion';
 import { AppIcon, PlusSignIcon, MinusSignIcon } from './HugeIcon';
-import { FONT } from '../constants/fonts';
 import { GUTTER, PHI, RADIUS, SPACE, TYPE } from '../constants/layout';
 import type { Product } from '../types';
 
@@ -250,13 +249,13 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: TYPE.title,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     letterSpacing: -0.5,
     color: '#111111',
   },
   sub: {
     fontSize: TYPE.body,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#6B7280',
     marginTop: 2,
   },
@@ -277,7 +276,7 @@ const styles = StyleSheet.create({
   },
   tagText: {
     fontSize: TYPE.micro,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     color: '#B91C1C',
     letterSpacing: 0.3,
   },
@@ -335,14 +334,14 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: TYPE.lead + 2,
-    fontFamily: FONT.display,
+    fontWeight: '800',
     letterSpacing: -0.4,
     color: '#111111',
   },
   line: {
     fontSize: 12.5,
     lineHeight: 17,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#6B7280',
     marginTop: SPACE.xxs,
   },
@@ -356,18 +355,18 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: TYPE.lead,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     color: '#111111',
   },
   mrp: {
     fontSize: 12,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#9CA3AF',
     textDecorationLine: 'line-through',
   },
   weight: {
     fontSize: 12,
-    fontFamily: FONT.medium,
+    fontWeight: '500',
     color: '#6B7280',
   },
   veil: {
@@ -392,7 +391,7 @@ const styles = StyleSheet.create({
   addText: {
     color: RED,
     fontSize: TYPE.body,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
     letterSpacing: 0.3,
   },
   stepper: {
@@ -413,7 +412,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#FFFFFF',
     fontSize: TYPE.body,
-    fontFamily: FONT.heavy,
+    fontWeight: '800',
   },
   soldOut: {
     height: 28,
@@ -424,7 +423,7 @@ const styles = StyleSheet.create({
   },
   soldOutText: {
     fontSize: 12,
-    fontFamily: FONT.bold,
+    fontWeight: '700',
     color: '#6B7280',
   },
   progressTrack: {
