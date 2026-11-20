@@ -10,14 +10,15 @@ export const CATEGORY_IMAGES: Partial<Record<MeatCategory, ImageSourcePropType>>
   fish: require('../../assets/categories/fish.png'),
   'curry-cuts': require('../../assets/categories/curry-cuts.png'),
   eggs: require('../../assets/categories/eggs.png'),
-  'fresh-produce': require('../../assets/categories/veggies-fruits.png'),
+  vegetables: require('../../assets/categories/veggies-fruits.png'),
+  fruits: require('../../assets/categories/fruits.png'),
 };
 
 /**
  * Tile tints. Every tint has the same lightness (≈94.5 %) and a gentle
  * saturation, and its hue follows the food on the plate: peach for chicken,
  * rose for mutton, a cool sea-blue for fish, apricot for curry cuts, cream
- * for eggs, sage for vegetables. Equal lightness keeps the grid calm; the
+ * for eggs, sage for vegetables, a soft lilac for fruits (grapes, and apart from the warm meat tints). Equal lightness keeps the grid calm; the
  * hue shift lets each tile read at a glance, and the food stays the most
  * saturated thing on screen. 'all' is a quiet neutral so the brand-red icon
  * leads.
@@ -28,7 +29,8 @@ export const CATEGORY_TINT: Record<string, string> = {
   fish: '#EBF2F7',
   'curry-cuts': '#FAF0E8',
   eggs: '#F9F5E9',
-  'fresh-produce': '#EDF6EC',
+  vegetables: '#EDF6EC',
+  fruits: '#F4EDF6',
   all: '#F0F0F2',
 };
 

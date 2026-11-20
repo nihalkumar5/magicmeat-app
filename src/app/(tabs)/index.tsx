@@ -1215,7 +1215,8 @@ const HOME_CATEGORIES: {
   { id: 'fish', label: 'Fish', source: CATEGORY_IMAGES.fish },
   { id: 'curry-cuts', label: 'Curry cuts', source: CATEGORY_IMAGES['curry-cuts'] },
   { id: 'eggs', label: 'Eggs', source: CATEGORY_IMAGES.eggs },
-  { id: 'fresh-produce', label: 'Veggies & fruits', source: CATEGORY_IMAGES['fresh-produce'] },
+  { id: 'vegetables', label: 'Vegetables', source: CATEGORY_IMAGES.vegetables },
+  { id: 'fruits', label: 'Fruits', source: CATEGORY_IMAGES.fruits },
   { id: 'all', label: 'See all' },
 ];
 

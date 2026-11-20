@@ -51,7 +51,8 @@ const CATEGORY_LABEL: Record<string, string> = {
   fish: 'Fish',
   eggs: 'Eggs',
   'ready-to-cook': 'Ready to cook',
-  'fresh-produce': 'Veggies & fruits',
+  vegetables: 'Vegetables',
+  fruits: 'Fruits',
 };
 
 // Price per kg for loose meat packs, so bigger packs show their value.

@@ -46,7 +46,8 @@ const SEARCH_CATEGORIES: { id: MeatCategory; name: string; image: string }[] = (
     { id: 'mutton', name: 'Mutton' },
     { id: 'fish', name: 'Fish' },
     { id: 'eggs', name: 'Eggs' },
-    { id: 'fresh-produce', name: 'Veggies & fruits' },
+    { id: 'vegetables', name: 'Vegetables' },
+    { id: 'fruits', name: 'Fruits' },
   ] as { id: MeatCategory; name: string }[]
 ).map((c) => ({ ...c, image: PRODUCTS.find((p) => p.category === c.id)?.image || '' }));
 
@@ -70,14 +71,15 @@ const SYNONYM_MAP: Record<string, string[]> = {
   fish: ['machli', 'macchi', 'prawns', 'jhinga', 'seafood', 'shrimp', 'rohu', 'katla', 'surmai'],
   eggs: ['anda', 'ande', 'desi anda', 'brown eggs', 'egg', 'poultry eggs', 'tray'],
   'ready-to-cook': ['rtc', 'marinated', 'wings', 'peri peri', 'peri-peri', 'tikka', 'kebab', 'fry'],
-  'fresh-produce': ['aloo', 'pyaz', 'tamatar', 'onion', 'potato', 'tomato', 'adrak', 'lehsun', 'garlic', 'ginger', 'dhaniya', 'kela', 'banana', 'seb', 'apple', 'orange', 'santra', 'amrood', 'guava', 'angur', 'grapes', 'veggies', 'fruits', 'sabzi'],
+  vegetables: ['aloo', 'pyaz', 'tamatar', 'onion', 'potato', 'tomato', 'adrak', 'lehsun', 'garlic', 'ginger', 'dhaniya', 'veggies', 'veg', 'sabzi', 'vegetable'],
+  fruits: ['kela', 'banana', 'seb', 'apple', 'orange', 'santra', 'amrood', 'guava', 'angur', 'grapes', 'fruit', 'phal'],
   biryani: ['dum', 'biriyani', 'biryani cut', 'pulao', 'dum biryani'],
   keema: ['mince', 'kheema', 'qeema', 'ground meat', 'fine keema'],
   curry: ['gravy', 'salan', 'curry cut', 'bone-in', 'korma', 'curry cut medium'],
   boneless: ['cubes', 'breast', 'fillet', 'tikka', 'lean', 'no bone', 'boneless breast'],
 };
 
-const CATEGORY_KEYS = new Set(['chicken', 'mutton', 'fish', 'eggs', 'ready-to-cook', 'fresh-produce']);
+const CATEGORY_KEYS = new Set(['chicken', 'mutton', 'fish', 'eggs', 'ready-to-cook', 'vegetables', 'fruits']);
 
 // Hindi names that point at one specific product.
 const WORD_ALIASES: Record<string, string> = {

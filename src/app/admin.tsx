@@ -516,7 +516,8 @@ export default function AdminScreen() {
     fish: 'Fish',
     eggs: 'Eggs',
     'ready-to-cook': 'Ready to cook',
-    'fresh-produce': 'Vegetables',
+    vegetables: 'Vegetables',
+    fruits: 'Fruits',
   };
   const stockGroups = Object.keys(CATEGORY_TITLES)
     .map((cat) => ({ cat, items: stockList.filter((p) => p.category === cat) }))

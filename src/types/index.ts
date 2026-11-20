@@ -1,4 +1,4 @@
-export type MeatCategory = 'all' | 'chicken' | 'mutton' | 'fish' | 'ready-to-cook' | 'eggs' | 'curry-cuts' | 'fresh-produce';
+export type MeatCategory = 'all' | 'chicken' | 'mutton' | 'fish' | 'ready-to-cook' | 'eggs' | 'curry-cuts' | 'vegetables' | 'fruits';
 
 export interface MacroBreakdown {
   calories: number; // per 100g
@@ -24,7 +24,7 @@ export interface Product {
   id: string;
   name: string;
   hindiTitle?: string;
-  category: 'chicken' | 'mutton' | 'fish' | 'ready-to-cook' | 'eggs' | 'fresh-produce';
+  category: 'chicken' | 'mutton' | 'fish' | 'ready-to-cook' | 'eggs' | 'vegetables' | 'fruits';
   description: string;
   image: string;
   badge?: string;

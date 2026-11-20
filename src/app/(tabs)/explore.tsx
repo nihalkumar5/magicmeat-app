@@ -49,7 +49,8 @@ const CATEGORIES: { id: MeatCategory; label: string; title: string }[] = (
     { id: 'fish', label: 'Fish', title: 'Fresh fish' },
     { id: 'curry-cuts', label: 'Curry cuts', title: 'Curry cuts' },
     { id: 'eggs', label: 'Eggs', title: 'Eggs' },
-    { id: 'fresh-produce', label: 'Veggies & fruits', title: 'Veggies & fruits' },
+    { id: 'vegetables', label: 'Vegetables', title: 'Fresh vegetables' },
+    { id: 'fruits', label: 'Fruits', title: 'Fresh fruits' },
   ] as { id: MeatCategory; label: string; title: string }[]
 ).filter((c) => PRODUCTS.some((p) => inCategory(p, c.id)));
 
