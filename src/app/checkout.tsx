@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -19,9 +19,10 @@ import { formatGrams } from '../utils/format';
 import { notify } from '../utils/dialogs';
 import { haptic } from '../utils/haptics';
 import { CouponSheet } from '../components/CouponSheet';
+import { ConfirmOrderSheet } from '../components/ConfirmOrderSheet';
 import { cleanPhone, isValidPhone } from '../utils/validation';
 import { saveProfile } from '../services/backend';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import {
   AppIcon,
@@ -73,6 +74,8 @@ export default function CheckoutScreen() {
     getCartNetWeightGrams,
     placeOrder,
     setDeliveryMode,
+    savedAddresses,
+    setCurrentLocation,
   } = useStore();
 
   const paymentMethod = 'Cash on Delivery' as const;
@@ -84,6 +87,17 @@ export default function CheckoutScreen() {
   const contactValid = !!name.trim() && isValidPhone(phone);
   const isUnserviceable = orderFulfillment === 'delivery' && currentLocation.isServiceable === false;
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  // Set when the sheet sends them to add an address; reopen it on return.
+  const reopenConfirm = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (reopenConfirm.current) {
+        reopenConfirm.current = false;
+        setConfirmOpen(true);
+      }
+    }, []),
+  );
   const [noteOpen, setNoteOpen] = useState(false);
   // Typed loosely: RN 0.88's ScrollView ref type isn't the component type.
   const scrollRef = useRef<{
@@ -104,7 +118,9 @@ export default function CheckoutScreen() {
   const deliverySaved = isDelivery && !isExpress && deliveryFee === 0 ? DELIVERY_FEE : 0;
   const totalSavings = Math.max(0, mrpTotal - subtotal) + deliverySaved + couponOff;
 
-  const handlePlaceOrder = async () => {
+  // Step 1 (Place order button): check everything, then show the confirm
+  // sheet. Step 2 (sheet's Confirm): save contact and place the order.
+  const handlePlaceOrder = () => {
     if (isSubmitting) return;
     if (cart.length === 0) {
       router.replace('/(tabs)/cart');
@@ -142,7 +158,13 @@ export default function CheckoutScreen() {
       showError('Please enter a valid 10-digit mobile number so we can reach you.');
       return;
     }
+    haptic.tap();
+    setConfirmOpen(true);
+  };
 
+  const confirmAndPlace = async () => {
+    if (isSubmitting) return;
+    if (orderFulfillment === 'delivery' && useStore.getState().currentLocation.isServiceable === false) return;
     const nextProfile = {
       name: name.trim(),
       phone: cleanPhone(phone),
@@ -160,12 +182,14 @@ export default function CheckoutScreen() {
     try {
       const order = await placeOrder(paymentMethod, deliveryNote);
       haptic.success();
+      setConfirmOpen(false);
       router.replace({
         pathname: '/order-tracking/[id]',
         params: { id: order.id, placed: '1' },
       });
     } catch (e: any) {
       const code = e?.code || '';
+      setConfirmOpen(false);
       showError(
         code === 'permission-denied'
           ? 'Some prices or stock changed. Please refresh your basket and try again.'
@@ -519,6 +543,33 @@ export default function CheckoutScreen() {
         </TouchableOpacity>
       </View>
       <CouponSheet visible={couponOpen} onClose={() => setCouponOpen(false)} />
+      <ConfirmOrderSheet
+        visible={confirmOpen}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={confirmAndPlace}
+        onSelectAddress={(a) => setCurrentLocation(a)}
+        onChangeContact={(n, ph) => {
+          setName(n);
+          setPhone(ph);
+        }}
+        onAddAddress={() => {
+          reopenConfirm.current = true;
+          setConfirmOpen(false);
+          router.push('/location-select');
+        }}
+        submitting={isSubmitting}
+        isDelivery={isDelivery}
+        address={currentLocation}
+        savedAddresses={savedAddresses}
+        name={name.trim()}
+        phone={cleanPhone(phone)}
+        isExpress={isExpress}
+        timeText={slots.find((o) => o.mode === deliveryMode)?.sub.split(' · ')[0] ?? ''}
+        note={deliveryNote}
+        itemCount={cart.reduce((n, i) => n + i.quantity, 0)}
+        weightText={netGrams > 0 ? formatGrams(netGrams) : ''}
+        total={grandTotal}
+      />
     </SafeAreaView>
   );
 }
