@@ -10,8 +10,9 @@ export interface PushMessage {
   title: string;
   body: string;
   data?: Record<string, unknown>;
-  channelId?: 'orders' | 'offers';
-  sound?: 'default';
+  channelId?: 'orders' | 'offers' | 'new-orders';
+  /** iOS only: 'default' or a bundled file such as 'order_chime.wav'. */
+  sound?: 'default' | 'order_chime.wav';
   priority?: 'default' | 'high';
 }
 
@@ -29,6 +30,8 @@ export interface PushResult {
   delivered: number;
   /** Error code -> count, e.g. { InvalidCredentials: 3 }. */
   errors: Record<string, number>;
+  /** Tokens Expo reported as DeviceNotRegistered (app removed). */
+  dead: string[];
 }
 
 export const isExpoToken = (t: unknown): t is string =>
@@ -72,9 +75,9 @@ async function post(chunk: PushMessage[]): Promise<{ msg: PushMessage; ticket: T
 
 /** Sends the messages and checks delivery receipts. Dead tokens are removed. */
 export async function sendPushDetailed(messages: PushMessage[], ownerOf?: Map<string, string>): Promise<PushResult> {
-  const result: PushResult = { accepted: 0, delivered: 0, errors: {} };
+  const result: PushResult = { accepted: 0, delivered: 0, errors: {}, dead: [] };
   const bump = (code: string) => (result.errors[code] = (result.errors[code] || 0) + 1);
-  const dead: string[] = [];
+  const dead = result.dead;
   const pending = new Map<string, string>(); // ticket id -> token
 
   for (let i = 0; i < messages.length; i += BATCH) {
@@ -126,7 +129,7 @@ export async function sendPushDetailed(messages: PushMessage[], ownerOf?: Map<st
       }),
     );
   }
-  console.log('[push] result', JSON.stringify({ total: messages.length, ...result }));
+  console.log('[push] result', JSON.stringify({ total: messages.length, ...result, dead: dead.length }));
   return result;
 }
 

@@ -14,6 +14,7 @@ rules_version = '2';
 //                         order's discount is checked here against its coupon.
 //   wishlists/{uid}       a customer's saved product ids (own read/write).
 //   pushTokens/{uid}      a customer's Expo push token (own write).
+//   adminPushTokens/{id}  one partner-app phone's Expo push token (admins write).
 //   admins/{uid}          presence marks an admin. Written only with the Admin
 //                         SDK (scripts/make-admin.mjs), never from the app.
 service cloud.firestore {
@@ -76,6 +77,22 @@ service cloud.firestore {
         && isShortString(request.resource.data.platform, 1, 20)
         && request.resource.data.updatedAt == request.time;
       allow delete: if signedIn() && request.auth.uid == uid;
+    }
+
+    // ---------- admin (partner app) push tokens ----------
+    // One doc per partner-app phone, kept apart from pushTokens/{uid} so the
+    // customer app signed in to the same account cannot overwrite it. Only
+    // the server (Admin SDK) reads these.
+    match /adminPushTokens/{deviceId} {
+      allow read: if false;
+      allow create, update: if isAdmin()
+        && request.resource.data.keys().hasOnly(['uid', 'token', 'platform', 'channel', 'updatedAt'])
+        && request.resource.data.uid == request.auth.uid
+        && (!('channel' in request.resource.data) || isShortString(request.resource.data.channel, 1, 40))
+        && isShortString(request.resource.data.token, 10, 200)
+        && isShortString(request.resource.data.platform, 1, 20)
+        && request.resource.data.updatedAt == request.time;
+      allow delete: if isAdmin();
     }
 
     // ---------- wishlists ----------
