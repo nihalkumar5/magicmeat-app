@@ -56,54 +56,6 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
             <Text style={styles.offText}>{off}% OFF</Text>
           </View>
         )}
-
-        <View style={styles.actionSlot}>
-          {soldOut ? (
-            <View style={styles.soldOut}>
-              <Text style={styles.soldOutText}>Sold out</Text>
-            </View>
-          ) : qty > 0 ? (
-            <PopIn key="stepper" style={styles.stepper}>
-              <TouchableOpacity
-                style={styles.stepBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  haptic.tap();
-                  if (cartItem) updateQuantity(cartItem.cartItemId, -1);
-                }}
-                accessibilityLabel={`One less ${product.name}`}
-              >
-                <AppIcon icon={MinusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
-              </TouchableOpacity>
-              <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{qty}</Animated.Text>
-              <TouchableOpacity
-                style={styles.stepBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  haptic.tap();
-                  if (cartItem) updateQuantity(cartItem.cartItemId, 1);
-                }}
-                accessibilityLabel={`One more ${product.name}`}
-              >
-                <AppIcon icon={PlusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
-              </TouchableOpacity>
-            </PopIn>
-          ) : (
-            <PopIn key="add">
-              <TouchableOpacity
-                style={styles.addBtn}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  add();
-                }}
-                activeOpacity={0.8}
-                accessibilityLabel={`Add ${product.name}`}
-              >
-                <Text style={styles.addText}>ADD</Text>
-              </TouchableOpacity>
-            </PopIn>
-          )}
-        </View>
       </View>
 
       <View style={styles.body}>
@@ -122,6 +74,61 @@ function ShopCardComponent({ product, width }: { product: Product; width: number
           <Text style={styles.meta}>15–20 mins</Text>
           {!!lowStock && <Text style={styles.low}>· Only {lowStock} kg left</Text>}
         </View>
+      </View>
+
+      {/* Drawn last so nothing covers it: the button straddles the photo's
+          bottom edge, and when it was inside the photo box the text block
+          below sat on top of its lower half, so taps there opened the
+          product page instead of adding. */}
+      <View style={[styles.actionSlot, { top: width - 18 }]}>
+        {soldOut ? (
+          <View style={styles.soldOut}>
+            <Text style={styles.soldOutText}>Sold out</Text>
+          </View>
+        ) : qty > 0 ? (
+          <PopIn key="stepper" style={styles.stepper}>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              hitSlop={{ top: 8, bottom: 8 }}
+              onPress={(e) => {
+                e.stopPropagation();
+                haptic.tap();
+                if (cartItem) updateQuantity(cartItem.cartItemId, -1);
+              }}
+              accessibilityLabel={`One less ${product.name}`}
+            >
+              <AppIcon icon={MinusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
+            </TouchableOpacity>
+            <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{qty}</Animated.Text>
+            <TouchableOpacity
+              style={styles.stepBtn}
+              hitSlop={{ top: 8, bottom: 8 }}
+              onPress={(e) => {
+                e.stopPropagation();
+                haptic.tap();
+                if (cartItem) updateQuantity(cartItem.cartItemId, 1);
+              }}
+              accessibilityLabel={`One more ${product.name}`}
+            >
+              <AppIcon icon={PlusSignIcon} size={13} color="#FFFFFF" strokeWidth={2.8} />
+            </TouchableOpacity>
+          </PopIn>
+        ) : (
+          <PopIn key="add">
+            <TouchableOpacity
+              style={styles.addBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              onPress={(e) => {
+                e.stopPropagation();
+                add();
+              }}
+              activeOpacity={0.8}
+              accessibilityLabel={`Add ${product.name}`}
+            >
+              <Text style={styles.addText}>ADD</Text>
+            </TouchableOpacity>
+          </PopIn>
+        )}
       </View>
     </PressableScale>
   );
@@ -169,7 +176,8 @@ const styles = StyleSheet.create({
   actionSlot: {
     position: 'absolute',
     right: 6,
-    bottom: -14,
+    zIndex: 3,
+    elevation: 3,
   },
   addBtn: {
     minWidth: 64,
@@ -201,7 +209,7 @@ const styles = StyleSheet.create({
     backgroundColor: RED,
   },
   stepBtn: {
-    width: 28,
+    width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',

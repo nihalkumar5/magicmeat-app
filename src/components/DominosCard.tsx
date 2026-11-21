@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Image, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, Image, TouchableOpacity, Animated, type GestureResponderEvent } from 'react-native';
 import { Product } from '../types';
 import { useStore, defaultCutFor } from '../store/useStore';
 import { PressableScale, PopIn, useBump } from './motion';
@@ -105,25 +105,42 @@ const DominosCardComponent: React.FC<Props> = ({ product, cardWidth = 172, style
           <PopIn key="stepper" style={styles.stepperContainer}>
             <TouchableOpacity
               style={styles.stepBtn}
-              onPress={handleDecrement}
+              onPress={(e: GestureResponderEvent) => {
+                e.stopPropagation();
+                handleDecrement();
+              }}
               activeOpacity={0.7}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={`One less ${product.name}`}
             >
               <AppIcon icon={MinusSignIcon} size={14} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
             <Animated.Text style={[styles.stepQty, { transform: [{ scale: qtyBump }] }]}>{qtyInCart}</Animated.Text>
             <TouchableOpacity
               style={styles.stepBtn}
-              onPress={handleIncrement}
+              onPress={(e: GestureResponderEvent) => {
+                e.stopPropagation();
+                handleIncrement();
+              }}
               activeOpacity={0.7}
-              hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel={`One more ${product.name}`}
             >
               <AppIcon icon={PlusSignIcon} size={14} color="#FFFFFF" strokeWidth={3} />
             </TouchableOpacity>
           </PopIn>
         ) : (
           <PopIn key="add">
-            <TouchableOpacity style={styles.addBtn} onPress={handleAdd} activeOpacity={0.8}>
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={(e: GestureResponderEvent) => {
+                e.stopPropagation();
+                handleAdd();
+              }}
+              activeOpacity={0.8}
+              hitSlop={{ top: 6, bottom: 8, left: 4, right: 4 }}
+              accessibilityLabel={`Add ${product.name}`}
+            >
               <Text style={styles.addBtnText}>Add</Text>
             </TouchableOpacity>
           </PopIn>
@@ -251,8 +268,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   stepBtn: {
-    width: 26,
-    height: 26,
+    width: 32,
+    height: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
